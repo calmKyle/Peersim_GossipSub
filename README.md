@@ -1,6 +1,13 @@
 # peersim_with_gossipsub
-Run:
-$ make rungossip
-to run the config file gossipConfig.cfg
-$ make run
-to run the example.cfg
+
+## Run Instructions
+
+To execute the different configurations, use the following commands:
+
+### Run the GossipSub Configuration
+```bash
+make rungossip
+
+### Run the Kademlia example.cfg Configuration
+```bash
+make run
