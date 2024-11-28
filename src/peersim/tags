@@ -1,0 +1,1298 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+BLACK	graph/GraphAlgorithms.java	/^public final static int BLACK=2;$/;"	f	class:GraphAlgorithms
+BallExpansion	reports/BallExpansion.java	/^public BallExpansion(String name)$/;"	m	class:BallExpansion
+BallExpansion	reports/BallExpansion.java	/^public class BallExpansion extends GraphObserver$/;"	c
+BitMatrixGraph	graph/BitMatrixGraph.java	/^public BitMatrixGraph( int n ) {$/;"	m	class:BitMatrixGraph
+BitMatrixGraph	graph/BitMatrixGraph.java	/^public BitMatrixGraph( int n, boolean directed ) {$/;"	m	class:BitMatrixGraph
+BitMatrixGraph	graph/BitMatrixGraph.java	/^public class BitMatrixGraph implements Graph {$/;"	c
+CDProtocol	cdsim/CDProtocol.java	/^public interface CDProtocol extends Protocol$/;"	i
+CDSIM	Simulator.java	/^public static final int CDSIM = 0;$/;"	f	class:Simulator
+CDSIM	config/CheckConfig.java	/^protected static final int CDSIM = 0;$/;"	f	class:CheckConfig
+CDScheduler	edsim/CDScheduler.java	/^public CDScheduler(String n) {$/;"	m	class:CDScheduler
+CDScheduler	edsim/CDScheduler.java	/^public class CDScheduler implements Control, NodeInitializer {$/;"	c
+CDSimulator	cdsim/CDSimulator.java	/^private CDSimulator()$/;"	m	class:CDSimulator	file:
+CDSimulator	cdsim/CDSimulator.java	/^public class CDSimulator$/;"	c
+CDState	cdsim/CDState.java	/^private CDState() {}$/;"	m	class:CDState	file:
+CDState	cdsim/CDState.java	/^public class CDState extends CommonState {$/;"	c
+CheckConfig	config/CheckConfig.java	/^public class CheckConfig {$/;"	c
+ClassFinder	config/ClassFinder.java	/^class ClassFinder $/;"	c
+Cleanable	core/Cleanable.java	/^public interface Cleanable$/;"	i
+Clustering	reports/Clustering.java	/^public Clustering(String name)$/;"	m	class:Clustering
+Clustering	reports/Clustering.java	/^public class Clustering extends GraphObserver$/;"	c
+CommonState	core/CommonState.java	/^protected CommonState() {}$/;"	m	class:CommonState
+CommonState	core/CommonState.java	/^public class CommonState$/;"	c
+ConfigContainer	config/ConfigContainer.java	/^public ConfigContainer(Properties config, boolean check)$/;"	m	class:ConfigContainer
+ConfigContainer	config/ConfigContainer.java	/^public class ConfigContainer$/;"	c
+ConfigProperties	config/ConfigProperties.java	/^public	ConfigProperties( Properties props ) {$/;"	m	class:ConfigProperties
+ConfigProperties	config/ConfigProperties.java	/^public	ConfigProperties( String[] pars ) {$/;"	m	class:ConfigProperties
+ConfigProperties	config/ConfigProperties.java	/^public	ConfigProperties( String[] pars, String resource ) {$/;"	m	class:ConfigProperties
+ConfigProperties	config/ConfigProperties.java	/^public ConfigProperties( String fileName ) throws IOException {$/;"	m	class:ConfigProperties
+ConfigProperties	config/ConfigProperties.java	/^public ConfigProperties() { super(); }$/;"	m	class:ConfigProperties
+ConfigProperties	config/ConfigProperties.java	/^public class ConfigProperties extends Properties {$/;"	c
+Configuration	config/Configuration.java	/^private Configuration()$/;"	m	class:Configuration	file:
+Configuration	config/Configuration.java	/^public class Configuration$/;"	c
+ConnectivityObserver	reports/ConnectivityObserver.java	/^public ConnectivityObserver(String name)$/;"	m	class:ConnectivityObserver
+ConnectivityObserver	reports/ConnectivityObserver.java	/^public class ConnectivityObserver extends GraphObserver$/;"	c
+ConstUndirGraph	graph/ConstUndirGraph.java	/^public ConstUndirGraph( Graph g ) {$/;"	m	class:ConstUndirGraph
+ConstUndirGraph	graph/ConstUndirGraph.java	/^public class ConstUndirGraph implements Graph {$/;"	c
+Control	core/Control.java	/^public interface Control$/;"	i
+ControlEvent	edsim/ControlEvent.java	/^class ControlEvent$/;"	c
+ControlEvent	edsim/ControlEvent.java	/^public ControlEvent(Control control, Scheduler scheduler, int order)$/;"	m	class:ControlEvent
+DEAD	core/Fallible.java	/^	public int DEAD = 1;$/;"	f	interface:Fallible
+DEBUG_CONTEXT	config/ConfigContainer.java	/^private static final int DEBUG_CONTEXT = 2;$/;"	f	class:ConfigContainer	file:
+DEBUG_EXTENDED	config/Configuration.java	/^static final String DEBUG_EXTENDED = "context";$/;"	f	class:Configuration
+DEBUG_FULL	config/Configuration.java	/^static final String DEBUG_FULL = "full";$/;"	f	class:Configuration
+DEBUG_NO	config/ConfigContainer.java	/^private static final int DEBUG_NO = 0;$/;"	f	class:ConfigContainer	file:
+DEBUG_REG	config/ConfigContainer.java	/^private static final int DEBUG_REG = 1;$/;"	f	class:ConfigContainer	file:
+DEFAULT_INITIAL_CAPACITY	core/IdleProtocol.java	/^private static final int DEFAULT_INITIAL_CAPACITY = 10;$/;"	f	class:IdleProtocol	file:
+DEFAULT_MAXDEPTH	config/Configuration.java	/^public static final int DEFAULT_MAXDEPTH = 100;$/;"	f	class:Configuration
+DOWN	core/Fallible.java	/^	public int DOWN = 2;$/;"	f	interface:Fallible
+DaemonProtocol	cdsim/DaemonProtocol.java	/^public DaemonProtocol(String s)$/;"	m	class:DaemonProtocol
+DaemonProtocol	cdsim/DaemonProtocol.java	/^public class DaemonProtocol implements CDProtocol {$/;"	c
+DegreeStats	reports/DegreeStats.java	/^public DegreeStats(String name)$/;"	m	class:DegreeStats
+DegreeStats	reports/DegreeStats.java	/^public class DegreeStats extends GraphObserver$/;"	c
+DynamicNetwork	dynamics/DynamicNetwork.java	/^public DynamicNetwork(String prefix)$/;"	m	class:DynamicNetwork
+DynamicNetwork	dynamics/DynamicNetwork.java	/^public class DynamicNetwork implements Control$/;"	c
+E2ENetwork	transport/E2ENetwork.java	/^private E2ENetwork() {}$/;"	m	class:E2ENetwork	file:
+E2ENetwork	transport/E2ENetwork.java	/^public class E2ENetwork$/;"	c
+E2ETransport	transport/E2ETransport.java	/^public E2ETransport(String prefix)$/;"	m	class:E2ETransport
+E2ETransport	transport/E2ETransport.java	/^public class E2ETransport implements Transport, RouterInfo$/;"	c
+EDProtocol	edsim/EDProtocol.java	/^public interface EDProtocol $/;"	i
+EDSIM	Simulator.java	/^public static final int EDSIM = 1;$/;"	f	class:Simulator
+EDSIM	config/CheckConfig.java	/^protected static final int EDSIM = 1;$/;"	f	class:CheckConfig
+EDSimulator	edsim/EDSimulator.java	/^private EDSimulator() {}$/;"	m	class:EDSimulator	file:
+EDSimulator	edsim/EDSimulator.java	/^public class EDSimulator$/;"	c
+Event	edsim/PriorityQ.java	/^public class Event$/;"	c	interface:PriorityQ
+ExtendedRandom	util/ExtendedRandom.java	/^public ExtendedRandom(long seed) {$/;"	m	class:ExtendedRandom
+ExtendedRandom	util/ExtendedRandom.java	/^public class ExtendedRandom extends Random {$/;"	c
+Fallible	core/Fallible.java	/^public interface Fallible {$/;"	i
+FastConfig	config/FastConfig.java	/^private FastConfig() {}$/;"	m	class:FastConfig	file:
+FastConfig	config/FastConfig.java	/^public class FastConfig$/;"	c
+FastUndirGraph	graph/FastUndirGraph.java	/^public FastUndirGraph(Graph graph)$/;"	m	class:FastUndirGraph
+FastUndirGraph	graph/FastUndirGraph.java	/^public class FastUndirGraph extends ConstUndirGraph$/;"	c
+FileNameGenerator	util/FileNameGenerator.java	/^public FileNameGenerator(String prefix, String ext) {$/;"	m	class:FileNameGenerator
+FileNameGenerator	util/FileNameGenerator.java	/^public class FileNameGenerator {$/;"	c
+FullNextCycle	cdsim/FullNextCycle.java	/^public FullNextCycle(String prefix) {$/;"	m	class:FullNextCycle
+FullNextCycle	cdsim/FullNextCycle.java	/^public class FullNextCycle implements Control {$/;"	c
+GREY	graph/GraphAlgorithms.java	/^public final static int GREY=1;$/;"	f	class:GraphAlgorithms
+GeneralNode	core/GeneralNode.java	/^public GeneralNode(String prefix) {$/;"	m	class:GeneralNode
+GeneralNode	core/GeneralNode.java	/^public class GeneralNode implements Node {$/;"	c
+Getter	vector/Getter.java	/^public Getter(String prefix, String protocol, String methodn) {$/;"	m	class:Getter
+Getter	vector/Getter.java	/^public class Getter {$/;"	c
+GetterSetterFinder	vector/GetterSetterFinder.java	/^class GetterSetterFinder$/;"	c
+Graph	graph/Graph.java	/^public interface Graph {$/;"	i
+GraphAlgorithms	graph/GraphAlgorithms.java	/^public class GraphAlgorithms {$/;"	c
+GraphFactory	graph/GraphFactory.java	/^private GraphFactory() {}$/;"	m	class:GraphFactory	file:
+GraphFactory	graph/GraphFactory.java	/^public class GraphFactory {$/;"	c
+GraphIO	graph/GraphIO.java	/^private GraphIO() {}$/;"	m	class:GraphIO	file:
+GraphIO	graph/GraphIO.java	/^public class GraphIO {$/;"	c
+GraphObserver	reports/GraphObserver.java	/^protected GraphObserver(String name) {$/;"	m	class:GraphObserver
+GraphObserver	reports/GraphObserver.java	/^public abstract class GraphObserver implements Control {$/;"	c
+GraphPrinter	reports/GraphPrinter.java	/^public GraphPrinter(String name) {$/;"	m	class:GraphPrinter
+GraphPrinter	reports/GraphPrinter.java	/^public class GraphPrinter extends GraphObserver {$/;"	c
+GraphStats	reports/GraphStats.java	/^public GraphStats(String name) {$/;"	m	class:GraphStats
+GraphStats	reports/GraphStats.java	/^public class GraphStats extends GraphObserver {$/;"	c
+Heap	edsim/Heap.java	/^public Heap() {$/;"	m	class:Heap
+Heap	edsim/Heap.java	/^public Heap(String prefix) {$/;"	m	class:Heap
+Heap	edsim/Heap.java	/^public class Heap implements PriorityQ {$/;"	c
+ID	core/GeneralNode.java	/^private long ID;$/;"	f	class:GeneralNode	file:
+IdleProtocol	core/IdleProtocol.java	/^public IdleProtocol(String s)$/;"	m	class:IdleProtocol
+IdleProtocol	core/IdleProtocol.java	/^public class IdleProtocol implements Protocol, Linkable$/;"	c
+IllegalParameterException	config/IllegalParameterException.java	/^public IllegalParameterException(String name, String message) {$/;"	m	class:IllegalParameterException
+IllegalParameterException	config/IllegalParameterException.java	/^public class IllegalParameterException extends RuntimeException {$/;"	c
+IncrementalFreq	util/IncrementalFreq.java	/^public IncrementalFreq() {$/;"	m	class:IncrementalFreq
+IncrementalFreq	util/IncrementalFreq.java	/^public IncrementalFreq(int maxvalue) {$/;"	m	class:IncrementalFreq
+IncrementalFreq	util/IncrementalFreq.java	/^public class IncrementalFreq implements Cloneable {$/;"	c
+IncrementalStats	util/IncrementalStats.java	/^public IncrementalStats() { reset(); }$/;"	m	class:IncrementalStats
+IncrementalStats	util/IncrementalStats.java	/^public class IncrementalStats {$/;"	c
+IndexIterator	util/IndexIterator.java	/^public interface IndexIterator {$/;"	i
+InitVectFromFile	vector/InitVectFromFile.java	/^public InitVectFromFile(String prefix)$/;"	m	class:InitVectFromFile
+InitVectFromFile	vector/InitVectFromFile.java	/^public class InitVectFromFile extends VectControl$/;"	c
+KingParser	transport/KingParser.java	/^public KingParser(String prefix)$/;"	m	class:KingParser
+KingParser	transport/KingParser.java	/^public class KingParser implements Control$/;"	c
+LinearDistribution	vector/LinearDistribution.java	/^public LinearDistribution(String prefix)$/;"	m	class:LinearDistribution
+LinearDistribution	vector/LinearDistribution.java	/^public class LinearDistribution extends VectControl$/;"	c
+LinearIterator	util/LinearIterator.java	/^public LinearIterator( boolean rev ) { reverse=rev; }$/;"	m	class:LinearIterator
+LinearIterator	util/LinearIterator.java	/^public LinearIterator() { reverse=false; }$/;"	m	class:LinearIterator
+LinearIterator	util/LinearIterator.java	/^public class LinearIterator implements IndexIterator {$/;"	c
+Linkable	core/Linkable.java	/^public interface Linkable extends Cleanable {$/;"	i
+MaliciousProtocol	core/MaliciousProtocol.java	/^public interface MaliciousProtocol $/;"	i
+MedianStats	util/MedianStats.java	/^public MedianStats()$/;"	m	class:MedianStats
+MedianStats	util/MedianStats.java	/^public class MedianStats extends IncrementalStats$/;"	c
+MemoryObserver	reports/MemoryObserver.java	/^public MemoryObserver(String prefix)$/;"	m	class:MemoryObserver
+MemoryObserver	reports/MemoryObserver.java	/^public class MemoryObserver implements Control$/;"	c
+MethodInvoker	dynamics/MethodInvoker.java	/^public MethodInvoker(String prefix) {$/;"	m	class:MethodInvoker
+MethodInvoker	dynamics/MethodInvoker.java	/^public class MethodInvoker implements Control, NodeInitializer {$/;"	c
+MissingParameterException	config/MissingParameterException.java	/^MissingParameterException(String name) {$/;"	m	class:MissingParameterException
+MissingParameterException	config/MissingParameterException.java	/^MissingParameterException(String name, String motivation) {$/;"	m	class:MissingParameterException
+MissingParameterException	config/MissingParameterException.java	/^public class MissingParameterException extends RuntimeException {$/;"	c
+ModifiableNode	core/ModifiableNode.java	/^public ModifiableNode(String prefix)$/;"	m	class:ModifiableNode
+ModifiableNode	core/ModifiableNode.java	/^public class ModifiableNode extends GeneralNode$/;"	c
+MomentStats	util/MomentStats.java	/^    public MomentStats() {$/;"	m	class:MomentStats
+MomentStats	util/MomentStats.java	/^public class MomentStats extends IncrementalStats {$/;"	c
+N	util/IncrementalFreq.java	/^private final int N;$/;"	f	class:IncrementalFreq	file:
+NeighbourListGraph	graph/NeighbourListGraph.java	/^public NeighbourListGraph( boolean directed ) {$/;"	m	class:NeighbourListGraph
+NeighbourListGraph	graph/NeighbourListGraph.java	/^public NeighbourListGraph( int size, boolean directed ) {$/;"	m	class:NeighbourListGraph
+NeighbourListGraph	graph/NeighbourListGraph.java	/^public class NeighbourListGraph implements Graph, java.io.Serializable {$/;"	c
+Network	core/Network.java	/^private Network() {}$/;"	m	class:Network	file:
+Network	core/Network.java	/^public class Network {$/;"	c
+NextCycle	cdsim/NextCycle.java	/^public NextCycle(String prefix) {$/;"	m	class:NextCycle
+NextCycle	cdsim/NextCycle.java	/^public class NextCycle extends FullNextCycle {$/;"	c
+NextCycleEvent	edsim/NextCycleEvent.java	/^public NextCycleEvent(String n) {}$/;"	m	class:NextCycleEvent
+NextCycleEvent	edsim/NextCycleEvent.java	/^public class NextCycleEvent implements Cloneable {$/;"	c
+Node	core/Node.java	/^public interface Node extends Fallible, Cloneable$/;"	i
+NodeInitializer	dynamics/NodeInitializer.java	/^public interface NodeInitializer$/;"	i
+Normalizer	vector/Normalizer.java	/^public Normalizer(String prefix)$/;"	m	class:Normalizer
+Normalizer	vector/Normalizer.java	/^public class Normalizer extends VectControl$/;"	c
+NullPrintStream	config/NullPrintStream.java	/^public NullPrintStream()$/;"	m	class:NullPrintStream
+NullPrintStream	config/NullPrintStream.java	/^public class NullPrintStream extends PrintStream$/;"	c
+OK	core/Fallible.java	/^	public int OK = 0;$/;"	f	interface:Fallible
+Operators	config/Operators.java	/^	public Operators() {$/;"	m	class:Operators
+Operators	config/Operators.java	/^public class Operators extends Group implements IntegralDomainI,HasDivI,$/;"	c
+OracleIdleProtocol	core/OracleIdleProtocol.java	/^public OracleIdleProtocol(String prefix) {}$/;"	m	class:OracleIdleProtocol
+OracleIdleProtocol	core/OracleIdleProtocol.java	/^public final class OracleIdleProtocol implements Protocol, Linkable {$/;"	c
+OscillatingNetwork	dynamics/OscillatingNetwork.java	/^public OscillatingNetwork(String prefix)$/;"	m	class:OscillatingNetwork
+OscillatingNetwork	dynamics/OscillatingNetwork.java	/^public class OscillatingNetwork implements Control$/;"	c
+OverlayGraph	core/OverlayGraph.java	/^public OverlayGraph( int protocolID ) {$/;"	m	class:OverlayGraph
+OverlayGraph	core/OverlayGraph.java	/^public OverlayGraph( int protocolID, boolean wireDirected ) {$/;"	m	class:OverlayGraph
+OverlayGraph	core/OverlayGraph.java	/^public class OverlayGraph implements Graph {$/;"	c
+PAR_ACCURACY	vector/SingleValueObserver.java	/^private static final String PAR_ACCURACY = "accuracy";$/;"	f	class:SingleValueObserver	file:
+PAR_ADD	dynamics/DynamicNetwork.java	/^private static final String PAR_ADD = "add";$/;"	f	class:DynamicNetwork	file:
+PAR_ARG	dynamics/WireByMethod.java	/^private static final String PAR_ARG = "arg";$/;"	f	class:WireByMethod	file:
+PAR_AT	core/Scheduler.java	/^private static final String PAR_AT = "at";$/;"	f	class:Scheduler	file:
+PAR_BASENAME	reports/GraphPrinter.java	/^private static final String PAR_BASENAME = "outf";$/;"	f	class:GraphPrinter	file:
+PAR_BASENAME	vector/ValueDumper.java	/^private static final String PAR_BASENAME = "outf";$/;"	f	class:ValueDumper	file:
+PAR_BETA	dynamics/WireWS.java	/^private static final String PAR_BETA = "beta";$/;"	f	class:WireWS	file:
+PAR_CLASS	dynamics/WireByMethod.java	/^private static final String PAR_CLASS = "class";$/;"	f	class:WireByMethod	file:
+PAR_CTRL	cdsim/CDSimulator.java	/^private static final String PAR_CTRL = "control";$/;"	f	class:CDSimulator	file:
+PAR_CTRL	cdsim/DaemonProtocol.java	/^private static final String PAR_CTRL = "control";$/;"	f	class:DaemonProtocol	file:
+PAR_CTRL	edsim/EDSimulator.java	/^private static final String PAR_CTRL = "control";$/;"	f	class:EDSimulator	file:
+PAR_CYCLES	cdsim/CDSimulator.java	/^public static final String PAR_CYCLES = "simulation.cycles";$/;"	f	class:CDSimulator
+PAR_DEBUG	config/Configuration.java	/^static final String PAR_DEBUG = "debug.config";$/;"	f	class:Configuration
+PAR_DEGREE	dynamics/RandNI.java	/^private static final String PAR_DEGREE = "k";$/;"	f	class:RandNI	file:
+PAR_DEGREE	dynamics/WireKOut.java	/^private static final String PAR_DEGREE = "k";$/;"	f	class:WireKOut	file:
+PAR_DEGREE	dynamics/WireRegRootedTree.java	/^private static final String PAR_DEGREE = "k";$/;"	f	class:WireRegRootedTree	file:
+PAR_DEGREE	dynamics/WireScaleFreeBA.java	/^private static final String PAR_DEGREE = "k";$/;"	f	class:WireScaleFreeBA	file:
+PAR_DEGREE	dynamics/WireWS.java	/^private static final String PAR_DEGREE = "k";$/;"	f	class:WireWS	file:
+PAR_DROP	transport/UnreliableTransport.java	/^private static final String PAR_DROP = "drop";$/;"	f	class:UnreliableTransport	file:
+PAR_EDGES	dynamics/WireScaleFreeDM.java	/^private static final String PAR_EDGES = "k";$/;"	f	class:WireScaleFreeDM	file:
+PAR_ENDTIME	edsim/EDSimulator.java	/^public static final String PAR_ENDTIME = "simulation.endtime";	$/;"	f	class:EDSimulator
+PAR_EXPS	Simulator.java	/^public static final String PAR_EXPS = "simulation.experiments";$/;"	f	class:Simulator
+PAR_FAST	reports/GraphObserver.java	/^private static final String PAR_FAST = "graphobserver.fast";$/;"	f	class:GraphObserver	file:
+PAR_FILE	dynamics/WireFromFile.java	/^private static final String PAR_FILE = "file";$/;"	f	class:WireFromFile	file:
+PAR_FILE	transport/KingParser.java	/^private static final String PAR_FILE = "file";$/;"	f	class:KingParser	file:
+PAR_FILE	transport/TriangularMatrixParser.java	/^private static final String PAR_FILE = "file";$/;"	f	class:TriangularMatrixParser	file:
+PAR_FILE	vector/InitVectFromFile.java	/^private static final String PAR_FILE = "file";$/;"	f	class:InitVectFromFile	file:
+PAR_FINAL	core/Scheduler.java	/^private static final String PAR_FINAL = "FINAL";$/;"	f	class:Scheduler	file:
+PAR_FORMAT	reports/GraphPrinter.java	/^private static final String PAR_FORMAT = "format";$/;"	f	class:GraphPrinter	file:
+PAR_FROM	core/Scheduler.java	/^private static final String PAR_FROM = "from";$/;"	f	class:Scheduler	file:
+PAR_GETPAIR	cdsim/FullNextCycle.java	/^private static final String PAR_GETPAIR = "getpair";$/;"	f	class:FullNextCycle	file:
+PAR_GETTER	vector/VectControl.java	/^protected static final String PAR_GETTER = "getter";$/;"	f	class:VectControl
+PAR_INCLUDE	config/Configuration.java	/^static final String PAR_INCLUDE = "include";$/;"	f	class:Configuration
+PAR_INIT	cdsim/CDSimulator.java	/^private static final String PAR_INIT = "init";$/;"	f	class:CDSimulator	file:
+PAR_INIT	dynamics/DynamicNetwork.java	/^private static final String PAR_INIT = "init";$/;"	f	class:DynamicNetwork	file:
+PAR_INIT	dynamics/OscillatingNetwork.java	/^private static final String PAR_INIT = "init";$/;"	f	class:OscillatingNetwork	file:
+PAR_INIT	edsim/EDSimulator.java	/^private static final String PAR_INIT = "init";$/;"	f	class:EDSimulator	file:
+PAR_INITCAP	core/IdleProtocol.java	/^private static final String PAR_INITCAP = "capacity";$/;"	f	class:IdleProtocol	file:
+PAR_JVM	rangesim/RangeSimulator.java	/^public static final String PAR_JVM = "jvm.options";$/;"	f	class:RangeSimulator
+PAR_K	dynamics/WireFromFile.java	/^private static final String PAR_K = "k";$/;"	f	class:WireFromFile	file:
+PAR_K	dynamics/WireRingLattice.java	/^private static final String PAR_K = "k";$/;"	f	class:WireRingLattice	file:
+PAR_L1	vector/Normalizer.java	/^private static final String PAR_L1 = "l1";$/;"	f	class:Normalizer	file:
+PAR_LINKABLE	config/FastConfig.java	/^private static final String PAR_LINKABLE = "linkable";$/;"	f	class:FastConfig	file:
+PAR_LOCAL	transport/E2ETransport.java	/^private static final String PAR_LOCAL = "local";$/;"	f	class:E2ETransport	file:
+PAR_LOGTIME	edsim/EDSimulator.java	/^private static final String PAR_LOGTIME = "simulation.logtime";	$/;"	f	class:EDSimulator	file:
+PAR_LVALUE	vector/PeakDistribution.java	/^private static final String PAR_LVALUE = "background";$/;"	f	class:PeakDistribution	file:
+PAR_MAX	dynamics/DynamicNetwork.java	/^private static final String PAR_MAX = "maxsize";$/;"	f	class:DynamicNetwork	file:
+PAR_MAX	dynamics/OscillatingNetwork.java	/^private static final String PAR_MAX = "maxsize";$/;"	f	class:OscillatingNetwork	file:
+PAR_MAX	vector/LinearDistribution.java	/^private static final String PAR_MAX = "max";$/;"	f	class:LinearDistribution	file:
+PAR_MAX	vector/UniformDistribution.java	/^private static final String PAR_MAX = "max";$/;"	f	class:UniformDistribution	file:
+PAR_MAXD	reports/BallExpansion.java	/^private static final String PAR_MAXD = "maxd";$/;"	f	class:BallExpansion	file:
+PAR_MAXDELAY	transport/UniformRandomTransport.java	/^private static final String PAR_MAXDELAY = "maxdelay";	$/;"	f	class:UniformRandomTransport	file:
+PAR_MAXDEPTH	config/Configuration.java	/^static final String PAR_MAXDEPTH = "expressions.maxdepth";$/;"	f	class:Configuration
+PAR_MAXSIZE	core/Network.java	/^private static final String PAR_MAXSIZE = "network.initialCapacity";$/;"	f	class:Network	file:
+PAR_METHOD	dynamics/MethodInvoker.java	/^private static final String PAR_METHOD = "method";$/;"	f	class:MethodInvoker	file:
+PAR_METHOD	dynamics/WireByMethod.java	/^private static final String PAR_METHOD = "method";$/;"	f	class:WireByMethod	file:
+PAR_METHOD	reports/DegreeStats.java	/^private static final String PAR_METHOD = "method";$/;"	f	class:DegreeStats	file:
+PAR_METHOD	vector/VectControl.java	/^protected static final String PAR_METHOD = "setter";$/;"	f	class:VectControl
+PAR_METHOD1	vector/VectAngle.java	/^private static final String PAR_METHOD1 = "getter1";$/;"	f	class:VectAngle	file:
+PAR_METHOD2	vector/VectAngle.java	/^private static final String PAR_METHOD2 = "getter2";$/;"	f	class:VectAngle	file:
+PAR_MIN	dynamics/DynamicNetwork.java	/^private static final String PAR_MIN = "minsize";$/;"	f	class:DynamicNetwork	file:
+PAR_MIN	dynamics/OscillatingNetwork.java	/^private static final String PAR_MIN = "minsize";$/;"	f	class:OscillatingNetwork	file:
+PAR_MIN	vector/LinearDistribution.java	/^private static final String PAR_MIN = "min";$/;"	f	class:LinearDistribution	file:
+PAR_MIN	vector/UniformDistribution.java	/^private static final String PAR_MIN = "min";$/;"	f	class:UniformDistribution	file:
+PAR_MINDELAY	transport/UniformRandomTransport.java	/^private static final String PAR_MINDELAY = "mindelay";	$/;"	f	class:UniformRandomTransport	file:
+PAR_N	reports/BallExpansion.java	/^private static final String PAR_N = "n";$/;"	f	class:BallExpansion	file:
+PAR_N	reports/Clustering.java	/^private static final String PAR_N = "n";$/;"	f	class:Clustering	file:
+PAR_N	reports/DegreeStats.java	/^private static final String PAR_N = "n";$/;"	f	class:DegreeStats	file:
+PAR_N	reports/RandRemoval.java	/^private static final String PAR_N = "n";$/;"	f	class:RandRemoval	file:
+PAR_NC	reports/GraphStats.java	/^private static final String PAR_NC = "nc";$/;"	f	class:GraphStats	file:
+PAR_NEXTC	edsim/CDScheduler.java	/^private static final String PAR_NEXTC = "nextcycle";$/;"	f	class:CDScheduler	file:
+PAR_NL	reports/GraphStats.java	/^private static final String PAR_NL = "nl";$/;"	f	class:GraphStats	file:
+PAR_NODE	core/Network.java	/^private static final String PAR_NODE = "network.node";$/;"	f	class:Network	file:
+PAR_NOMAIN	cdsim/CDSimulator.java	/^private static final String PAR_NOMAIN = "simulation.nodefaultcycle";$/;"	f	class:CDSimulator	file:
+PAR_ORDER	config/Configuration.java	/^static final String PAR_ORDER = "order";$/;"	f	class:Configuration
+PAR_PACK	dynamics/RandNI.java	/^private static final String PAR_PACK = "pack";$/;"	f	class:RandNI	file:
+PAR_PACK	dynamics/StarNI.java	/^private static final String PAR_PACK = "pack";$/;"	f	class:StarNI	file:
+PAR_PACK	dynamics/WireGraph.java	/^private static final String PAR_PACK = "pack";$/;"	f	class:WireGraph	file:
+PAR_PBITS	edsim/Heap.java	/^private static final String PAR_PBITS = "pbits";$/;"	f	class:Heap	file:
+PAR_PBITS_LEGACY	edsim/Heap.java	/^private static final String PAR_PBITS_LEGACY = "simulation.timebits";$/;"	f	class:Heap	file:
+PAR_PEAKS	vector/PeakDistribution.java	/^private static final String PAR_PEAKS = "peaks";$/;"	f	class:PeakDistribution	file:
+PAR_PERIOD	dynamics/OscillatingNetwork.java	/^private static final String PAR_PERIOD = "period";$/;"	f	class:OscillatingNetwork	file:
+PAR_PQ	edsim/EDSimulator.java	/^private static final String PAR_PQ = "simulation.eventqueue";$/;"	f	class:EDSimulator	file:
+PAR_PROT	config/Configuration.java	/^static final String PAR_PROT = "protocol";$/;"	f	class:Configuration
+PAR_PROT	core/Node.java	/^public static final String PAR_PROT = "protocol";$/;"	f	interface:Node
+PAR_PROT	dynamics/MethodInvoker.java	/^private static final String PAR_PROT = "protocol";$/;"	f	class:MethodInvoker	file:
+PAR_PROT	dynamics/RandNI.java	/^private static final String PAR_PROT = "protocol";$/;"	f	class:RandNI	file:
+PAR_PROT	dynamics/StarNI.java	/^private static final String PAR_PROT = "protocol";$/;"	f	class:StarNI	file:
+PAR_PROT	dynamics/WireGraph.java	/^private static final String PAR_PROT = "protocol";$/;"	f	class:WireGraph	file:
+PAR_PROT	reports/GraphObserver.java	/^private static final String PAR_PROT = "protocol";$/;"	f	class:GraphObserver	file:
+PAR_PROT	transport/UniformRouterAssignment.java	/^private static final String PAR_PROT = "protocol"; $/;"	f	class:UniformRouterAssignment	file:
+PAR_PROT	vector/SingleValueObserver.java	/^private static final String PAR_PROT = "protocol";$/;"	f	class:SingleValueObserver	file:
+PAR_PROT	vector/VectControl.java	/^protected static final String PAR_PROT = "protocol";$/;"	f	class:VectControl
+PAR_PROT1	vector/VectAngle.java	/^private static final String PAR_PROT1 = "protocol1";$/;"	f	class:VectAngle	file:
+PAR_PROT2	vector/VectAngle.java	/^private static final String PAR_PROT2 = "protocol2";$/;"	f	class:VectAngle	file:
+PAR_PROTOCOL	edsim/CDScheduler.java	/^private static final String PAR_PROTOCOL = "protocol";$/;"	f	class:CDScheduler	file:
+PAR_PROTS	cdsim/NextCycle.java	/^private static final String PAR_PROTS = "protocol";$/;"	f	class:NextCycle	file:
+PAR_RANDOM	core/CommonState.java	/^public static final String PAR_RANDOM = "random";$/;"	f	class:CommonState
+PAR_RANGE	config/CheckConfig.java	/^private static final String PAR_RANGE = "range";$/;"	f	class:CheckConfig	file:
+PAR_RANGE	rangesim/RangeSimulator.java	/^private static final String PAR_RANGE = "range";$/;"	f	class:RangeSimulator	file:
+PAR_RANGES	rangesim/TaggedOutputStream.java	/^public static final String PAR_RANGES = "ranges";$/;"	f	class:TaggedOutputStream
+PAR_RATIO	transport/KingParser.java	/^private static final String PAR_RATIO = "ratio";$/;"	f	class:KingParser	file:
+PAR_RATIO	transport/TriangularMatrixParser.java	/^private static final String PAR_RATIO = "ratio";$/;"	f	class:TriangularMatrixParser	file:
+PAR_REDIRECT	Simulator.java	/^public static final String PAR_REDIRECT = "simulation.stdout";$/;"	f	class:Simulator
+PAR_RNDSTART	edsim/CDScheduler.java	/^private static final String PAR_RNDSTART = "randstart";$/;"	f	class:CDScheduler	file:
+PAR_SEED	core/CommonState.java	/^public static final String PAR_SEED = "random.seed";$/;"	f	class:CommonState
+PAR_SHUFFLE	cdsim/FullNextCycle.java	/^private static final String PAR_SHUFFLE = "shuffle";$/;"	f	class:FullNextCycle	file:
+PAR_SIZE	core/Network.java	/^private static final String PAR_SIZE = "network.size";$/;"	f	class:Network	file:
+PAR_SIZE	edsim/Heap.java	/^private static final String PAR_SIZE = "size";$/;"	f	class:Heap	file:
+PAR_SOURCE	vector/VectCopy.java	/^private static final String PAR_SOURCE = "source";$/;"	f	class:VectCopy	file:
+PAR_STATS	reports/BallExpansion.java	/^private static final String PAR_STATS = "stats";$/;"	f	class:BallExpansion	file:
+PAR_STATS	reports/ConnectivityObserver.java	/^private static final String PAR_STATS = "stats";$/;"	f	class:ConnectivityObserver	file:
+PAR_STEP	cdsim/DaemonProtocol.java	/^private static final String PAR_STEP = "cstep";$/;"	f	class:DaemonProtocol	file:
+PAR_STEP	core/Scheduler.java	/^private static final String PAR_STEP = "step";$/;"	f	class:Scheduler	file:
+PAR_SUBST	dynamics/DynamicNetwork.java	/^private static final String PAR_SUBST = "substitute";$/;"	f	class:DynamicNetwork	file:
+PAR_TIME	rangesim/TaggedOutputStream.java	/^public static final String PAR_TIME = "simulation.timed-observers";$/;"	f	class:TaggedOutputStream
+PAR_TRACE	reports/DegreeStats.java	/^private static final String PAR_TRACE = "trace";$/;"	f	class:DegreeStats	file:
+PAR_TRANSPORT	config/FastConfig.java	/^private static final String PAR_TRANSPORT = "transport";$/;"	f	class:FastConfig	file:
+PAR_TRANSPORT	transport/UnreliableTransport.java	/^private static final String PAR_TRANSPORT = "transport";$/;"	f	class:UnreliableTransport	file:
+PAR_TYPE	reports/ConnectivityObserver.java	/^private static final String PAR_TYPE = "type";$/;"	f	class:ConnectivityObserver	file:
+PAR_TYPE	reports/DegreeStats.java	/^private static final String PAR_TYPE = "linktype";$/;"	f	class:DegreeStats	file:
+PAR_UNDIR	dynamics/WireGraph.java	/^private static final String PAR_UNDIR = "undir";$/;"	f	class:WireGraph	file:
+PAR_UNDIR	reports/GraphObserver.java	/^protected static final String PAR_UNDIR = "undir";$/;"	f	class:GraphObserver
+PAR_UNDIR_ALT	dynamics/WireGraph.java	/^private static final String PAR_UNDIR_ALT = "undirected";$/;"	f	class:WireGraph	file:
+PAR_UNDIR_ALT	reports/GraphObserver.java	/^private static final String PAR_UNDIR_ALT = "undirected";$/;"	f	class:GraphObserver	file:
+PAR_UNTIL	core/Scheduler.java	/^private static final String PAR_UNTIL = "until";$/;"	f	class:Scheduler	file:
+PAR_VALUE	vector/PeakDistribution.java	/^private static final String PAR_VALUE = "value";$/;"	f	class:PeakDistribution	file:
+PHASE_UNKNOWN	core/CommonState.java	/^public static final int PHASE_UNKNOWN = 0;$/;"	f	class:CommonState
+POST_SIMULATION	core/CommonState.java	/^public static final int POST_SIMULATION = 1;$/;"	f	class:CommonState
+ParsedProperties	config/ParsedProperties.java	/^public	ParsedProperties( String filename ) throws IOException {$/;"	m	class:ParsedProperties
+ParsedProperties	config/ParsedProperties.java	/^public	ParsedProperties( String[] pars ) {$/;"	m	class:ParsedProperties
+ParsedProperties	config/ParsedProperties.java	/^public class ParsedProperties extends ConfigProperties {$/;"	c
+PeakDistribution	vector/PeakDistribution.java	/^public PeakDistribution(String prefix)$/;"	m	class:PeakDistribution
+PeakDistribution	vector/PeakDistribution.java	/^public class PeakDistribution extends VectControl$/;"	c
+PrefixSubGraph	graph/PrefixSubGraph.java	/^public PrefixSubGraph( Graph g ) {$/;"	m	class:PrefixSubGraph
+PrefixSubGraph	graph/PrefixSubGraph.java	/^public class PrefixSubGraph implements Graph {$/;"	c
+PriorityQ	edsim/PriorityQ.java	/^public interface PriorityQ {$/;"	i
+ProcessHandler	rangesim/ProcessHandler.java	/^public interface ProcessHandler$/;"	i
+ProcessManager	rangesim/ProcessManager.java	/^public ProcessManager()$/;"	m	class:ProcessManager
+ProcessManager	rangesim/ProcessManager.java	/^public class ProcessManager extends Thread$/;"	c
+Protocol	core/Protocol.java	/^public interface Protocol extends Cloneable$/;"	i
+RandNI	dynamics/RandNI.java	/^public RandNI(String prefix)$/;"	m	class:RandNI
+RandNI	dynamics/RandNI.java	/^public class RandNI implements NodeInitializer {$/;"	c
+RandNextCycle	edsim/RandNextCycle.java	/^public RandNextCycle(String n) { super(n); }$/;"	m	class:RandNextCycle
+RandNextCycle	edsim/RandNextCycle.java	/^public class RandNextCycle extends NextCycleEvent {$/;"	c
+RandPermutation	util/RandPermutation.java	/^public RandPermutation( Random r ) { this.r=r; }$/;"	m	class:RandPermutation
+RandPermutation	util/RandPermutation.java	/^public RandPermutation( int k, Random r ) {$/;"	m	class:RandPermutation
+RandPermutation	util/RandPermutation.java	/^public class RandPermutation implements IndexIterator {$/;"	c
+RandRemoval	reports/RandRemoval.java	/^public RandRemoval(String name)$/;"	m	class:RandRemoval
+RandRemoval	reports/RandRemoval.java	/^public class RandRemoval extends GraphObserver$/;"	c
+RangeSimulator	rangesim/RangeSimulator.java	/^RangeSimulator()$/;"	m	class:RangeSimulator
+RangeSimulator	rangesim/RangeSimulator.java	/^public RangeSimulator(String[] args)$/;"	m	class:RangeSimulator
+RangeSimulator	rangesim/RangeSimulator.java	/^public class RangeSimulator implements ProcessHandler$/;"	c
+RegRandNextCycle	edsim/RegRandNextCycle.java	/^public RegRandNextCycle(String n) {$/;"	m	class:RegRandNextCycle
+RegRandNextCycle	edsim/RegRandNextCycle.java	/^public class RegRandNextCycle extends NextCycleEvent {$/;"	c
+RouterInfo	transport/RouterInfo.java	/^public interface RouterInfo$/;"	i
+Scheduler	core/Scheduler.java	/^public Scheduler(String prefix) {$/;"	m	class:Scheduler
+Scheduler	core/Scheduler.java	/^public Scheduler(String prefix, boolean useDefault)$/;"	m	class:Scheduler
+Scheduler	core/Scheduler.java	/^public class Scheduler {$/;"	c
+Setter	vector/Setter.java	/^public Setter(String prefix, String protocol, String methodn) {$/;"	m	class:Setter
+Setter	vector/Setter.java	/^public class Setter {$/;"	c
+Shuffle	cdsim/Shuffle.java	/^public Shuffle(String prefix) {}$/;"	m	class:Shuffle
+Shuffle	cdsim/Shuffle.java	/^public class Shuffle implements Control {$/;"	c
+Simulator	Simulator.java	/^public class Simulator {$/;"	c
+SingleValue	vector/SingleValue.java	/^public interface SingleValue {$/;"	i
+SingleValueComparator	vector/SingleValueComparator.java	/^public SingleValueComparator(int pid) { this.pid = pid; }$/;"	m	class:SingleValueComparator
+SingleValueComparator	vector/SingleValueComparator.java	/^public class SingleValueComparator implements Comparator $/;"	c
+SingleValueHolder	vector/SingleValueHolder.java	/^public SingleValueHolder(String prefix)$/;"	m	class:SingleValueHolder
+SingleValueHolder	vector/SingleValueHolder.java	/^public class SingleValueHolder $/;"	c
+SingleValueObserver	vector/SingleValueObserver.java	/^public SingleValueObserver(String name)$/;"	m	class:SingleValueObserver
+SingleValueObserver	vector/SingleValueObserver.java	/^public class SingleValueObserver implements Control {$/;"	c
+StarNI	dynamics/StarNI.java	/^public StarNI(String prefix) {$/;"	m	class:StarNI
+StarNI	dynamics/StarNI.java	/^public class StarNI implements NodeInitializer {$/;"	c
+StringListParser	util/StringListParser.java	/^private StringListParser() { }$/;"	m	class:StringListParser	file:
+StringListParser	util/StringListParser.java	/^public class StringListParser$/;"	c
+SubGraphEdges	graph/SubGraphEdges.java	/^public SubGraphEdges( Graph g ) {$/;"	m	class:SubGraphEdges
+SubGraphEdges	graph/SubGraphEdges.java	/^public class SubGraphEdges implements Graph {$/;"	c
+TAG	rangesim/TaggedOutputStream.java	/^public static final int TAG = 1;$/;"	f	class:TaggedOutputStream
+TaggedOutputStream	rangesim/TaggedOutputStream.java	/^public TaggedOutputStream(String prefix)$/;"	m	class:TaggedOutputStream
+TaggedOutputStream	rangesim/TaggedOutputStream.java	/^public class TaggedOutputStream extends PrintStream$/;"	c
+TestVectors	vector/TestVectors.java	/^public TestVectors(String prefix) { super(prefix); }$/;"	m	class:TestVectors
+TestVectors	vector/TestVectors.java	/^public class TestVectors extends SingleValueHolder$/;"	c
+Transport	transport/Transport.java	/^public interface Transport extends Protocol$/;"	i
+TriangularMatrixParser	transport/TriangularMatrixParser.java	/^public TriangularMatrixParser(String prefix)$/;"	m	class:TriangularMatrixParser
+TriangularMatrixParser	transport/TriangularMatrixParser.java	/^public class TriangularMatrixParser implements Control$/;"	c
+UNKNOWN	Simulator.java	/^public static final int UNKNOWN = -1;$/;"	f	class:Simulator
+UNKNOWN	config/CheckConfig.java	/^protected static final int UNKNOWN = -1;$/;"	f	class:CheckConfig
+UndirectedGraph	graph/UndirectedGraph.java	/^public UndirectedGraph( Graph g ) {$/;"	m	class:UndirectedGraph
+UndirectedGraph	graph/UndirectedGraph.java	/^public class UndirectedGraph implements Graph {$/;"	c
+UniformDistribution	vector/UniformDistribution.java	/^public UniformDistribution(String prefix)$/;"	m	class:UniformDistribution
+UniformDistribution	vector/UniformDistribution.java	/^public class UniformDistribution extends VectControl implements NodeInitializer$/;"	c
+UniformRandomTransport	transport/UniformRandomTransport.java	/^public UniformRandomTransport(String prefix)$/;"	m	class:UniformRandomTransport
+UniformRandomTransport	transport/UniformRandomTransport.java	/^public final class UniformRandomTransport implements Transport$/;"	c
+UniformRouterAssignment	transport/UniformRouterAssignment.java	/^public UniformRouterAssignment(String prefix)$/;"	m	class:UniformRouterAssignment
+UniformRouterAssignment	transport/UniformRouterAssignment.java	/^public class UniformRouterAssignment implements Control$/;"	c
+UnreliableTransport	transport/UnreliableTransport.java	/^public UnreliableTransport(String prefix)$/;"	m	class:UnreliableTransport
+UnreliableTransport	transport/UnreliableTransport.java	/^public final class UnreliableTransport implements Transport$/;"	c
+ValueDumper	vector/ValueDumper.java	/^public ValueDumper(String prefix) {$/;"	m	class:ValueDumper
+ValueDumper	vector/ValueDumper.java	/^public class ValueDumper extends VectControl {$/;"	c
+VectAngle	vector/VectAngle.java	/^public VectAngle(String prefix)$/;"	m	class:VectAngle
+VectAngle	vector/VectAngle.java	/^public class VectAngle implements Control$/;"	c
+VectControl	vector/VectControl.java	/^protected VectControl(String prefix)$/;"	m	class:VectControl
+VectControl	vector/VectControl.java	/^public abstract class VectControl implements Control {$/;"	c
+VectCopy	vector/VectCopy.java	/^public VectCopy(String prefix)$/;"	m	class:VectCopy
+VectCopy	vector/VectCopy.java	/^public class VectCopy extends VectControl implements  NodeInitializer {$/;"	c
+VectorComparator	vector/VectorComparator.java	/^public VectorComparator(int pid, String methodName)$/;"	m	class:VectorComparator
+VectorComparator	vector/VectorComparator.java	/^public class VectorComparator implements Comparator$/;"	c
+VectorObserver	vector/VectorObserver.java	/^public VectorObserver(String prefix) {$/;"	m	class:VectorObserver
+VectorObserver	vector/VectorObserver.java	/^public class VectorObserver extends VectControl {$/;"	c
+WHITE	graph/GraphAlgorithms.java	/^public final static int WHITE=0;$/;"	f	class:GraphAlgorithms
+WeightedRandPerm	util/WeightedRandPerm.java	/^public WeightedRandPerm( Random r, double[] weights ) {$/;"	m	class:WeightedRandPerm
+WeightedRandPerm	util/WeightedRandPerm.java	/^public class WeightedRandPerm implements IndexIterator {$/;"	c
+WireByMethod	dynamics/WireByMethod.java	/^public WireByMethod(String prefix)$/;"	m	class:WireByMethod
+WireByMethod	dynamics/WireByMethod.java	/^public class WireByMethod extends WireGraph {$/;"	c
+WireFromFile	dynamics/WireFromFile.java	/^public WireFromFile(String prefix) {$/;"	m	class:WireFromFile
+WireFromFile	dynamics/WireFromFile.java	/^public class WireFromFile extends WireGraph {$/;"	c
+WireGraph	dynamics/WireGraph.java	/^protected WireGraph(String prefix) {$/;"	m	class:WireGraph
+WireGraph	dynamics/WireGraph.java	/^public abstract class WireGraph implements Control$/;"	c
+WireKOut	dynamics/WireKOut.java	/^public WireKOut(String prefix)$/;"	m	class:WireKOut
+WireKOut	dynamics/WireKOut.java	/^public class WireKOut extends WireGraph {$/;"	c
+WireRegRootedTree	dynamics/WireRegRootedTree.java	/^public WireRegRootedTree(String prefix)$/;"	m	class:WireRegRootedTree
+WireRegRootedTree	dynamics/WireRegRootedTree.java	/^public class WireRegRootedTree extends WireGraph {$/;"	c
+WireRingLattice	dynamics/WireRingLattice.java	/^public WireRingLattice(String prefix)$/;"	m	class:WireRingLattice
+WireRingLattice	dynamics/WireRingLattice.java	/^public class WireRingLattice extends WireGraph {$/;"	c
+WireScaleFreeBA	dynamics/WireScaleFreeBA.java	/^public WireScaleFreeBA(String prefix)$/;"	m	class:WireScaleFreeBA
+WireScaleFreeBA	dynamics/WireScaleFreeBA.java	/^public class WireScaleFreeBA extends WireGraph {$/;"	c
+WireScaleFreeDM	dynamics/WireScaleFreeDM.java	/^public WireScaleFreeDM(String prefix)$/;"	m	class:WireScaleFreeDM
+WireScaleFreeDM	dynamics/WireScaleFreeDM.java	/^public class WireScaleFreeDM extends WireGraph {$/;"	c
+WireStar	dynamics/WireStar.java	/^public WireStar(String prefix) { super(prefix); }$/;"	m	class:WireStar
+WireStar	dynamics/WireStar.java	/^public class WireStar extends WireGraph {$/;"	c
+WireWS	dynamics/WireWS.java	/^public WireWS(String prefix) {$/;"	m	class:WireWS
+WireWS	dynamics/WireWS.java	/^public class WireWS extends WireGraph {$/;"	c
+accuracy	vector/SingleValueObserver.java	/^private final double accuracy;$/;"	f	class:SingleValueObserver	file:
+active	core/Scheduler.java	/^public boolean active() {$/;"	m	class:Scheduler
+active	core/Scheduler.java	/^public boolean active(long time) {$/;"	m	class:Scheduler
+add	config/Operators.java	/^	public Number add(Number num1, Number num2) {$/;"	m	class:Operators
+add	core/Network.java	/^public static void add( Node n ) {$/;"	m	class:Network
+add	dynamics/DynamicNetwork.java	/^protected final double add;$/;"	f	class:DynamicNetwork
+add	dynamics/DynamicNetwork.java	/^protected void add(int n)$/;"	m	class:DynamicNetwork
+add	dynamics/OscillatingNetwork.java	/^protected void add(int n)$/;"	m	class:OscillatingNetwork
+add	edsim/EDSimulator.java	/^public static void add(long delay, Object event, Node node, int pid)$/;"	m	class:EDSimulator
+add	edsim/Heap.java	/^public void add(long time, Object event, Node node, byte pid) $/;"	m	class:Heap
+add	edsim/Heap.java	/^public void add(long time, Object event, Node node, byte pid, long priority) $/;"	m	class:Heap
+add	edsim/PriorityQ.java	/^public void add(long time, Object event, Node node, byte pid);$/;"	m	interface:PriorityQ
+add	edsim/PriorityQ.java	/^public void add(long time, Object event, Node node, byte pid, long priority);$/;"	m	interface:PriorityQ
+add	util/IncrementalFreq.java	/^public final void add( int i ) { add(i,1); }$/;"	m	class:IncrementalFreq
+add	util/IncrementalFreq.java	/^public void add( int i, int k ) {$/;"	m	class:IncrementalFreq
+add	util/IncrementalStats.java	/^public final void add( double item ) { add(item,1); }$/;"	m	class:IncrementalStats
+add	util/IncrementalStats.java	/^public void add( double item, int k ) {$/;"	m	class:IncrementalStats
+add	util/MedianStats.java	/^public void add(double item, int k)$/;"	m	class:MedianStats
+add	util/MomentStats.java	/^    public void add(double item, int k) {$/;"	m	class:MomentStats
+addControlEvent	edsim/EDSimulator.java	/^static void addControlEvent(long time, int order, ControlEvent event)$/;"	m	class:EDSimulator
+addNeighbor	core/IdleProtocol.java	/^public boolean addNeighbor(Node n)$/;"	m	class:IdleProtocol
+addNeighbor	core/Linkable.java	/^	public boolean addNeighbor(Node neighbour);$/;"	m	interface:Linkable
+addNeighbor	core/OracleIdleProtocol.java	/^public boolean addNeighbor(Node n) {$/;"	m	class:OracleIdleProtocol
+addNode	graph/NeighbourListGraph.java	/^public int addNode( Object o ) {$/;"	m	class:NeighbourListGraph
+addNode	graph/SubGraphEdges.java	/^public boolean addNode(int i) {$/;"	m	class:SubGraphEdges
+addThread	rangesim/ProcessManager.java	/^public void addThread(ProcessHandler p)$/;"	m	class:ProcessManager
+args	dynamics/WireByMethod.java	/^private final Object[] args;$/;"	f	class:WireByMethod	file:
+args	rangesim/RangeSimulator.java	/^private String[] args;$/;"	f	class:RangeSimulator	file:
+array	transport/E2ENetwork.java	/^private static int[][] array;$/;"	f	class:E2ENetwork	file:
+b	reports/BallExpansion.java	/^private final int[] b;$/;"	f	class:BallExpansion	file:
+baseName	reports/GraphPrinter.java	/^private final String baseName;$/;"	f	class:GraphPrinter	file:
+baseName	vector/ValueDumper.java	/^private final String baseName;$/;"	f	class:ValueDumper	file:
+beta	dynamics/WireWS.java	/^private final double beta;$/;"	f	class:WireWS	file:
+bfs	graph/GraphAlgorithms.java	/^private void bfs( int from ) {$/;"	m	class:GraphAlgorithms	file:
+buffer	rangesim/TaggedOutputStream.java	/^private byte[] buffer = new byte[1024];$/;"	f	class:TaggedOutputStream	file:
+buffer	util/RandPermutation.java	/^private int[] buffer = null;$/;"	f	class:RandPermutation	file:
+buffer	util/WeightedRandPerm.java	/^private int[] buffer = null;$/;"	f	class:WeightedRandPerm	file:
+center	dynamics/StarNI.java	/^protected Node center = null;$/;"	f	class:StarNI
+check	config/ConfigContainer.java	/^private boolean check = false;$/;"	f	class:ConfigContainer	file:
+classname	config/ClassFinder.java	/^private static String classname(String classFile, String filesep)$/;"	m	class:ClassFinder	file:
+clearEdge	core/OverlayGraph.java	/^public boolean clearEdge( int i, int j ) {$/;"	m	class:OverlayGraph
+clearEdge	graph/BitMatrixGraph.java	/^public boolean clearEdge(int i, int j) {$/;"	m	class:BitMatrixGraph
+clearEdge	graph/ConstUndirGraph.java	/^public boolean clearEdge( int i, int j ) {$/;"	m	class:ConstUndirGraph
+clearEdge	graph/Graph.java	/^	public boolean clearEdge(int i, int j);$/;"	m	interface:Graph
+clearEdge	graph/NeighbourListGraph.java	/^public boolean clearEdge( int i, int j ) {$/;"	m	class:NeighbourListGraph
+clearEdge	graph/PrefixSubGraph.java	/^public boolean clearEdge( int i, int j ) {$/;"	m	class:PrefixSubGraph
+clearEdge	graph/SubGraphEdges.java	/^public boolean clearEdge( int i, int j ) {$/;"	m	class:SubGraphEdges
+clearEdge	graph/UndirectedGraph.java	/^public boolean clearEdge( int i, int j ) {$/;"	m	class:UndirectedGraph
+clone	cdsim/DaemonProtocol.java	/^public Object clone() {$/;"	m	class:DaemonProtocol
+clone	core/GeneralNode.java	/^public Object clone() {$/;"	m	class:GeneralNode
+clone	core/IdleProtocol.java	/^public Object clone()$/;"	m	class:IdleProtocol
+clone	core/Node.java	/^public Object clone();$/;"	m	interface:Node
+clone	core/OracleIdleProtocol.java	/^public Object clone() { return this; }$/;"	m	class:OracleIdleProtocol
+clone	core/Protocol.java	/^public Object clone();$/;"	m	interface:Protocol
+clone	edsim/NextCycleEvent.java	/^public Object clone() throws CloneNotSupportedException {$/;"	m	class:NextCycleEvent
+clone	edsim/RandNextCycle.java	/^public Object clone() throws CloneNotSupportedException {$/;"	m	class:RandNextCycle
+clone	edsim/RegRandNextCycle.java	/^public Object clone() throws CloneNotSupportedException {$/;"	m	class:RegRandNextCycle
+clone	transport/E2ETransport.java	/^public Object clone()$/;"	m	class:E2ETransport
+clone	transport/UniformRandomTransport.java	/^public Object clone()$/;"	m	class:UniformRandomTransport
+clone	transport/UnreliableTransport.java	/^public Object clone()$/;"	m	class:UnreliableTransport
+clone	util/IncrementalFreq.java	/^public Object clone() throws CloneNotSupportedException {$/;"	m	class:IncrementalFreq
+clone	vector/SingleValueHolder.java	/^public Object clone()$/;"	m	class:SingleValueHolder
+cluster	graph/GraphAlgorithms.java	/^public Set<Integer> cluster = null;$/;"	f	class:GraphAlgorithms
+clustering	graph/GraphAlgorithms.java	/^public static double clustering( Graph g, int i ) {$/;"	m	class:GraphAlgorithms
+color	graph/GraphAlgorithms.java	/^public int[] color = null;$/;"	f	class:GraphAlgorithms
+compare	config/Operators.java	/^	public int compare(Number num1,Number num2)	{$/;"	m	class:Operators
+compare	vector/SingleValueComparator.java	/^public int compare(Object o1, Object o2)$/;"	m	class:SingleValueComparator
+compare	vector/VectorComparator.java	/^public int compare(Object o1, Object o2)$/;"	m	class:VectorComparator
+compareStrings	config/ConfigContainer.java	/^private double compareStrings(String str1, String str2)$/;"	m	class:ConfigContainer	file:
+config	config/ConfigContainer.java	/^private Properties config;$/;"	f	class:ConfigContainer	file:
+config	config/Configuration.java	/^private static ConfigContainer config = null;$/;"	f	class:Configuration	file:
+contains	config/ConfigContainer.java	/^public boolean contains(String name)$/;"	m	class:ConfigContainer
+contains	config/Configuration.java	/^public static boolean contains(String name)$/;"	m	class:Configuration
+contains	core/IdleProtocol.java	/^public boolean contains(Node n)$/;"	m	class:IdleProtocol
+contains	core/Linkable.java	/^	public boolean contains(Node neighbor);$/;"	m	interface:Linkable
+contains	core/OracleIdleProtocol.java	/^public boolean contains(Node n) {$/;"	m	class:OracleIdleProtocol
+control	edsim/ControlEvent.java	/^private Control control;$/;"	f	class:ControlEvent	file:
+controls	cdsim/CDSimulator.java	/^private static Control[] controls = null;$/;"	f	class:CDSimulator	file:
+controls	cdsim/DaemonProtocol.java	/^private static Control[] controls=null;$/;"	f	class:DaemonProtocol	file:
+controls	edsim/EDSimulator.java	/^private static Control[] controls=null;$/;"	f	class:EDSimulator	file:
+counter	graph/GraphAlgorithms.java	/^private int counter=0;$/;"	f	class:GraphAlgorithms	file:
+counter	util/FileNameGenerator.java	/^private long counter = 0;$/;"	f	class:FileNameGenerator	file:
+counterID	core/GeneralNode.java	/^private static long counterID = -1;$/;"	f	class:GeneralNode	file:
+countmax	util/IncrementalStats.java	/^private int countmax;$/;"	f	class:IncrementalStats	file:
+countmin	util/IncrementalStats.java	/^private int countmin;$/;"	f	class:IncrementalStats	file:
+ctime	cdsim/CDState.java	/^private static int ctime = -1;$/;"	f	class:CDState	file:
+ctime	reports/GraphObserver.java	/^private static int ctime = -1234;$/;"	f	class:GraphObserver	file:
+ctrlSchedules	cdsim/CDSimulator.java	/^private static Scheduler[] ctrlSchedules = null;$/;"	f	class:CDSimulator	file:
+ctrlSchedules	edsim/EDSimulator.java	/^private static Scheduler[] ctrlSchedules = null;$/;"	f	class:EDSimulator	file:
+cubicsum	util/MomentStats.java	/^    private double cubicsum, quadsum; \/\/ incremental sums$/;"	f	class:MomentStats	file:
+cycle	cdsim/CDState.java	/^private static int cycle = -1;$/;"	f	class:CDState	file:
+cycles	cdsim/CDSimulator.java	/^private static int cycles;$/;"	f	class:CDSimulator	file:
+d	graph/GraphAlgorithms.java	/^public int[] d = null;$/;"	f	class:GraphAlgorithms
+data	util/MedianStats.java	/^private final ArrayList<Double> data=new ArrayList<Double>();$/;"	f	class:MedianStats	file:
+debug	config/ConfigContainer.java	/^private void debug(String name, String result)$/;"	m	class:ConfigContainer	file:
+debugLevel	config/ConfigContainer.java	/^private int debugLevel;$/;"	f	class:ConfigContainer	file:
+degree	core/IdleProtocol.java	/^public int degree()$/;"	m	class:IdleProtocol
+degree	core/Linkable.java	/^	public int degree();$/;"	m	interface:Linkable
+degree	core/OracleIdleProtocol.java	/^public int degree() {$/;"	m	class:OracleIdleProtocol
+degree	core/OverlayGraph.java	/^public int degree(int i) {$/;"	m	class:OverlayGraph
+degree	graph/BitMatrixGraph.java	/^public int degree(int i) {$/;"	m	class:BitMatrixGraph
+degree	graph/ConstUndirGraph.java	/^public int degree(int i) { return g.degree(i)+(in==null?0:in[i].size()); }$/;"	m	class:ConstUndirGraph
+degree	graph/Graph.java	/^	public int degree(int i);$/;"	m	interface:Graph
+degree	graph/NeighbourListGraph.java	/^public int degree(int i) { return neighbors.get(i).size(); }$/;"	m	class:NeighbourListGraph
+degree	graph/PrefixSubGraph.java	/^public int degree(int i) {$/;"	m	class:PrefixSubGraph
+degree	graph/SubGraphEdges.java	/^public int degree(int i) {$/;"	m	class:SubGraphEdges
+degree	graph/UndirectedGraph.java	/^public int degree(int i) {$/;"	m	class:UndirectedGraph
+dfs	graph/GraphAlgorithms.java	/^private void dfs( int from ) {$/;"	m	class:GraphAlgorithms	file:
+directed	core/OverlayGraph.java	/^public boolean directed() { return true; }$/;"	m	class:OverlayGraph
+directed	graph/BitMatrixGraph.java	/^private final boolean directed;$/;"	f	class:BitMatrixGraph	file:
+directed	graph/BitMatrixGraph.java	/^public boolean directed() { return directed; }$/;"	m	class:BitMatrixGraph
+directed	graph/ConstUndirGraph.java	/^public boolean directed() { return false; }$/;"	m	class:ConstUndirGraph
+directed	graph/Graph.java	/^	boolean directed();$/;"	m	interface:Graph
+directed	graph/NeighbourListGraph.java	/^private final boolean directed;$/;"	f	class:NeighbourListGraph	file:
+directed	graph/NeighbourListGraph.java	/^public boolean directed() { return directed; }$/;"	m	class:NeighbourListGraph
+directed	graph/PrefixSubGraph.java	/^public boolean directed() { return g.directed(); }$/;"	m	class:PrefixSubGraph
+directed	graph/SubGraphEdges.java	/^public boolean directed() { return g.directed(); }$/;"	m	class:SubGraphEdges
+directed	graph/UndirectedGraph.java	/^public boolean directed() { return false; }$/;"	m	class:UndirectedGraph
+dirg	reports/GraphObserver.java	/^private static Graph dirg;$/;"	f	class:GraphObserver	file:
+dist	graph/GraphAlgorithms.java	/^public void dist( Graph g, int i ) {$/;"	m	class:GraphAlgorithms
+div	config/Operators.java	/^	public Number div(Number num1, Number num2) {$/;"	m	class:Operators
+doExperiments	rangesim/RangeSimulator.java	/^private void doExperiments(String[] args)$/;"	m	class:RangeSimulator	file:
+doStop	rangesim/ProcessHandler.java	/^public abstract void doStop();$/;"	m	interface:ProcessHandler
+doStop	rangesim/RangeSimulator.java	/^public void doStop()$/;"	m	class:RangeSimulator
+doubleCapacity	edsim/Heap.java	/^private void doubleCapacity() {$/;"	m	class:Heap	file:
+endtime	core/CommonState.java	/^private static long endtime = -1;$/;"	f	class:CommonState	file:
+endtime	edsim/EDSimulator.java	/^private static long endtime;$/;"	f	class:EDSimulator	file:
+equals	config/Operators.java	/^	public boolean equals(Number num1, Number num2)	{$/;"	m	class:Operators
+equals	util/IncrementalFreq.java	/^public boolean equals(Object obj) {$/;"	m	class:IncrementalFreq
+ev	edsim/Heap.java	/^private final Event ev = new Event();$/;"	f	class:Heap	file:
+event	edsim/PriorityQ.java	/^	public Object event;$/;"	f	class:PriorityQ.Event
+events	edsim/Heap.java	/^private Object[] events;$/;"	f	class:Heap	file:
+execute	cdsim/FullNextCycle.java	/^public boolean execute() {$/;"	m	class:FullNextCycle
+execute	cdsim/NextCycle.java	/^public boolean execute() {$/;"	m	class:NextCycle
+execute	cdsim/Shuffle.java	/^public final boolean execute() {$/;"	m	class:Shuffle
+execute	core/Control.java	/^public boolean execute();$/;"	m	interface:Control
+execute	dynamics/DynamicNetwork.java	/^public final boolean execute()$/;"	m	class:DynamicNetwork
+execute	dynamics/MethodInvoker.java	/^public boolean execute() {$/;"	m	class:MethodInvoker
+execute	dynamics/OscillatingNetwork.java	/^public boolean execute()$/;"	m	class:OscillatingNetwork
+execute	dynamics/WireGraph.java	/^public final boolean execute() {$/;"	m	class:WireGraph
+execute	edsim/CDScheduler.java	/^public boolean execute() {$/;"	m	class:CDScheduler
+execute	edsim/ControlEvent.java	/^public boolean execute() {$/;"	m	class:ControlEvent
+execute	edsim/NextCycleEvent.java	/^public final void execute() {$/;"	m	class:NextCycleEvent
+execute	reports/BallExpansion.java	/^public boolean execute() {$/;"	m	class:BallExpansion
+execute	reports/Clustering.java	/^public boolean execute()$/;"	m	class:Clustering
+execute	reports/ConnectivityObserver.java	/^public boolean execute()$/;"	m	class:ConnectivityObserver
+execute	reports/DegreeStats.java	/^public boolean execute()$/;"	m	class:DegreeStats
+execute	reports/GraphPrinter.java	/^public boolean execute() {$/;"	m	class:GraphPrinter
+execute	reports/GraphStats.java	/^public boolean execute() {$/;"	m	class:GraphStats
+execute	reports/MemoryObserver.java	/^public boolean execute()$/;"	m	class:MemoryObserver
+execute	reports/RandRemoval.java	/^public boolean execute()$/;"	m	class:RandRemoval
+execute	transport/KingParser.java	/^public boolean execute()$/;"	m	class:KingParser
+execute	transport/TriangularMatrixParser.java	/^public boolean execute()$/;"	m	class:TriangularMatrixParser
+execute	transport/UniformRouterAssignment.java	/^public boolean execute()$/;"	m	class:UniformRouterAssignment
+execute	vector/InitVectFromFile.java	/^public boolean execute() {$/;"	m	class:InitVectFromFile
+execute	vector/LinearDistribution.java	/^public boolean execute() {$/;"	m	class:LinearDistribution
+execute	vector/Normalizer.java	/^public boolean execute() {$/;"	m	class:Normalizer
+execute	vector/PeakDistribution.java	/^public boolean execute()$/;"	m	class:PeakDistribution
+execute	vector/SingleValueObserver.java	/^public boolean execute()$/;"	m	class:SingleValueObserver
+execute	vector/UniformDistribution.java	/^public boolean execute() {$/;"	m	class:UniformDistribution
+execute	vector/ValueDumper.java	/^public boolean execute() {$/;"	m	class:ValueDumper
+execute	vector/VectAngle.java	/^public boolean execute() {$/;"	m	class:VectAngle
+execute	vector/VectCopy.java	/^public boolean execute() {$/;"	m	class:VectCopy
+execute	vector/VectorObserver.java	/^public boolean execute() {$/;"	m	class:VectorObserver
+executeNext	edsim/EDSimulator.java	/^private static boolean executeNext() {$/;"	m	class:EDSimulator	file:
+executeProcess	rangesim/RangeSimulator.java	/^private void executeProcess(List<String> list)$/;"	m	class:RangeSimulator	file:
+ext	util/FileNameGenerator.java	/^public final String ext;$/;"	f	class:FileNameGenerator
+failstate	core/GeneralNode.java	/^protected int failstate = Fallible.OK;$/;"	f	class:GeneralNode
+fast	reports/GraphObserver.java	/^private static boolean fast;$/;"	f	class:GraphObserver	file:
+file	dynamics/WireFromFile.java	/^private final String file;$/;"	f	class:WireFromFile	file:
+file	vector/InitVectFromFile.java	/^private final String file;$/;"	f	class:InitVectFromFile	file:
+filename	transport/KingParser.java	/^private String filename;$/;"	f	class:KingParser	file:
+filename	transport/TriangularMatrixParser.java	/^private String filename;$/;"	f	class:TriangularMatrixParser	file:
+fin	core/Scheduler.java	/^public final boolean fin;$/;"	f	class:Scheduler
+findClassInJar	config/ClassFinder.java	/^private static void findClassInJar(Map<String,String> map, File pathFile)$/;"	m	class:ClassFinder	file:
+findClassInPathDir	config/ClassFinder.java	/^private static void findClassInPathDir( Map<String,String> map,$/;"	m	class:ClassFinder	file:
+findClasses	config/ClassFinder.java	/^private static void findClasses(Map<String,String> map)$/;"	m	class:ClassFinder	file:
+firstDelay	edsim/CDScheduler.java	/^protected long firstDelay(long cyclelength) {$/;"	m	class:CDScheduler
+flooding	graph/GraphAlgorithms.java	/^public void flooding( Graph g, int[] b, int k ) {$/;"	m	class:GraphAlgorithms
+fng	reports/GraphPrinter.java	/^private final FileNameGenerator fng;$/;"	f	class:GraphPrinter	file:
+fng	vector/ValueDumper.java	/^private final FileNameGenerator fng;$/;"	f	class:ValueDumper	file:
+format	reports/GraphPrinter.java	/^private final String format;$/;"	f	class:GraphPrinter	file:
+freq	util/IncrementalFreq.java	/^private int[] freq = null; $/;"	f	class:IncrementalFreq	file:
+from	core/Scheduler.java	/^public final long from;$/;"	f	class:Scheduler
+fullDegree	core/OverlayGraph.java	/^public int fullDegree(int i) {$/;"	m	class:OverlayGraph
+fvalue	vector/TestVectors.java	/^protected float fvalue;$/;"	f	class:TestVectors
+g	dynamics/WireGraph.java	/^public Graph g=null;$/;"	f	class:WireGraph
+g	graph/ConstUndirGraph.java	/^protected final Graph g;$/;"	f	class:ConstUndirGraph
+g	graph/GraphAlgorithms.java	/^private Graph g=null;$/;"	f	class:GraphAlgorithms	file:
+g	graph/PrefixSubGraph.java	/^private final Graph g;$/;"	f	class:PrefixSubGraph	file:
+g	graph/SubGraphEdges.java	/^private final Graph g;$/;"	f	class:SubGraphEdges	file:
+g	graph/UndirectedGraph.java	/^private final Graph g;$/;"	f	class:UndirectedGraph	file:
+g	reports/GraphObserver.java	/^protected Graph g;$/;"	f	class:GraphObserver
+ga	reports/GraphObserver.java	/^protected final GraphAlgorithms ga = new GraphAlgorithms();$/;"	f	class:GraphObserver
+get	core/Network.java	/^public static Node get( int index ) {$/;"	m	class:Network
+get	util/RandPermutation.java	/^public int get(int i) {$/;"	m	class:RandPermutation
+get	vector/Getter.java	/^public Number get(Node n) {$/;"	m	class:Getter
+get	vector/Getter.java	/^public Number get(int i) { return get(Network.get(i)); }$/;"	m	class:Getter
+getAverage	util/IncrementalStats.java	/^public double getAverage() { return sum\/n; }$/;"	m	class:IncrementalStats
+getBool	config/ConfigContainer.java	/^private boolean getBool(String name)$/;"	m	class:ConfigContainer	file:
+getBoolean	config/ConfigContainer.java	/^public boolean getBoolean(String name)$/;"	m	class:ConfigContainer
+getBoolean	config/ConfigContainer.java	/^public boolean getBoolean(String name, boolean def)$/;"	m	class:ConfigContainer
+getBoolean	config/Configuration.java	/^public static boolean getBoolean(String name)$/;"	m	class:Configuration
+getBoolean	config/Configuration.java	/^public static boolean getBoolean(String name, boolean def)$/;"	m	class:Configuration
+getCapacity	core/Network.java	/^public static int getCapacity() { return node.length; }$/;"	m	class:Network
+getClass	config/ConfigContainer.java	/^public Class getClass(String name)$/;"	m	class:ConfigContainer
+getClass	config/ConfigContainer.java	/^public Class getClass(String name, Class def)$/;"	m	class:ConfigContainer
+getClass	config/Configuration.java	/^public static Class getClass(String name)$/;"	m	class:Configuration
+getClass	config/Configuration.java	/^public static Class getClass(String name, Class def)$/;"	m	class:Configuration
+getClazz	config/ConfigContainer.java	/^private Class getClazz(String name)$/;"	m	class:ConfigContainer	file:
+getCycle	cdsim/CDState.java	/^public static int getCycle()$/;"	m	class:CDState
+getCycleObj	cdsim/CDState.java	/^public static Integer getCycleObj()$/;"	m	class:CDState
+getCycleT	cdsim/CDState.java	/^public static int getCycleT()$/;"	m	class:CDState
+getDouble	config/ConfigContainer.java	/^public double getDouble(String name)$/;"	m	class:ConfigContainer
+getDouble	config/ConfigContainer.java	/^public double getDouble(String name, double def)$/;"	m	class:ConfigContainer
+getDouble	config/Configuration.java	/^public static double getDouble(String name)$/;"	m	class:Configuration
+getDouble	config/Configuration.java	/^public static double getDouble(String name, double def)$/;"	m	class:Configuration
+getDouble	vector/Getter.java	/^public double getDouble(Node n) {$/;"	m	class:Getter
+getDouble	vector/Getter.java	/^public double getDouble(int i) { return getDouble(Network.get(i)); }$/;"	m	class:Getter
+getEdge	core/OverlayGraph.java	/^public Object getEdge(int i, int j) { return null; }$/;"	m	class:OverlayGraph
+getEdge	graph/BitMatrixGraph.java	/^public Object getEdge(int i, int j) { return null; }$/;"	m	class:BitMatrixGraph
+getEdge	graph/ConstUndirGraph.java	/^public Object getEdge(int i, int j) {$/;"	m	class:ConstUndirGraph
+getEdge	graph/Graph.java	/^	Object getEdge(int i, int j);$/;"	m	interface:Graph
+getEdge	graph/NeighbourListGraph.java	/^public Object getEdge(int i, int j) { return null; }$/;"	m	class:NeighbourListGraph
+getEdge	graph/PrefixSubGraph.java	/^public Object getEdge(int i, int j) {$/;"	m	class:PrefixSubGraph
+getEdge	graph/SubGraphEdges.java	/^public Object getEdge(int i, int j) {$/;"	m	class:SubGraphEdges
+getEdge	graph/UndirectedGraph.java	/^public Object getEdge(int i, int j) {$/;"	m	class:UndirectedGraph
+getEndTime	core/CommonState.java	/^public static long getEndTime()$/;"	m	class:CommonState
+getFValue	vector/TestVectors.java	/^public float getFValue() { return fvalue; }$/;"	m	class:TestVectors
+getFailState	core/Fallible.java	/^	public int getFailState();$/;"	m	interface:Fallible
+getFailState	core/GeneralNode.java	/^public int getFailState() { return failstate; }$/;"	m	class:GeneralNode
+getFreq	util/IncrementalFreq.java	/^public int getFreq(int i) {$/;"	m	class:IncrementalFreq
+getGetterMethod	vector/GetterSetterFinder.java	/^public static Method getGetterMethod(Class clazz, String methodName)$/;"	m	class:GetterSetterFinder
+getGetterType	vector/GetterSetterFinder.java	/^public static Class getGetterType(Method m)$/;"	m	class:GetterSetterFinder
+getID	core/GeneralNode.java	/^public long getID() { return ID; }$/;"	m	class:GeneralNode
+getID	core/Node.java	/^public long getID();$/;"	m	interface:Node
+getIValue	vector/TestVectors.java	/^public int getIValue() { return ivalue; }$/;"	m	class:TestVectors
+getIndex	core/GeneralNode.java	/^public int getIndex() { return index; }$/;"	m	class:GeneralNode
+getIndex	core/Node.java	/^public int getIndex();$/;"	m	interface:Node
+getInst	config/ConfigContainer.java	/^private Object getInst(String name)$/;"	m	class:ConfigContainer	file:
+getInstance	config/ConfigContainer.java	/^public Object getInstance(String name)$/;"	m	class:ConfigContainer
+getInstance	config/ConfigContainer.java	/^public Object getInstance(String name, Object def)$/;"	m	class:ConfigContainer
+getInstance	config/Configuration.java	/^public static Object getInstance(String name)$/;"	m	class:Configuration
+getInstance	config/Configuration.java	/^public static Object getInstance(String name, Object def)$/;"	m	class:Configuration
+getInstanceArray	config/ConfigContainer.java	/^public Object[] getInstanceArray(String name)$/;"	m	class:ConfigContainer
+getInstanceArray	config/Configuration.java	/^public static Object[] getInstanceArray(String name)$/;"	m	class:Configuration
+getInt	config/ConfigContainer.java	/^public int getInt(String name)$/;"	m	class:ConfigContainer
+getInt	config/ConfigContainer.java	/^public int getInt(String name, int def)$/;"	m	class:ConfigContainer
+getInt	config/Configuration.java	/^public static int getInt(String name)$/;"	m	class:Configuration
+getInt	config/Configuration.java	/^public static int getInt(String name, int def)$/;"	m	class:Configuration
+getIntTime	core/CommonState.java	/^public static int getIntTime()$/;"	m	class:CommonState
+getInverse	config/Operators.java	/^	public Number getInverse(Number num) {$/;"	m	class:Operators
+getKurtosis	util/MomentStats.java	/^    public double getKurtosis(){$/;"	m	class:MomentStats
+getLValue	vector/TestVectors.java	/^public long getLValue() { return lvalue; }$/;"	m	class:TestVectors
+getLastSeed	util/ExtendedRandom.java	/^public long getLastSeed() { return lastSeed; }$/;"	m	class:ExtendedRandom
+getLatency	transport/E2ENetwork.java	/^public static int getLatency(int sender, int receiver) $/;"	m	class:E2ENetwork
+getLatency	transport/E2ETransport.java	/^public long getLatency(Node src, Node dest)$/;"	m	class:E2ETransport
+getLatency	transport/Transport.java	/^public long getLatency(Node src, Node dest);$/;"	m	interface:Transport
+getLatency	transport/UniformRandomTransport.java	/^public long getLatency(Node src, Node dest)$/;"	m	class:UniformRandomTransport
+getLatency	transport/UnreliableTransport.java	/^public long getLatency(Node src, Node dest)$/;"	m	class:UnreliableTransport
+getLine	rangesim/RangeSimulator.java	/^private static String getLine(BufferedReader toprint)$/;"	m	class:RangeSimulator	file:
+getLinkable	config/FastConfig.java	/^public static int getLinkable(int pid)$/;"	m	class:FastConfig
+getLinkable	config/FastConfig.java	/^public static int getLinkable(int pid, int linkIndex)$/;"	m	class:FastConfig
+getLong	config/ConfigContainer.java	/^public long getLong(String name)$/;"	m	class:ConfigContainer
+getLong	config/ConfigContainer.java	/^public long getLong(String name, long def)$/;"	m	class:ConfigContainer
+getLong	config/Configuration.java	/^public static long getLong(String name)$/;"	m	class:Configuration
+getLong	config/Configuration.java	/^public static long getLong(String name, long def)$/;"	m	class:Configuration
+getLong	vector/Getter.java	/^public long getLong(Node n) {$/;"	m	class:Getter
+getLong	vector/Getter.java	/^public long getLong(int i) { return getLong(Network.get(i)); }$/;"	m	class:Getter
+getMax	util/IncrementalStats.java	/^public double getMax() { return max; }$/;"	m	class:IncrementalStats
+getMaxCount	util/IncrementalStats.java	/^public int getMaxCount() { return countmax; }$/;"	m	class:IncrementalStats
+getMedian	util/MedianStats.java	/^public double getMedian()$/;"	m	class:MedianStats
+getMessage	config/IllegalParameterException.java	/^public String getMessage() {$/;"	m	class:IllegalParameterException
+getMessage	config/MissingParameterException.java	/^public String getMessage() {$/;"	m	class:MissingParameterException
+getMethod	dynamics/MethodInvoker.java	/^private static Method getMethod(Class cl, String methodName)$/;"	m	class:MethodInvoker	file:
+getMethod	dynamics/WireByMethod.java	/^private static Method getMethod(Class cl, String methodName)$/;"	m	class:WireByMethod	file:
+getMin	util/IncrementalStats.java	/^public double getMin() { return min; }$/;"	m	class:IncrementalStats
+getMinCount	util/IncrementalStats.java	/^public int getMinCount() { return countmin; }$/;"	m	class:IncrementalStats
+getN	util/IncrementalFreq.java	/^public int getN() { return n; }$/;"	m	class:IncrementalFreq
+getN	util/IncrementalStats.java	/^public int getN() { return n; }$/;"	m	class:IncrementalStats
+getNames	config/ConfigContainer.java	/^public String[] getNames(String name)$/;"	m	class:ConfigContainer
+getNames	config/Configuration.java	/^public static String[] getNames(String name)$/;"	m	class:Configuration
+getNeighbor	core/IdleProtocol.java	/^public Node getNeighbor(int i)$/;"	m	class:IdleProtocol
+getNeighbor	core/Linkable.java	/^	public Node getNeighbor(int i);$/;"	m	interface:Linkable
+getNeighbor	core/OracleIdleProtocol.java	/^public Node getNeighbor(int i) {$/;"	m	class:OracleIdleProtocol
+getNeighbours	core/OverlayGraph.java	/^public Collection<Integer> getNeighbours(int i) {$/;"	m	class:OverlayGraph
+getNeighbours	graph/BitMatrixGraph.java	/^public Collection<Integer> getNeighbours(int i) {$/;"	m	class:BitMatrixGraph
+getNeighbours	graph/ConstUndirGraph.java	/^public Collection<Integer> getNeighbours(int i) {$/;"	m	class:ConstUndirGraph
+getNeighbours	graph/Graph.java	/^	Collection<Integer> getNeighbours(int i);$/;"	m	interface:Graph
+getNeighbours	graph/NeighbourListGraph.java	/^public Collection<Integer> getNeighbours(int i) {$/;"	m	class:NeighbourListGraph
+getNeighbours	graph/PrefixSubGraph.java	/^public Collection<Integer> getNeighbours(int i) {$/;"	m	class:PrefixSubGraph
+getNeighbours	graph/SubGraphEdges.java	/^public Collection<Integer> getNeighbours(int i) {$/;"	m	class:SubGraphEdges
+getNeighbours	graph/UndirectedGraph.java	/^public Collection<Integer> getNeighbours(int i) {$/;"	m	class:UndirectedGraph
+getNext	core/Scheduler.java	/^public long getNext()$/;"	m	class:Scheduler
+getNode	core/CommonState.java	/^public static Node getNode()$/;"	m	class:CommonState
+getNode	core/OverlayGraph.java	/^public Object getNode(int i) { return Network.node[i]; }$/;"	m	class:OverlayGraph
+getNode	graph/BitMatrixGraph.java	/^public Object getNode(int i) { return null; }$/;"	m	class:BitMatrixGraph
+getNode	graph/ConstUndirGraph.java	/^public Object getNode(int i) { return g.getNode(i); }$/;"	m	class:ConstUndirGraph
+getNode	graph/Graph.java	/^	Object getNode(int i);$/;"	m	interface:Graph
+getNode	graph/NeighbourListGraph.java	/^public Object getNode(int i) { return (nodes==null?null:nodes.get(i)); }$/;"	m	class:NeighbourListGraph
+getNode	graph/PrefixSubGraph.java	/^public Object getNode(int i) {$/;"	m	class:PrefixSubGraph
+getNode	graph/SubGraphEdges.java	/^public Object getNode(int i) { return g.getNode(i); }$/;"	m	class:SubGraphEdges
+getNode	graph/UndirectedGraph.java	/^public Object getNode(int i) { return g.getNode(i); }$/;"	m	class:UndirectedGraph
+getONE	config/Operators.java	/^	public Number getONE() {$/;"	m	class:Operators
+getPhase	core/CommonState.java	/^public static int getPhase()$/;"	m	class:CommonState
+getPid	config/ConfigContainer.java	/^public int getPid(String name)$/;"	m	class:ConfigContainer
+getPid	config/ConfigContainer.java	/^public int getPid(String name, int pid)$/;"	m	class:ConfigContainer
+getPid	config/Configuration.java	/^public static int getPid(String name)$/;"	m	class:Configuration
+getPid	config/Configuration.java	/^public static int getPid(String name, int pid)$/;"	m	class:Configuration
+getPid	core/CommonState.java	/^public static int getPid()$/;"	m	class:CommonState
+getProtocol	core/GeneralNode.java	/^public Protocol getProtocol(int i) { return protocol[i]; }$/;"	m	class:GeneralNode
+getProtocol	core/Node.java	/^public Protocol getProtocol(int i);$/;"	m	interface:Node
+getQualifiedName	config/ClassFinder.java	/^public static String getQualifiedName(String name)$/;"	m	class:ClassFinder
+getRouter	transport/E2ETransport.java	/^public int getRouter()$/;"	m	class:E2ETransport
+getRouter	transport/RouterInfo.java	/^public int getRouter();$/;"	m	interface:RouterInfo
+getSetterMethod	vector/GetterSetterFinder.java	/^public static Method getSetterMethod(Class clazz, String methodName)$/;"	m	class:GetterSetterFinder
+getSetterType	vector/GetterSetterFinder.java	/^public static Class getSetterType(Method m)$/;"	m	class:GetterSetterFinder
+getShortMessage	config/IllegalParameterException.java	/^public String getShortMessage()$/;"	m	class:IllegalParameterException
+getShortMessage	config/MissingParameterException.java	/^public String getShortMessage()$/;"	m	class:MissingParameterException
+getShortName	config/ClassFinder.java	/^public static String getShortName(String className) {$/;"	m	class:ClassFinder
+getSimID	Simulator.java	/^public static int getSimID() {$/;"	m	class:Simulator
+getSimID	config/CheckConfig.java	/^protected static int getSimID() {$/;"	m	class:CheckConfig
+getSimilarProperty	config/ConfigContainer.java	/^private String getSimilarProperty(String property)$/;"	m	class:ConfigContainer	file:
+getSize	transport/E2ENetwork.java	/^public static int getSize()$/;"	m	class:E2ENetwork
+getSkewness	util/MomentStats.java	/^    public double getSkewness() {$/;"	m	class:MomentStats
+getSqrSum	util/IncrementalStats.java	/^public double getSqrSum() { return sqrsum; }$/;"	m	class:IncrementalStats
+getStD	util/IncrementalStats.java	/^public double getStD() { return Math.sqrt(getVar()); }$/;"	m	class:IncrementalStats
+getStr	config/ConfigContainer.java	/^private String getStr(String name)$/;"	m	class:ConfigContainer	file:
+getString	config/ConfigContainer.java	/^public String getString(String name)$/;"	m	class:ConfigContainer
+getString	config/ConfigContainer.java	/^public String getString(String name, String def)$/;"	m	class:ConfigContainer
+getString	config/Configuration.java	/^public static String getString(String name)$/;"	m	class:Configuration
+getString	config/Configuration.java	/^public static String getString(String name, String def)$/;"	m	class:Configuration
+getSum	util/IncrementalStats.java	/^public double getSum() { return sum; }$/;"	m	class:IncrementalStats
+getSymbols	config/ConfigContainer.java	/^private String[] getSymbols(org.nfunk.jep.JEP jep)$/;"	m	class:ConfigContainer	file:
+getTime	core/CommonState.java	/^public static long getTime()$/;"	m	class:CommonState
+getTime	edsim/Heap.java	/^private long getTime(int index) {$/;"	m	class:Heap	file:
+getTransport	config/FastConfig.java	/^public static int getTransport(int pid)$/;"	m	class:FastConfig
+getType	vector/Getter.java	/^public Class getType() {$/;"	m	class:Getter
+getType	vector/Setter.java	/^public Class getType() {$/;"	m	class:Setter
+getVal	config/ConfigContainer.java	/^private Number getVal(String initial, String property, int depth)$/;"	m	class:ConfigContainer	file:
+getValue	vector/SingleValue.java	/^public double getValue();$/;"	m	interface:SingleValue
+getValue	vector/SingleValueHolder.java	/^public double getValue()$/;"	m	class:SingleValueHolder
+getVar	util/IncrementalStats.java	/^public double getVar() {$/;"	m	class:IncrementalStats
+getZERO	config/Operators.java	/^	public Number getZERO() {$/;"	m	class:Operators
+getpair_rand	cdsim/FullNextCycle.java	/^protected final boolean getpair_rand;$/;"	f	class:FullNextCycle
+getter	vector/VectControl.java	/^protected final Getter getter;$/;"	f	class:VectControl
+getter1	vector/VectAngle.java	/^private final Getter getter1;$/;"	f	class:VectAngle	file:
+getter2	vector/VectAngle.java	/^private final Getter getter2;$/;"	f	class:VectAngle	file:
+hasLinkable	config/FastConfig.java	/^public static boolean hasLinkable(int pid) { return numLinkables(pid) > 0; }$/;"	m	class:FastConfig
+hasNext	util/IndexIterator.java	/^	public boolean hasNext();$/;"	m	interface:IndexIterator
+hasNext	util/LinearIterator.java	/^public boolean hasNext() { return (reverse ? pointer >= 0 : pointer < len); }$/;"	m	class:LinearIterator
+hasNext	util/RandPermutation.java	/^public boolean hasNext() { return pointer > 0; }$/;"	m	class:RandPermutation
+hasNext	util/WeightedRandPerm.java	/^public boolean hasNext() { return pointer > 0; }$/;"	m	class:WeightedRandPerm
+hasTransport	config/FastConfig.java	/^public static boolean hasTransport(int pid)$/;"	m	class:FastConfig
+hashCode	core/GeneralNode.java	/^public int hashCode() { return (int)getID(); }$/;"	m	class:GeneralNode
+hashCode	util/IncrementalFreq.java	/^public int hashCode() {$/;"	m	class:IncrementalFreq
+heap	edsim/EDSimulator.java	/^private static PriorityQ heap = null;$/;"	f	class:EDSimulator	file:
+in	graph/ConstUndirGraph.java	/^protected final List<Integer>[] in;$/;"	f	class:ConstUndirGraph
+index	core/GeneralNode.java	/^private int index;$/;"	f	class:GeneralNode	file:
+init	vector/Getter.java	/^private void init() {$/;"	m	class:Getter	file:
+init	vector/Setter.java	/^private void init() {$/;"	m	class:Setter	file:
+initGraph	graph/ConstUndirGraph.java	/^protected void initGraph() {$/;"	m	class:ConstUndirGraph
+initGraph	graph/FastUndirGraph.java	/^protected void initGraph()$/;"	m	class:FastUndirGraph
+initialize	dynamics/MethodInvoker.java	/^public void initialize(Node n) {$/;"	m	class:MethodInvoker
+initialize	dynamics/NodeInitializer.java	/^public void initialize(Node n);$/;"	m	interface:NodeInitializer
+initialize	dynamics/RandNI.java	/^public void initialize(Node n)$/;"	m	class:RandNI
+initialize	dynamics/StarNI.java	/^public void initialize(Node n) {$/;"	m	class:StarNI
+initialize	edsim/CDScheduler.java	/^public void initialize(Node n) {$/;"	m	class:CDScheduler
+initialize	vector/UniformDistribution.java	/^public void initialize(Node n) {$/;"	m	class:UniformDistribution
+initialize	vector/VectCopy.java	/^public void initialize(Node n) {$/;"	m	class:VectCopy
+initializeRandom	core/CommonState.java	/^public static void initializeRandom(long seed)$/;"	m	class:CommonState
+inits	dynamics/DynamicNetwork.java	/^protected final NodeInitializer[] inits;$/;"	f	class:DynamicNetwork
+inits	dynamics/OscillatingNetwork.java	/^private final NodeInitializer[] inits;$/;"	f	class:OscillatingNetwork	file:
+isCD	cdsim/CDState.java	/^public static boolean isCD() { return cycle >= 0; }$/;"	m	class:CDState
+isConfigurationCycleDriven	cdsim/CDSimulator.java	/^public static final boolean isConfigurationCycleDriven()$/;"	m	class:CDSimulator
+isConfigurationEventDriven	edsim/EDSimulator.java	/^public static final boolean isConfigurationEventDriven()$/;"	m	class:EDSimulator
+isEdge	core/OverlayGraph.java	/^public boolean isEdge(int i, int j) {$/;"	m	class:OverlayGraph
+isEdge	graph/BitMatrixGraph.java	/^public boolean isEdge(int i, int j) {$/;"	m	class:BitMatrixGraph
+isEdge	graph/ConstUndirGraph.java	/^public boolean isEdge(int i, int j) {$/;"	m	class:ConstUndirGraph
+isEdge	graph/FastUndirGraph.java	/^public boolean isEdge(int i, int j)$/;"	m	class:FastUndirGraph
+isEdge	graph/Graph.java	/^	boolean isEdge(int i, int j);$/;"	m	interface:Graph
+isEdge	graph/NeighbourListGraph.java	/^public boolean isEdge(int i, int j) {$/;"	m	class:NeighbourListGraph
+isEdge	graph/PrefixSubGraph.java	/^public boolean isEdge(int i, int j) {$/;"	m	class:PrefixSubGraph
+isEdge	graph/SubGraphEdges.java	/^public boolean isEdge(int i, int j) {$/;"	m	class:SubGraphEdges
+isEdge	graph/UndirectedGraph.java	/^public boolean isEdge(int i, int j) {$/;"	m	class:UndirectedGraph
+isInteger	vector/Setter.java	/^public boolean isInteger() {$/;"	m	class:Setter
+isUp	core/Fallible.java	/^	public boolean isUp();$/;"	m	interface:Fallible
+isUp	core/GeneralNode.java	/^public boolean isUp() { return failstate==OK; }$/;"	m	class:GeneralNode
+ivalue	vector/TestVectors.java	/^protected int ivalue;$/;"	f	class:TestVectors
+join	rangesim/ProcessHandler.java	/^public abstract void join()$/;"	m	interface:ProcessHandler
+join	rangesim/RangeSimulator.java	/^public void join() throws InterruptedException$/;"	m	class:RangeSimulator
+joinAll	rangesim/ProcessManager.java	/^public void joinAll()$/;"	m	class:ProcessManager
+jvmoptions	rangesim/RangeSimulator.java	/^private String[] jvmoptions;$/;"	f	class:RangeSimulator	file:
+k	dynamics/RandNI.java	/^private final int k;$/;"	f	class:RandNI	file:
+k	dynamics/WireFromFile.java	/^private final int k;$/;"	f	class:WireFromFile	file:
+k	dynamics/WireKOut.java	/^private final int k;$/;"	f	class:WireKOut	file:
+k	dynamics/WireRegRootedTree.java	/^private final int k;$/;"	f	class:WireRegRootedTree	file:
+k	dynamics/WireRingLattice.java	/^private final int k;$/;"	f	class:WireRingLattice	file:
+k	dynamics/WireScaleFreeBA.java	/^private int k;$/;"	f	class:WireScaleFreeBA	file:
+k	dynamics/WireScaleFreeDM.java	/^private final int k;$/;"	f	class:WireScaleFreeDM	file:
+k	dynamics/WireWS.java	/^private final int k;$/;"	f	class:WireWS	file:
+l1	vector/Normalizer.java	/^private final double l1;$/;"	f	class:Normalizer	file:
+lastSeed	util/ExtendedRandom.java	/^private long lastSeed;$/;"	f	class:ExtendedRandom	file:
+lastpid	reports/GraphObserver.java	/^private static int lastpid = -1234;$/;"	f	class:GraphObserver	file:
+len	core/IdleProtocol.java	/^protected int len;$/;"	f	class:IdleProtocol
+len	core/Network.java	/^private static int len;$/;"	f	class:Network	file:
+len	util/LinearIterator.java	/^private int len = 0;$/;"	f	class:LinearIterator	file:
+len	util/RandPermutation.java	/^private int len = 0;$/;"	f	class:RandPermutation	file:
+len	util/WeightedRandPerm.java	/^private int len = 0;$/;"	f	class:WeightedRandPerm	file:
+letterPairs	config/ConfigContainer.java	/^private String[] letterPairs(String str)$/;"	m	class:ConfigContainer	file:
+links	config/FastConfig.java	/^protected static final int[][] links;$/;"	f	class:FastConfig
+load	config/ConfigProperties.java	/^public void load( String fileName ) throws IOException {$/;"	m	class:ConfigProperties
+load	config/ParsedProperties.java	/^public void load( String fileName ) throws IOException {$/;"	m	class:ParsedProperties
+loadControls	cdsim/CDSimulator.java	/^private static String[] loadControls()$/;"	m	class:CDSimulator	file:
+loadPropertyString	config/ConfigProperties.java	/^public void loadPropertyString( String prop ) throws IOException {$/;"	m	class:ConfigProperties
+loadSystemResource	config/ConfigProperties.java	/^public void loadSystemResource( String n ) throws IOException {$/;"	m	class:ConfigProperties
+local	transport/E2ETransport.java	/^private static long local;$/;"	f	class:E2ETransport	file:
+logtime	edsim/EDSimulator.java	/^private static long logtime;$/;"	f	class:EDSimulator	file:
+lookupPid	config/ConfigContainer.java	/^public String lookupPid(int pid)$/;"	m	class:ConfigContainer
+lookupPid	config/ConfigContainer.java	/^public int lookupPid(String protname)$/;"	m	class:ConfigContainer
+lookupPid	config/Configuration.java	/^public static String lookupPid(int pid)$/;"	m	class:Configuration
+lookupPid	config/Configuration.java	/^public static int lookupPid(String protname)$/;"	m	class:Configuration
+loss	transport/UnreliableTransport.java	/^private final float loss;$/;"	f	class:UnreliableTransport	file:
+lvalue	vector/PeakDistribution.java	/^private final Number lvalue;$/;"	f	class:PeakDistribution	file:
+lvalue	vector/TestVectors.java	/^protected long lvalue;$/;"	f	class:TestVectors
+main	Simulator.java	/^public static void main(String[] args)$/;"	m	class:Simulator
+main	config/CheckConfig.java	/^public static void main(String[] args)$/;"	m	class:CheckConfig
+main	config/ClassFinder.java	/^public static void main( String[] argv )$/;"	m	class:ClassFinder
+main	rangesim/RangeSimulator.java	/^public static void main(String[] args)$/;"	m	class:RangeSimulator
+main	util/MedianStats.java	/^public static void main( String[] args ) {$/;"	m	class:MedianStats
+manageDefault	config/ConfigContainer.java	/^private void manageDefault(String name, Object def, $/;"	m	class:ConfigContainer	file:
+manageException	config/ConfigContainer.java	/^private void manageException(String name, RuntimeException e)$/;"	m	class:ConfigContainer	file:
+map	config/ClassFinder.java	/^private static Map<String,String> map = new TreeMap<String,String>();	$/;"	f	class:ClassFinder	file:
+max	util/IncrementalStats.java	/^private double max;$/;"	f	class:IncrementalStats	file:
+max	vector/LinearDistribution.java	/^private final Number max;$/;"	f	class:LinearDistribution	file:
+max	vector/UniformDistribution.java	/^private final Number max;$/;"	f	class:UniformDistribution	file:
+maxDirs	config/ClassFinder.java	/^private static final int maxDirs;$/;"	f	class:ClassFinder	file:
+maxPriority	edsim/Heap.java	/^public long maxPriority() { return (1L << pbits)-1; }$/;"	m	class:Heap
+maxPriority	edsim/PriorityQ.java	/^public long maxPriority();$/;"	m	interface:PriorityQ
+maxTime	edsim/Heap.java	/^public long maxTime() { return Long.MAX_VALUE >> pbits; }$/;"	m	class:Heap
+maxTime	edsim/PriorityQ.java	/^public long maxTime();$/;"	m	interface:PriorityQ
+maxd	reports/BallExpansion.java	/^private final int maxd;$/;"	f	class:BallExpansion	file:
+maxdepth	config/ConfigContainer.java	/^private int maxdepth;$/;"	f	class:ConfigContainer	file:
+maxsize	dynamics/DynamicNetwork.java	/^protected final int maxsize;$/;"	f	class:DynamicNetwork
+maxsize	dynamics/OscillatingNetwork.java	/^private final int maxsize;$/;"	f	class:OscillatingNetwork	file:
+method	dynamics/MethodInvoker.java	/^private final Method method[];$/;"	f	class:MethodInvoker	file:
+method	dynamics/WireByMethod.java	/^private final Method method;$/;"	f	class:WireByMethod	file:
+method	reports/DegreeStats.java	/^private final String method;$/;"	f	class:DegreeStats	file:
+method	vector/Getter.java	/^private Method method = null;$/;"	f	class:Getter	file:
+method	vector/Setter.java	/^private Method method=null;$/;"	f	class:Setter	file:
+method	vector/VectorComparator.java	/^private final Method method;$/;"	f	class:VectorComparator	file:
+methodName	dynamics/MethodInvoker.java	/^private final String methodName;$/;"	f	class:MethodInvoker	file:
+methodName	vector/Getter.java	/^private String methodName;$/;"	f	class:Getter	file:
+methodName	vector/Setter.java	/^private String methodName;$/;"	f	class:Setter	file:
+methodn	vector/Getter.java	/^private final String methodn;$/;"	f	class:Getter	file:
+methodn	vector/Setter.java	/^private final String methodn;$/;"	f	class:Setter	file:
+min	transport/UniformRandomTransport.java	/^private final long min;$/;"	f	class:UniformRandomTransport	file:
+min	util/IncrementalStats.java	/^private double min;$/;"	f	class:IncrementalStats	file:
+min	vector/LinearDistribution.java	/^private final Number min;$/;"	f	class:LinearDistribution	file:
+min	vector/UniformDistribution.java	/^private final Number min;$/;"	f	class:UniformDistribution	file:
+minHeapify	edsim/Heap.java	/^private void minHeapify(int index) $/;"	m	class:Heap	file:
+minsize	dynamics/DynamicNetwork.java	/^protected final int minsize;$/;"	f	class:DynamicNetwork
+minsize	dynamics/OscillatingNetwork.java	/^private final int minsize;$/;"	f	class:OscillatingNetwork	file:
+mod	config/Operators.java	/^	public Number mod(Number num1, Number num2) {$/;"	m	class:Operators
+mul	config/Operators.java	/^	public Number mul(Number num1, Number num2) {$/;"	m	class:Operators
+multicast	graph/GraphAlgorithms.java	/^public static void multicast( Graph g, int[] b, Random r ) {$/;"	m	class:GraphAlgorithms
+n	reports/BallExpansion.java	/^private final int n;$/;"	f	class:BallExpansion	file:
+n	reports/Clustering.java	/^private final int n;$/;"	f	class:Clustering	file:
+n	reports/DegreeStats.java	/^private final int n;$/;"	f	class:DegreeStats	file:
+n	reports/RandRemoval.java	/^private final int n;$/;"	f	class:RandRemoval	file:
+n	util/IncrementalFreq.java	/^private int n;$/;"	f	class:IncrementalFreq	file:
+n	util/IncrementalStats.java	/^private int n;$/;"	f	class:IncrementalStats	file:
+name	reports/GraphObserver.java	/^protected final String name;$/;"	f	class:GraphObserver
+name	vector/SingleValueObserver.java	/^private final String name;$/;"	f	class:SingleValueObserver	file:
+name	vector/VectAngle.java	/^private final String name;$/;"	f	class:VectAngle	file:
+nc	reports/GraphStats.java	/^private final int nc;$/;"	f	class:GraphStats	file:
+nce	edsim/CDScheduler.java	/^private final NextCycleEvent[] nce;$/;"	f	class:CDScheduler	file:
+needUndir	reports/GraphObserver.java	/^private static boolean needUndir=false;$/;"	f	class:GraphObserver	file:
+neighbors	core/IdleProtocol.java	/^protected Node[] neighbors;$/;"	f	class:IdleProtocol
+neighbors	graph/NeighbourListGraph.java	/^private final ArrayList<Set<Integer>> neighbors;$/;"	f	class:NeighbourListGraph	file:
+next	core/Scheduler.java	/^protected long next = -1;$/;"	f	class:Scheduler
+next	util/IndexIterator.java	/^	public int next();$/;"	m	interface:IndexIterator
+next	util/LinearIterator.java	/^public int next() {$/;"	m	class:LinearIterator
+next	util/RandPermutation.java	/^public int next() {$/;"	m	class:RandPermutation
+next	util/WeightedRandPerm.java	/^public int next() {$/;"	m	class:WeightedRandPerm
+nextCounterName	util/FileNameGenerator.java	/^public String nextCounterName() {$/;"	m	class:FileNameGenerator
+nextCycle	cdsim/CDProtocol.java	/^public void nextCycle(Node node, int protocolID);$/;"	m	interface:CDProtocol
+nextCycle	cdsim/DaemonProtocol.java	/^public void nextCycle( Node node, int protocolID ) {$/;"	m	class:DaemonProtocol
+nextCycleStart	edsim/RegRandNextCycle.java	/^private long nextCycleStart = -1;$/;"	f	class:RegRandNextCycle	file:
+nextDegree	reports/DegreeStats.java	/^private int nextDegree()$/;"	m	class:DegreeStats	file:
+nextDelay	edsim/NextCycleEvent.java	/^protected long nextDelay(long step) {$/;"	m	class:NextCycleEvent
+nextDelay	edsim/RandNextCycle.java	/^protected long nextDelay(long step) {$/;"	m	class:RandNextCycle
+nextDelay	edsim/RegRandNextCycle.java	/^protected long nextDelay(long step) {$/;"	m	class:RegRandNextCycle
+nextExperiment	cdsim/CDSimulator.java	/^public static final void nextExperiment()$/;"	m	class:CDSimulator
+nextExperiment	edsim/EDSimulator.java	/^public static void nextExperiment() $/;"	m	class:EDSimulator
+nextID	core/GeneralNode.java	/^private long nextID() {$/;"	m	class:GeneralNode	file:
+nextLong	util/ExtendedRandom.java	/^public long nextLong(long n) {$/;"	m	class:ExtendedRandom
+nextNodeId	reports/DegreeStats.java	/^private int nextNodeId()$/;"	m	class:DegreeStats	file:
+nextPoisson	util/ExtendedRandom.java	/^public int nextPoisson(double mean) {$/;"	m	class:ExtendedRandom
+nextValues	rangesim/RangeSimulator.java	/^private void nextValues(int[] idx, String[][] values)$/;"	m	class:RangeSimulator	file:
+nextlog	edsim/EDSimulator.java	/^private static long nextlog = 0;$/;"	f	class:EDSimulator	file:
+nextnode	reports/DegreeStats.java	/^private int nextnode = 0;$/;"	f	class:DegreeStats	file:
+nl	reports/GraphStats.java	/^private final int nl;$/;"	f	class:GraphStats	file:
+node	core/CommonState.java	/^private static Node node;$/;"	f	class:CommonState	file:
+node	core/Network.java	/^static Node[] node = null;$/;"	f	class:Network
+node	edsim/PriorityQ.java	/^	public Node node;$/;"	f	class:PriorityQ.Event
+nodeindex	graph/NeighbourListGraph.java	/^private final HashMap<Object,Integer> nodeindex;$/;"	f	class:NeighbourListGraph	file:
+nodes	edsim/Heap.java	/^private Node[] nodes;$/;"	f	class:Heap	file:
+nodes	graph/NeighbourListGraph.java	/^private final ArrayList<Object> nodes;$/;"	f	class:NeighbourListGraph	file:
+nodes	graph/SubGraphEdges.java	/^private final BitSet nodes;$/;"	f	class:SubGraphEdges	file:
+numLinkables	config/FastConfig.java	/^public static int numLinkables(int pid) { return links[pid].length; }$/;"	m	class:FastConfig
+obstime	rangesim/TaggedOutputStream.java	/^private final ArrayList<String> obstime;$/;"	f	class:TaggedOutputStream	file:
+onKill	core/Cleanable.java	/^public void onKill();$/;"	m	interface:Cleanable
+onKill	core/IdleProtocol.java	/^public void onKill()$/;"	m	class:IdleProtocol
+onKill	core/OracleIdleProtocol.java	/^public void onKill() {}$/;"	m	class:OracleIdleProtocol
+order	config/ConfigContainer.java	/^private String[] order(String[] names, String type)$/;"	m	class:ConfigContainer	file:
+order	edsim/ControlEvent.java	/^private int order;$/;"	f	class:ControlEvent	file:
+overflowMask	edsim/Heap.java	/^private final long overflowMask;$/;"	f	class:Heap	file:
+p	rangesim/RangeSimulator.java	/^private Process p;$/;"	f	class:RangeSimulator	file:
+pack	core/IdleProtocol.java	/^public void pack()$/;"	m	class:IdleProtocol
+pack	core/Linkable.java	/^	public void pack();$/;"	m	interface:Linkable
+pack	core/OracleIdleProtocol.java	/^public void pack() {}  $/;"	m	class:OracleIdleProtocol
+pack	dynamics/RandNI.java	/^private final boolean pack;$/;"	f	class:RandNI	file:
+pack	dynamics/StarNI.java	/^protected final boolean pack;$/;"	f	class:StarNI
+pack	dynamics/WireGraph.java	/^private final boolean pack;$/;"	f	class:WireGraph	file:
+pars	rangesim/RangeSimulator.java	/^private String[] pars;$/;"	f	class:RangeSimulator	file:
+parseItem	util/StringListParser.java	/^private static void parseItem(List<String> list, String item)$/;"	m	class:StringListParser	file:
+parseList	util/StringListParser.java	/^public static String[] parseList(String s)$/;"	m	class:StringListParser
+parseRangeItem	util/StringListParser.java	/^private static void parseRangeItem(List<String> list, String start, String stop)$/;"	m	class:StringListParser	file:
+parseRanges	config/CheckConfig.java	/^private static void parseRanges(Properties prop)$/;"	m	class:CheckConfig	file:
+parseRanges	rangesim/RangeSimulator.java	/^private void parseRanges()$/;"	m	class:RangeSimulator	file:
+parseSingleItem	util/StringListParser.java	/^private static void parseSingleItem(List<String> list, String item)$/;"	m	class:StringListParser	file:
+parseStream	config/ParsedProperties.java	/^private int parseStream(BufferedReader f, String prefix, int pars, $/;"	m	class:ParsedProperties	file:
+pbits	edsim/Heap.java	/^private final int pbits;$/;"	f	class:Heap	file:
+peaks	vector/PeakDistribution.java	/^private final double peaks;$/;"	f	class:PeakDistribution	file:
+peersim	Simulator.java	/^package peersim;$/;"	p
+peersim.cdsim	cdsim/CDProtocol.java	/^package peersim.cdsim;$/;"	p
+peersim.cdsim	cdsim/CDSimulator.java	/^package peersim.cdsim;$/;"	p
+peersim.cdsim	cdsim/CDState.java	/^package peersim.cdsim;$/;"	p
+peersim.cdsim	cdsim/DaemonProtocol.java	/^package peersim.cdsim;$/;"	p
+peersim.cdsim	cdsim/FullNextCycle.java	/^package peersim.cdsim;$/;"	p
+peersim.cdsim	cdsim/NextCycle.java	/^package peersim.cdsim;$/;"	p
+peersim.cdsim	cdsim/Shuffle.java	/^package peersim.cdsim;$/;"	p
+peersim.config	config/CheckConfig.java	/^package peersim.config;$/;"	p
+peersim.config	config/ClassFinder.java	/^package peersim.config;$/;"	p
+peersim.config	config/ConfigContainer.java	/^package peersim.config;$/;"	p
+peersim.config	config/ConfigProperties.java	/^package peersim.config;$/;"	p
+peersim.config	config/Configuration.java	/^package peersim.config;$/;"	p
+peersim.config	config/FastConfig.java	/^package peersim.config;$/;"	p
+peersim.config	config/IllegalParameterException.java	/^package peersim.config;$/;"	p
+peersim.config	config/MissingParameterException.java	/^package peersim.config;$/;"	p
+peersim.config	config/NullPrintStream.java	/^package peersim.config;$/;"	p
+peersim.config	config/Operators.java	/^package peersim.config;$/;"	p
+peersim.config	config/ParsedProperties.java	/^package peersim.config;$/;"	p
+peersim.core	core/Cleanable.java	/^package peersim.core;$/;"	p
+peersim.core	core/CommonState.java	/^package peersim.core;$/;"	p
+peersim.core	core/Control.java	/^package peersim.core;$/;"	p
+peersim.core	core/Fallible.java	/^package peersim.core;$/;"	p
+peersim.core	core/GeneralNode.java	/^package peersim.core;$/;"	p
+peersim.core	core/IdleProtocol.java	/^package peersim.core;$/;"	p
+peersim.core	core/Linkable.java	/^package peersim.core;$/;"	p
+peersim.core	core/MaliciousProtocol.java	/^package peersim.core;$/;"	p
+peersim.core	core/ModifiableNode.java	/^package peersim.core;$/;"	p
+peersim.core	core/Network.java	/^package peersim.core;$/;"	p
+peersim.core	core/Node.java	/^package peersim.core;$/;"	p
+peersim.core	core/OracleIdleProtocol.java	/^package peersim.core;$/;"	p
+peersim.core	core/OverlayGraph.java	/^package peersim.core;$/;"	p
+peersim.core	core/Protocol.java	/^package peersim.core;$/;"	p
+peersim.core	core/Scheduler.java	/^package peersim.core;$/;"	p
+peersim.dynamics	dynamics/DynamicNetwork.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/MethodInvoker.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/NodeInitializer.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/OscillatingNetwork.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/RandNI.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/StarNI.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireByMethod.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireFromFile.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireGraph.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireKOut.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireRegRootedTree.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireRingLattice.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireScaleFreeBA.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireScaleFreeDM.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireStar.java	/^package peersim.dynamics;$/;"	p
+peersim.dynamics	dynamics/WireWS.java	/^package peersim.dynamics;$/;"	p
+peersim.edsim	edsim/CDScheduler.java	/^package peersim.edsim;$/;"	p
+peersim.edsim	edsim/ControlEvent.java	/^package peersim.edsim;$/;"	p
+peersim.edsim	edsim/EDProtocol.java	/^package peersim.edsim;$/;"	p
+peersim.edsim	edsim/EDSimulator.java	/^package peersim.edsim;$/;"	p
+peersim.edsim	edsim/Heap.java	/^package peersim.edsim;$/;"	p
+peersim.edsim	edsim/NextCycleEvent.java	/^package peersim.edsim;$/;"	p
+peersim.edsim	edsim/PriorityQ.java	/^package peersim.edsim;$/;"	p
+peersim.edsim	edsim/RandNextCycle.java	/^package peersim.edsim;$/;"	p
+peersim.edsim	edsim/RegRandNextCycle.java	/^package peersim.edsim;$/;"	p
+peersim.graph	graph/BitMatrixGraph.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/ConstUndirGraph.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/FastUndirGraph.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/Graph.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/GraphAlgorithms.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/GraphFactory.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/GraphIO.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/NeighbourListGraph.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/PrefixSubGraph.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/SubGraphEdges.java	/^package peersim.graph;$/;"	p
+peersim.graph	graph/UndirectedGraph.java	/^package peersim.graph;$/;"	p
+peersim.rangesim	rangesim/ProcessHandler.java	/^package peersim.rangesim;$/;"	p
+peersim.rangesim	rangesim/ProcessManager.java	/^package peersim.rangesim;$/;"	p
+peersim.rangesim	rangesim/RangeSimulator.java	/^package peersim.rangesim;$/;"	p
+peersim.rangesim	rangesim/TaggedOutputStream.java	/^package peersim.rangesim;$/;"	p
+peersim.reports	reports/BallExpansion.java	/^package peersim.reports;$/;"	p
+peersim.reports	reports/Clustering.java	/^package peersim.reports;$/;"	p
+peersim.reports	reports/ConnectivityObserver.java	/^package peersim.reports;$/;"	p
+peersim.reports	reports/DegreeStats.java	/^package peersim.reports;$/;"	p
+peersim.reports	reports/GraphObserver.java	/^package peersim.reports;$/;"	p
+peersim.reports	reports/GraphPrinter.java	/^package peersim.reports;$/;"	p
+peersim.reports	reports/GraphStats.java	/^package peersim.reports;$/;"	p
+peersim.reports	reports/MemoryObserver.java	/^package peersim.reports;$/;"	p
+peersim.reports	reports/RandRemoval.java	/^package peersim.reports;$/;"	p
+peersim.transport	transport/E2ENetwork.java	/^package peersim.transport;$/;"	p
+peersim.transport	transport/E2ETransport.java	/^package peersim.transport;$/;"	p
+peersim.transport	transport/KingParser.java	/^package peersim.transport;$/;"	p
+peersim.transport	transport/RouterInfo.java	/^package peersim.transport;$/;"	p
+peersim.transport	transport/Transport.java	/^package peersim.transport;$/;"	p
+peersim.transport	transport/TriangularMatrixParser.java	/^package peersim.transport;$/;"	p
+peersim.transport	transport/UniformRandomTransport.java	/^package peersim.transport;$/;"	p
+peersim.transport	transport/UniformRouterAssignment.java	/^package peersim.transport;$/;"	p
+peersim.transport	transport/UnreliableTransport.java	/^package peersim.transport;$/;"	p
+peersim.util	util/ExtendedRandom.java	/^package peersim.util;$/;"	p
+peersim.util	util/FileNameGenerator.java	/^package peersim.util;$/;"	p
+peersim.util	util/IncrementalFreq.java	/^package peersim.util;$/;"	p
+peersim.util	util/IncrementalStats.java	/^package peersim.util;$/;"	p
+peersim.util	util/IndexIterator.java	/^package peersim.util;$/;"	p
+peersim.util	util/LinearIterator.java	/^package peersim.util;$/;"	p
+peersim.util	util/MedianStats.java	/^package peersim.util;$/;"	p
+peersim.util	util/MomentStats.java	/^package peersim.util;$/;"	p
+peersim.util	util/RandPermutation.java	/^package peersim.util;$/;"	p
+peersim.util	util/StringListParser.java	/^package peersim.util;$/;"	p
+peersim.util	util/WeightedRandPerm.java	/^package peersim.util;$/;"	p
+peersim.vector	vector/Getter.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/GetterSetterFinder.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/InitVectFromFile.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/LinearDistribution.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/Normalizer.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/PeakDistribution.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/Setter.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/SingleValue.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/SingleValueComparator.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/SingleValueHolder.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/SingleValueObserver.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/TestVectors.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/UniformDistribution.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/ValueDumper.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/VectAngle.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/VectControl.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/VectCopy.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/VectorComparator.java	/^package peersim.vector;$/;"	p
+peersim.vector	vector/VectorObserver.java	/^package peersim.vector;$/;"	p
+period	dynamics/OscillatingNetwork.java	/^private final int period;$/;"	f	class:OscillatingNetwork	file:
+phase	core/CommonState.java	/^private static int phase = PHASE_UNKNOWN;$/;"	f	class:CommonState	file:
+phase	reports/GraphObserver.java	/^private static int phase = -1234;$/;"	f	class:GraphObserver	file:
+pid	core/CommonState.java	/^private static int pid;$/;"	f	class:CommonState	file:
+pid	dynamics/MethodInvoker.java	/^private final int pid[];$/;"	f	class:MethodInvoker	file:
+pid	dynamics/RandNI.java	/^private final int pid;$/;"	f	class:RandNI	file:
+pid	dynamics/StarNI.java	/^protected final int pid;$/;"	f	class:StarNI
+pid	dynamics/WireGraph.java	/^protected final int pid;$/;"	f	class:WireGraph
+pid	edsim/CDScheduler.java	/^private final int[] pid;$/;"	f	class:CDScheduler	file:
+pid	edsim/PriorityQ.java	/^	public byte pid;$/;"	f	class:PriorityQ.Event
+pid	reports/GraphObserver.java	/^protected final int pid;$/;"	f	class:GraphObserver
+pid	transport/UniformRouterAssignment.java	/^private int pid;	$/;"	f	class:UniformRouterAssignment	file:
+pid	vector/Getter.java	/^private int pid;$/;"	f	class:Getter	file:
+pid	vector/Setter.java	/^private int pid;$/;"	f	class:Setter	file:
+pid	vector/SingleValueComparator.java	/^private int pid;$/;"	f	class:SingleValueComparator	file:
+pid	vector/SingleValueObserver.java	/^private final int pid;$/;"	f	class:SingleValueObserver	file:
+pid	vector/VectorComparator.java	/^private final int pid;$/;"	f	class:VectorComparator	file:
+pids	cdsim/NextCycle.java	/^private final int[] pids;$/;"	f	class:NextCycle	file:
+pids	edsim/Heap.java	/^private byte[] pids;$/;"	f	class:Heap	file:
+pointer	util/LinearIterator.java	/^private int pointer = 0;$/;"	f	class:LinearIterator	file:
+pointer	util/RandPermutation.java	/^private int pointer = 0;$/;"	f	class:RandPermutation	file:
+pointer	util/WeightedRandPerm.java	/^private int pointer = 0;$/;"	f	class:WeightedRandPerm	file:
+pow	config/Operators.java	/^	public Number pow(Number num1, Number num2) {$/;"	m	class:Operators
+prefSize	graph/PrefixSubGraph.java	/^private int prefSize;$/;"	f	class:PrefixSubGraph	file:
+prefix	reports/MemoryObserver.java	/^private final String prefix;$/;"	f	class:MemoryObserver	file:
+prefix	transport/KingParser.java	/^private String prefix;$/;"	f	class:KingParser	file:
+prefix	util/FileNameGenerator.java	/^public final String prefix;$/;"	f	class:FileNameGenerator
+prefix	vector/Getter.java	/^private final String prefix;$/;"	f	class:Getter	file:
+prefix	vector/Setter.java	/^private final String prefix;$/;"	f	class:Setter	file:
+prefix	vector/ValueDumper.java	/^private final String prefix;$/;"	f	class:ValueDumper	file:
+prefix	vector/VectorObserver.java	/^private final String prefix;$/;"	f	class:VectorObserver	file:
+print	util/IncrementalFreq.java	/^public void print( PrintStream out ) {$/;"	m	class:IncrementalFreq
+printAll	util/IncrementalFreq.java	/^public void printAll( PrintStream out ) {$/;"	m	class:IncrementalFreq
+printLine	config/NullPrintStream.java	/^private void printLine()$/;"	m	class:NullPrintStream	file:
+printLine	rangesim/TaggedOutputStream.java	/^private void printLine()$/;"	m	class:TaggedOutputStream	file:
+processEvent	edsim/EDProtocol.java	/^	public void processEvent( Node node, int pid, Object event );$/;"	m	interface:EDProtocol
+protSchedules	cdsim/FullNextCycle.java	/^protected Scheduler[] protSchedules = null;$/;"	f	class:FullNextCycle
+protocol	core/GeneralNode.java	/^protected Protocol[] protocol = null;$/;"	f	class:GeneralNode
+protocol	vector/Getter.java	/^private final String protocol;$/;"	f	class:Getter	file:
+protocol	vector/Setter.java	/^private final String protocol;$/;"	f	class:Setter	file:
+protocolID	core/OverlayGraph.java	/^public final int protocolID;$/;"	f	class:OverlayGraph
+protocolSize	core/GeneralNode.java	/^public int protocolSize() { return protocol.length; }$/;"	m	class:GeneralNode
+protocolSize	core/Node.java	/^public int protocolSize();$/;"	m	interface:Node
+protocols	config/ConfigContainer.java	/^private Map<String, Integer> protocols;$/;"	f	class:ConfigContainer	file:
+prototype	core/Network.java	/^public static Node prototype = null;$/;"	f	class:Network
+put	edsim/Heap.java	/^private void put(int index, long time, Object event, Node node, byte pid) {$/;"	m	class:Heap	file:
+quadsum	util/MomentStats.java	/^    private double cubicsum, quadsum; \/\/ incremental sums$/;"	f	class:MomentStats	file:
+r	core/CommonState.java	/^public static ExtendedRandom r = null;$/;"	f	class:CommonState
+r	reports/MemoryObserver.java	/^private final static Runtime r = Runtime.getRuntime(); $/;"	f	class:MemoryObserver	file:
+r	util/RandPermutation.java	/^private final Random r;$/;"	f	class:RandPermutation	file:
+r	util/WeightedRandPerm.java	/^private final Random r;$/;"	f	class:WeightedRandPerm	file:
+randstart	edsim/CDScheduler.java	/^private final boolean randstart;$/;"	f	class:CDScheduler	file:
+range	transport/UniformRandomTransport.java	/^private final long range;$/;"	f	class:UniformRandomTransport	file:
+ranges	rangesim/TaggedOutputStream.java	/^private final String ranges;$/;"	f	class:TaggedOutputStream	file:
+ratio	transport/KingParser.java	/^private double ratio;$/;"	f	class:KingParser	file:
+ratio	transport/TriangularMatrixParser.java	/^private double ratio;$/;"	f	class:TriangularMatrixParser	file:
+readNewscastGraph	graph/GraphIO.java	/^public static Graph readNewscastGraph( String file, int direction )$/;"	m	class:GraphIO
+remove	core/Network.java	/^public static Node remove() {$/;"	m	class:Network
+remove	core/Network.java	/^public static Node remove(int i) {$/;"	m	class:Network
+remove	dynamics/DynamicNetwork.java	/^protected void remove(int n)$/;"	m	class:DynamicNetwork
+remove	dynamics/OscillatingNetwork.java	/^protected void remove(int n)$/;"	m	class:OscillatingNetwork
+remove	util/IncrementalFreq.java	/^public void remove(IncrementalFreq other, boolean strict) {$/;"	m	class:IncrementalFreq
+removeFirst	edsim/Heap.java	/^public Event removeFirst() {$/;"	m	class:Heap
+removeFirst	edsim/PriorityQ.java	/^public Event removeFirst();$/;"	m	interface:PriorityQ
+removeNode	graph/SubGraphEdges.java	/^public boolean removeNode(int i) {$/;"	m	class:SubGraphEdges
+reset	core/Network.java	/^public static void reset() {$/;"	m	class:Network
+reset	transport/E2ENetwork.java	/^public static void reset(int size, boolean symm)$/;"	m	class:E2ENetwork
+reset	util/IncrementalFreq.java	/^public void reset() {$/;"	m	class:IncrementalFreq
+reset	util/IncrementalStats.java	/^public void reset() {$/;"	m	class:IncrementalStats
+reset	util/IndexIterator.java	/^	public void reset(int k);$/;"	m	interface:IndexIterator
+reset	util/LinearIterator.java	/^public void reset(int k) {$/;"	m	class:LinearIterator
+reset	util/MedianStats.java	/^public void reset()$/;"	m	class:MedianStats
+reset	util/MomentStats.java	/^    public void reset() {$/;"	m	class:MomentStats
+reset	util/RandPermutation.java	/^public void reset(int k) {$/;"	m	class:RandPermutation
+reset	util/WeightedRandPerm.java	/^public void reset(int k) {$/;"	m	class:WeightedRandPerm
+reverse	util/LinearIterator.java	/^private final boolean reverse;$/;"	f	class:LinearIterator	file:
+root	graph/GraphAlgorithms.java	/^public int[] root = null;$/;"	f	class:GraphAlgorithms
+router	transport/E2ETransport.java	/^private int router = -1;$/;"	f	class:E2ETransport	file:
+rp	reports/BallExpansion.java	/^private final RandPermutation rp = new RandPermutation(CommonState.r);$/;"	f	class:BallExpansion	file:
+rp	reports/DegreeStats.java	/^private final RandPermutation rp = new RandPermutation(CommonState.r);$/;"	f	class:DegreeStats	file:
+rperm	cdsim/FullNextCycle.java	/^protected RandPermutation rperm = new RandPermutation( CDState.r );$/;"	f	class:FullNextCycle
+run	rangesim/ProcessManager.java	/^public void run()$/;"	m	class:ProcessManager
+run	rangesim/RangeSimulator.java	/^public void run()$/;"	m	class:RangeSimulator
+runInitializers	cdsim/CDSimulator.java	/^private static void runInitializers()$/;"	m	class:CDSimulator	file:
+runInitializers	edsim/EDSimulator.java	/^private static void runInitializers() {$/;"	m	class:EDSimulator	file:
+sch	edsim/CDScheduler.java	/^public static final Scheduler[] sch;$/;"	f	class:CDScheduler
+scheduleControls	edsim/EDSimulator.java	/^private static void scheduleControls()$/;"	m	class:EDSimulator	file:
+scheduler	edsim/ControlEvent.java	/^private Scheduler scheduler;$/;"	f	class:ControlEvent	file:
+send	transport/E2ETransport.java	/^public void send(Node src, Node dest, Object msg, int pid)$/;"	m	class:E2ETransport
+send	transport/Transport.java	/^public void send(Node src, Node dest, Object msg, int pid);$/;"	m	interface:Transport
+send	transport/UniformRandomTransport.java	/^public void send(Node src, Node dest, Object msg, int pid)$/;"	m	class:UniformRandomTransport
+send	transport/UnreliableTransport.java	/^public void send(Node src, Node dest, Object msg, int pid)$/;"	m	class:UnreliableTransport
+set	vector/Setter.java	/^public void set(Node n, double val) {$/;"	m	class:Setter
+set	vector/Setter.java	/^public void set(Node n, long val) {$/;"	m	class:Setter
+set	vector/Setter.java	/^public void set(int i, double val) { set(Network.get(i),val); }$/;"	m	class:Setter
+set	vector/Setter.java	/^public void set(int i, long val) { set(Network.get(i),val); }$/;"	m	class:Setter
+setCapacity	core/Network.java	/^public static void setCapacity(int newSize) {$/;"	m	class:Network
+setConfig	config/Configuration.java	/^public static void setConfig(Properties p)$/;"	m	class:Configuration
+setConfig	config/Configuration.java	/^public static void setConfig(Properties p, boolean check)$/;"	m	class:Configuration
+setCycle	cdsim/CDState.java	/^public static void setCycle(int t)$/;"	m	class:CDState
+setCycleT	cdsim/CDState.java	/^public static void setCycleT(int t)$/;"	m	class:CDState
+setEdge	core/OverlayGraph.java	/^public boolean setEdge( int i, int j ) {$/;"	m	class:OverlayGraph
+setEdge	graph/BitMatrixGraph.java	/^public boolean setEdge(int i, int j) {$/;"	m	class:BitMatrixGraph
+setEdge	graph/ConstUndirGraph.java	/^public boolean setEdge( int i, int j ) {$/;"	m	class:ConstUndirGraph
+setEdge	graph/Graph.java	/^	public boolean setEdge(int i, int j);$/;"	m	interface:Graph
+setEdge	graph/NeighbourListGraph.java	/^public boolean setEdge( int i, int j ) {$/;"	m	class:NeighbourListGraph
+setEdge	graph/PrefixSubGraph.java	/^public boolean setEdge( int i, int j ) {$/;"	m	class:PrefixSubGraph
+setEdge	graph/SubGraphEdges.java	/^public boolean setEdge( int i, int j ) {$/;"	m	class:SubGraphEdges
+setEdge	graph/UndirectedGraph.java	/^public boolean setEdge( int i, int j ) {$/;"	m	class:UndirectedGraph
+setEndTime	core/CommonState.java	/^public static void setEndTime(long t)$/;"	m	class:CommonState
+setFValue	vector/TestVectors.java	/^public void setFValue(float value) { fvalue = value; }$/;"	m	class:TestVectors
+setFailState	core/Fallible.java	/^	public void setFailState(int failState);$/;"	m	interface:Fallible
+setFailState	core/GeneralNode.java	/^public void setFailState(int failState) {$/;"	m	class:GeneralNode
+setIValue	vector/TestVectors.java	/^public void setIValue(int value) { ivalue = value; }$/;"	m	class:TestVectors
+setIndex	core/GeneralNode.java	/^public void setIndex(int index) { this.index = index; }$/;"	m	class:GeneralNode
+setIndex	core/Node.java	/^public void setIndex(int index);$/;"	m	interface:Node
+setLValue	vector/TestVectors.java	/^public void setLValue(long value) { lvalue = value; }$/;"	m	class:TestVectors
+setLatency	transport/E2ENetwork.java	/^public static void setLatency(int sender, int receiver, int latency) $/;"	m	class:E2ENetwork
+setNode	core/CommonState.java	/^public static void setNode(Node n)$/;"	m	class:CommonState
+setPermutation	util/RandPermutation.java	/^public void setPermutation(int k) {$/;"	m	class:RandPermutation
+setPhase	core/CommonState.java	/^public static void setPhase(int p)$/;"	m	class:CommonState
+setPid	core/CommonState.java	/^public static void setPid(int p)$/;"	m	class:CommonState
+setProtocol	core/ModifiableNode.java	/^public void setProtocol(int pid, Protocol prot)$/;"	m	class:ModifiableNode
+setRouter	transport/E2ETransport.java	/^public void setRouter(int router)$/;"	m	class:E2ETransport
+setRouter	transport/RouterInfo.java	/^public void setRouter(int router);$/;"	m	interface:RouterInfo
+setSeed	util/ExtendedRandom.java	/^public void setSeed( long seed ) {$/;"	m	class:ExtendedRandom
+setSize	graph/PrefixSubGraph.java	/^public int setSize(int i) {$/;"	m	class:PrefixSubGraph
+setTime	core/CommonState.java	/^public static void setTime(long t)$/;"	m	class:CommonState
+setValue	vector/SingleValue.java	/^public void setValue(double value);$/;"	m	interface:SingleValue
+setValue	vector/SingleValueHolder.java	/^public void setValue(double value)$/;"	m	class:SingleValueHolder
+sets	graph/BitMatrixGraph.java	/^private final List<BitSet> sets;$/;"	f	class:BitMatrixGraph	file:
+setter	vector/VectControl.java	/^protected final Setter setter;$/;"	f	class:VectControl
+shuffle	cdsim/FullNextCycle.java	/^protected final boolean shuffle;$/;"	f	class:FullNextCycle
+shuffle	core/Network.java	/^public static void shuffle() {$/;"	m	class:Network
+simID	Simulator.java	/^private static int simID = UNKNOWN;$/;"	f	class:Simulator	file:
+simName	Simulator.java	/^protected static final String[] simName = {$/;"	f	class:Simulator
+simName	config/CheckConfig.java	/^protected static final String[] simName = {$/;"	f	class:CheckConfig
+size	core/Network.java	/^public static int size() { return len; }$/;"	m	class:Network
+size	core/OverlayGraph.java	/^public int size() { return Network.size(); }$/;"	m	class:OverlayGraph
+size	edsim/Heap.java	/^private int size;$/;"	f	class:Heap	file:
+size	edsim/Heap.java	/^public int size()$/;"	m	class:Heap
+size	edsim/PriorityQ.java	/^public int size();$/;"	m	interface:PriorityQ
+size	graph/BitMatrixGraph.java	/^public int size() { return sets.size(); }$/;"	m	class:BitMatrixGraph
+size	graph/ConstUndirGraph.java	/^public int size() { return g.size(); }$/;"	m	class:ConstUndirGraph
+size	graph/Graph.java	/^	int size();$/;"	m	interface:Graph
+size	graph/NeighbourListGraph.java	/^public int size() { return neighbors.size(); }$/;"	m	class:NeighbourListGraph
+size	graph/PrefixSubGraph.java	/^public int size() { return prefSize; }$/;"	m	class:PrefixSubGraph
+size	graph/SubGraphEdges.java	/^public int size() { return g.size(); }$/;"	m	class:SubGraphEdges
+size	graph/UndirectedGraph.java	/^public int size() { return g.size(); }$/;"	m	class:UndirectedGraph
+size	rangesim/TaggedOutputStream.java	/^private int size;$/;"	f	class:TaggedOutputStream	file:
+size	transport/E2ENetwork.java	/^private static int size;$/;"	f	class:E2ENetwork	file:
+sizestats	reports/ConnectivityObserver.java	/^private final boolean sizestats;$/;"	f	class:ConnectivityObserver	file:
+sort	core/Network.java	/^public static void sort(Comparator<? super Node> c) {$/;"	m	class:Network
+source	vector/VectCopy.java	/^private final Getter source;$/;"	f	class:VectCopy	file:
+sqrsum	util/IncrementalStats.java	/^private double sqrsum;$/;"	f	class:IncrementalStats	file:
+stack	graph/GraphAlgorithms.java	/^private Stack<Integer> stack = new Stack<Integer>();$/;"	f	class:GraphAlgorithms	file:
+stats	reports/BallExpansion.java	/^private final boolean stats;$/;"	f	class:BallExpansion	file:
+stdout	rangesim/TaggedOutputStream.java	/^private PrintStream stdout;$/;"	f	class:TaggedOutputStream	file:
+step	cdsim/DaemonProtocol.java	/^private static int step;$/;"	f	class:DaemonProtocol	file:
+step	core/Scheduler.java	/^public final long step;$/;"	f	class:Scheduler
+step	vector/LinearDistribution.java	/^private final double step;$/;"	f	class:LinearDistribution	file:
+sub	config/Operators.java	/^	public Number sub(Number num1, Number num2) {$/;"	m	class:Operators
+subGraphSize	graph/SubGraphEdges.java	/^public int subGraphSize() { return nodes.cardinality(); }$/;"	m	class:SubGraphEdges
+substitute	dynamics/DynamicNetwork.java	/^protected final boolean substitute;$/;"	f	class:DynamicNetwork
+sum	util/IncrementalStats.java	/^private double sum;$/;"	f	class:IncrementalStats	file:
+sum	util/WeightedRandPerm.java	/^private double sum = 0.0;$/;"	f	class:WeightedRandPerm	file:
+swap	core/Network.java	/^public static void swap(int i, int j) {$/;"	m	class:Network
+swap	edsim/Heap.java	/^private void swap(int i1, int i2) {$/;"	m	class:Heap	file:
+symm	transport/E2ENetwork.java	/^private static boolean symm;	$/;"	f	class:E2ENetwork	file:
+tarjan	graph/GraphAlgorithms.java	/^public Map tarjan( Graph g ) {$/;"	m	class:GraphAlgorithms
+tarjanVisit	graph/GraphAlgorithms.java	/^private void tarjanVisit(int i) {$/;"	m	class:GraphAlgorithms	file:
+test	core/Network.java	/^public static void test() {$/;"	m	class:Network
+threads	rangesim/ProcessManager.java	/^private List<ProcessHandler> threads;$/;"	f	class:ProcessManager	file:
+tid	transport/E2ETransport.java	/^private static int tid;$/;"	f	class:E2ETransport	file:
+time	core/CommonState.java	/^private static long time = 0;$/;"	f	class:CommonState	file:
+time	edsim/PriorityQ.java	/^	public long time;$/;"	f	class:PriorityQ.Event
+time	reports/GraphObserver.java	/^private static long time = -1234;$/;"	f	class:GraphObserver	file:
+times	edsim/Heap.java	/^private long[] times;$/;"	f	class:Heap	file:
+toArithmeticExpression	util/IncrementalFreq.java	/^public String toArithmeticExpression() {$/;"	m	class:IncrementalFreq
+toString	config/Operators.java	/^	public String toString() { return ""; }$/;"	m	class:Operators
+toString	core/GeneralNode.java	/^public String toString() $/;"	m	class:GeneralNode
+toString	core/IdleProtocol.java	/^public String toString()$/;"	m	class:IdleProtocol
+toString	core/OracleIdleProtocol.java	/^public String toString() {$/;"	m	class:OracleIdleProtocol
+toString	edsim/Heap.java	/^public String toString()$/;"	m	class:Heap
+toString	edsim/PriorityQ.java	/^	public String toString() {$/;"	m	class:PriorityQ.Event
+toString	util/IncrementalFreq.java	/^public String toString() {$/;"	m	class:IncrementalFreq
+toString	util/IncrementalStats.java	/^public String toString() {$/;"	m	class:IncrementalStats
+toString	util/MomentStats.java	/^    public String toString() {$/;"	m	class:MomentStats
+toString	vector/SingleValueHolder.java	/^public String toString() { return ""+value; }$/;"	m	class:SingleValueHolder
+toString	vector/TestVectors.java	/^public String toString() { return value+" "+fvalue+" "+ivalue+" "+lvalue; }$/;"	m	class:TestVectors
+toshift	core/CommonState.java	/^private static int toshift = -1;$/;"	f	class:CommonState	file:
+trace	reports/DegreeStats.java	/^private final boolean trace;$/;"	f	class:DegreeStats	file:
+traced	reports/DegreeStats.java	/^private Node[] traced = null;$/;"	f	class:DegreeStats	file:
+transport	transport/UnreliableTransport.java	/^private final int transport;$/;"	f	class:UnreliableTransport	file:
+transports	config/FastConfig.java	/^protected static final int[] transports;$/;"	f	class:FastConfig
+triangle	graph/FastUndirGraph.java	/^private BitSet[] triangle;$/;"	f	class:FastUndirGraph	file:
+type	reports/ConnectivityObserver.java	/^private final String type;$/;"	f	class:ConnectivityObserver	file:
+type	reports/DegreeStats.java	/^private final String type;$/;"	f	class:DegreeStats	file:
+type	vector/Getter.java	/^private Class type;$/;"	f	class:Getter	file:
+type	vector/Setter.java	/^private Class type;$/;"	f	class:Setter	file:
+undir	dynamics/WireGraph.java	/^public final boolean undir;$/;"	f	class:WireGraph
+undir	reports/GraphObserver.java	/^protected final boolean undir;$/;"	f	class:GraphObserver
+undirg	reports/GraphObserver.java	/^private static Graph undirg;$/;"	f	class:GraphObserver	file:
+until	core/Scheduler.java	/^public final long until;$/;"	f	class:Scheduler
+updateGraph	reports/GraphObserver.java	/^protected void updateGraph() {$/;"	m	class:GraphObserver
+usage	rangesim/RangeSimulator.java	/^private static void usage()$/;"	m	class:RangeSimulator	file:
+value	vector/PeakDistribution.java	/^private final Number value;$/;"	f	class:PeakDistribution	file:
+value	vector/SingleValueHolder.java	/^protected double value;$/;"	f	class:SingleValueHolder
+valueOf	config/Operators.java	/^	public Number valueOf(String str) {$/;"	m	class:Operators
+values	rangesim/RangeSimulator.java	/^private String[][] values;$/;"	f	class:RangeSimulator	file:
+visitedDirs	config/ClassFinder.java	/^private static int visitedDirs = 0;$/;"	f	class:ClassFinder	file:
+w	util/WeightedRandPerm.java	/^private final double[] w;$/;"	f	class:WeightedRandPerm	file:
+weaklyConnectedClusters	graph/GraphAlgorithms.java	/^public Map weaklyConnectedClusters( Graph g ) {$/;"	m	class:GraphAlgorithms
+weights	util/WeightedRandPerm.java	/^private double[] weights = null;$/;"	f	class:WeightedRandPerm	file:
+wire	dynamics/WireByMethod.java	/^public void wire(Graph g) {$/;"	m	class:WireByMethod
+wire	dynamics/WireFromFile.java	/^public void wire(Graph g) {$/;"	m	class:WireFromFile
+wire	dynamics/WireGraph.java	/^public abstract void wire(Graph g);$/;"	m	class:WireGraph
+wire	dynamics/WireKOut.java	/^public void wire(Graph g) {$/;"	m	class:WireKOut
+wire	dynamics/WireRegRootedTree.java	/^public void wire(Graph g) {$/;"	m	class:WireRegRootedTree
+wire	dynamics/WireRingLattice.java	/^public void wire(Graph g)$/;"	m	class:WireRingLattice
+wire	dynamics/WireScaleFreeBA.java	/^public void wire(Graph g) {$/;"	m	class:WireScaleFreeBA
+wire	dynamics/WireScaleFreeDM.java	/^public void wire(Graph g) {$/;"	m	class:WireScaleFreeDM
+wire	dynamics/WireStar.java	/^public void wire(Graph g) {$/;"	m	class:WireStar
+wire	dynamics/WireWS.java	/^public void wire(Graph g) {$/;"	m	class:WireWS
+wireDirected	core/OverlayGraph.java	/^public final boolean wireDirected;$/;"	f	class:OverlayGraph
+wireHypercube	graph/GraphFactory.java	/^public static Graph wireHypercube( Graph g ) {$/;"	m	class:GraphFactory
+wireKOut	graph/GraphFactory.java	/^public static Graph wireKOut( Graph g, int k, Random r ) {$/;"	m	class:GraphFactory
+wireRegRootedTree	graph/GraphFactory.java	/^public static Graph wireRegRootedTree( Graph g, int k ) {$/;"	m	class:GraphFactory
+wireRingLattice	graph/GraphFactory.java	/^public static Graph wireRingLattice(Graph g, int k) {$/;"	m	class:GraphFactory
+wireScaleFreeBA	graph/GraphFactory.java	/^public static Graph wireScaleFreeBA( Graph g, int k, Random r ) {$/;"	m	class:GraphFactory
+wireStar	graph/GraphFactory.java	/^public static Graph wireStar( Graph g ) {$/;"	m	class:GraphFactory
+wireWS	graph/GraphFactory.java	/^public static Graph wireWS( Graph g, int k, double p, Random r ) {$/;"	m	class:GraphFactory
+wordLetterPairs	config/ConfigContainer.java	/^private ArrayList<String> wordLetterPairs(String str)$/;"	m	class:ConfigContainer	file:
+write	config/NullPrintStream.java	/^public synchronized void write(byte[] b, int off, int len)$/;"	m	class:NullPrintStream
+write	config/NullPrintStream.java	/^public synchronized void write(int b)$/;"	m	class:NullPrintStream
+write	rangesim/TaggedOutputStream.java	/^public synchronized void write(byte[] b, int off, int len)$/;"	m	class:TaggedOutputStream
+write	rangesim/TaggedOutputStream.java	/^public synchronized void write(int b)$/;"	m	class:TaggedOutputStream
+writeChaco	graph/GraphIO.java	/^public static void writeChaco( Graph g, PrintStream out ) {$/;"	m	class:GraphIO
+writeDOT	graph/GraphIO.java	/^public static void writeDOT( Graph g, PrintStream out ) {$/;"	m	class:GraphIO
+writeEdgeList	graph/GraphIO.java	/^public static void writeEdgeList( Graph g, PrintStream out ) {$/;"	m	class:GraphIO
+writeGML	graph/GraphIO.java	/^public static void writeGML( Graph g, PrintStream out ) {$/;"	m	class:GraphIO
+writeNeighborList	graph/GraphIO.java	/^public static void writeNeighborList( Graph g, PrintStream out ) {$/;"	m	class:GraphIO
+writeNetmeter	graph/GraphIO.java	/^public static void writeNetmeter( Graph g, PrintStream out ) {$/;"	m	class:GraphIO
+writeUCINET_DL	graph/GraphIO.java	/^public static void writeUCINET_DL( Graph g, PrintStream out ) {$/;"	m	class:GraphIO
+writeUCINET_DLMatrix	graph/GraphIO.java	/^public static void writeUCINET_DLMatrix( Graph g, PrintStream out ) {$/;"	m	class:GraphIO
+wsum	util/WeightedRandPerm.java	/^private final double[] wsum;$/;"	f	class:WeightedRandPerm	file:

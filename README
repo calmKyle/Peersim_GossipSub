@@ -1,0 +1,26 @@
+---------------------------------
+Kademlia for the Peersim Simulator
+---------------------------------
+
+An example example.cfg configuration file can be found in the  main directory.
+
+---------------------------------
+Makefile
+---------------------------------
+
+To compile the sources, invoke:
+
+  make
+
+To compile the API documentation, invoke:
+
+  make doc
+
+To run the code, invoke:
+
+  make run
+
+To run all the previous command in this order, invoke:
+
+  make all
+
