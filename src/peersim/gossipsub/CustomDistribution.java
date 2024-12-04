@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.gossipsub;
 
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
@@ -25,15 +25,20 @@ public class CustomDistribution implements peersim.core.Control {
     private int gossipProtocolID;
     private UniformRandomGenerator urg;
     private static final Random random = new Random();
-    public Node blockProposerNode;
+    public static Node blockProposerNode;
+
+    public String prefix;
 
     public static Map<BigInteger, Node> networkNodes = new HashMap<>();// <nodeID,Node> Map containing all the nodes of the network
 
     public static Map<String, Topic> topics = new HashMap<>(NUMBER_OF_TOPICS); // <TopicId,Topic>
 
-    public CustomDistribution(String prefix) {
+    public CustomDistribution(String prefix) 
+    {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
         urg = new UniformRandomGenerator(160, CommonState.r);
+
+        this.prefix = prefix;
     }
 
     /**
@@ -43,54 +48,66 @@ public class CustomDistribution implements peersim.core.Control {
      *
      * @return boolean always false
      */
-    public boolean execute() {
+    public boolean execute() 
+    {
         BigInteger tmp;
         for (int i = 0; i < Network.size(); ++i) 
         {
-            tmp = urg.generate();
+            tmp = urg.generate(); //Createing a random BigInteger Id for the node
+
             Node n = Network.get(i);
-            ((GossipSubProtocol) (n.getProtocol(gossipProtocolID))).setNodeId(tmp);
-            networkNodes.put(tmp, n);
-            if (i == 0) {
+
+            ((GossipSubProtocol) (n.getProtocol(gossipProtocolID))).setNodeId(tmp); // Setting the nodeId for the node in gossipsub protocol
+
+            networkNodes.put(tmp, n); //Adding the node and its nodeId to the static list of nodes in the network
+
+            if (i == 0) // Setting the first node in the network as the block producer
+            {
                 blockProposerNode = n;
-//                System.out.println("***Block proposer ID is:***" + ((GossipSubProtocol) (n.getProtocol(gossipProtocolID))).getNodeId());
+                // System.out.println("***Block proposer ID is:***" + ((GossipSubProtocol)
+                // (n.getProtocol(gossipProtocolID))).getNodeId());
             }
             // System.out.println("---Node ID is:---" + ((GossipSubProtocol)(n.getProtocol(gossipProtocolID))).getNodeId() +" "+ i+ "\n");
         }
-        try {
+        try 
+        {
             initialiseTopics();
-        } catch (NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException e) 
+        {
             // throw new RuntimeException(e);
         }
         return false;
     }
 
-    public Map<BigInteger, Node> getNetworkNodes()
+    public Map<BigInteger, Node> getNetworkNodes() 
     {
         return networkNodes;
     }
 
-    private void initialiseTopics() throws NoSuchAlgorithmException {
-
+    private void initialiseTopics() throws NoSuchAlgorithmException 
+    {
+        System.out.println("Initial topic setup for the block proposer in customDistribution class");
         // Initialising the topics with the name/ID
         Topic t = null;
-        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (Network.get(0).getProtocol(gossipProtocolID)); //Getting the gossipsub instance of the block proposer
+        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (Network.get(0).getProtocol(gossipProtocolID)); // Getting the gossipsub instance of the block proposer
 
-        for (int i = 1; i <= NUMBER_OF_TOPICS; i++)
+        for (int i = 1; i <= NUMBER_OF_TOPICS; i++) // Initialising the all the topics in the network
         {
             t = new Topic("Topic-" + i);
             topics.put("Topic-" + i, t);
-            iGossipBlockProposer.subscribeTopic(t); // Subcribing the block proposer to all the topics
+            // iGossipBlockProposer.subscribeTopic(t); // Subcribing the block proposer to all the topics. (NOTE: THIS LOGIC IS REMOVED AS IT IS SENDING THE MES DIRECTLY TO THE INDIVUAL NODE)
         }
 
         // List of all nodes in the network
         List<Node> allNodes = new ArrayList<>(networkNodes.values());
 
-        RowColumnDistributor r = new RowColumnDistributor(512, 512);  //This class is used to initialize rows/cols to nodes. Currently, it doesn't give unique rows/cols to nodes
+        RowColumnDistributor r = new RowColumnDistributor(512, 512); // This class is used to initialize rows/cols to nodes. Currently, it doesn't give unique rows/cols to nodes
         int epoch = 1;
         int slot = 6;
-        int idx = 1; //Counter to up to NUMBER_OF_VALIDATOR_NODES. Assuming the first NUMBER_OF_VALIDATOR_NODES(1024) nodes in the network at validator nodes
-        for (Node node : allNodes) {
+        int idx = 1; // Counter to up to NUMBER_OF_VALIDATOR_NODES. Assuming the first NUMBER_OF_VALIDATOR_NODES(1024) nodes in the network at validator nodes
+        
+        for (Node node : allNodes) 
+        {
             if (node == blockProposerNode) // Skipping the node if its a block proposer
             {
                 continue;
@@ -98,88 +115,105 @@ public class CustomDistribution implements peersim.core.Control {
 
             if (idx > NUMBER_OF_VALIDATOR_NODES) // Assuming that the first 1024 nodes in the network will be the validator nodes that will receive the row/col from the block proposer
             {
-//                System.out.println(("idx " + idx));
+                // System.out.println(("idx " + idx));
                 break;
             }
             BigInteger nodeId = ((GossipSubProtocol) (node.getProtocol(gossipProtocolID))).getNodeId();
 
             int alc = r.fNode(nodeId, epoch, slot); // Getting the row or col number to be allocated to the node
 
-//            System.out.println("Allocation for nodeID: " + nodeId + " " + alc);
+            // System.out.println("Allocation for nodeID: " + nodeId + " " + alc);
             GossipSubProtocol iGossip = (GossipSubProtocol) (node.getProtocol(gossipProtocolID)); // Get the protocol instance of the node
 
-            if (alc < r.numberOfRows) { // Node will hold a row
+            if (alc < r.numberOfRows) // Node will hold a row
+            { 
+                int topicNumber = (alc / 8) + 1; // Calculation to find which topic will this row belong to
 
-                int topicNumber = (alc / 8) + 1; //Calculation to find which topic will this row belong to
-                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber));
-                t.addMember(node);
+                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
+                // System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
+                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
 
-            } else { // Node will hold a column
-                int topicNumber = ((alc - r.numberOfRows) / 8) + 1; //Calculation to find which topic will this column belong to
-                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber));
-                t.addMember(node);
+            } 
+            else // Node will hold a column
+            { 
+                int topicNumber = ((alc - r.numberOfRows) / 8) + 1; // Calculation to find which topic will this column belong to
+                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
+
+                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
+                // System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
             }
             idx++;
         }
-        blockProducer();
+        System.out.println("Intial topic setup is compleeted hurry!!!!");
+        TopicBasedMesh tbm = new TopicBasedMesh(this.prefix); // To set the mesh in each topic
+        tbm.createTopicMesh();
+
+        // blockProducer();
     }
 
-    private void blockProducer() {
-        int rowNumber = 0;
-        int columnNumber = 0;
-
-        Block b = new Block(512, 512); //Creating a block
-
-        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (blockProposerNode.getProtocol(gossipProtocolID)); // Get the protocol instance of the block proposer
-//        System.out.println("Block propsoser id is ------:" + iGossipBlockProposer.getNodeId());
-
-        for (Map.Entry<String, Topic> topicEntry : topics.entrySet()) //Looping over all the topics
-        {
-            int cnt = 0;
-            for (Node n : topicEntry.getValue().topicMembers)  // Looping over all the nodes in a given topic
-            {
-
-                if (cnt < 8) // Allocating first 8 nodes in the topic with rows
-                {
-                    int[] rowToSend = b.getRowData(rowNumber); //row to be sent
-
-                    Message newMessage = new Message(3, rowToSend);
-                    newMessage.src = iGossipBlockProposer.getNodeId();
-                    BigInteger destID = ((GossipSubProtocol) n.getProtocol(gossipProtocolID)).getNodeId();
-                    newMessage.dest = destID;
-
-                    iGossipBlockProposer.sendMessage(newMessage, destID, gossipProtocolID); //Block proposer sending the row data to validator node
-                    rowNumber++;
-                    cnt++;
-                }
-                 else //Allocating the rest 8 nodes in the topic with columns
-                 {
-                     if(columnNumber==512) //added this as it causing indexoverflow error as there is a bug in row/col allocation
-                     {
-                         continue;
-                     }
-                 int[] colToSend = b.getColumnData(columnNumber);
-
-                 Message newMessage = new Message(3,colToSend);
-                 BigInteger destID = ((GossipSubProtocol)
-                 n.getProtocol(gossipProtocolID)).getNodeId();
-
-                 iGossipBlockProposer.sendMessage(newMessage,destID,gossipProtocolID);
-                 columnNumber++;
-                 cnt++;
-
-                 }
-            }
-        }
-    }
+    // private void blockProducer() {
+    // int rowNumber = 0;
+    // int columnNumber = 0;
+    //
+    // Block b = new Block(512, 512); //Creating a block
+    //
+    // GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol)
+    // (blockProposerNode.getProtocol(gossipProtocolID)); // Get the protocol
+    // instance of the block proposer
+    //// System.out.println("Block propsoser id is ------:" +
+    // iGossipBlockProposer.getNodeId());
+    //
+    // for (Map.Entry<String, Topic> topicEntry : topics.entrySet()) //Looping over
+    // all the topics
+    // {
+    // int cnt = 0;
+    // for (Node n : topicEntry.getValue().topicMembers) // Looping over all the
+    // nodes in a given topic
+    // {
+    //
+    // if (cnt < 8) // Allocating first 8 nodes in the topic with rows
+    // {
+    // int[] rowToSend = b.getRowData(rowNumber); //row to be sent
+    //
+    // Message newMessage = new Message(3, rowToSend);
+    // newMessage.src = iGossipBlockProposer.getNodeId();
+    // BigInteger destID = ((GossipSubProtocol)
+    // n.getProtocol(gossipProtocolID)).getNodeId();
+    // newMessage.dest = destID;
+    //
+    // iGossipBlockProposer.sendMessage(newMessage, destID, gossipProtocolID);
+    // //Block proposer sending the row data to validator node
+    // rowNumber++;
+    // cnt++;
+    // }
+    // else //Allocating the rest 8 nodes in the topic with columns
+    // {
+    // if(columnNumber==512) //added this as it causing indexoverflow error as there
+    // is a bug in row/col allocation
+    // {
+    // continue;
+    // }
+    // int[] colToSend = b.getColumnData(columnNumber);
+    //
+    // Message newMessage = new Message(3,colToSend);
+    // BigInteger destID = ((GossipSubProtocol)
+    // n.getProtocol(gossipProtocolID)).getNodeId();
+    //
+    // iGossipBlockProposer.sendMessage(newMessage,destID,gossipProtocolID);
+    // columnNumber++;
+    // cnt++;
+    //
+    // }
+    // }
+    // }
+    // }
 }
 
+// Explanation
+// Each topic will contain 8 rows and 8 cols and will have 16 nodes.
+// Each node will hold either a row or col.
+// So rows 0 to 7 and col 0 to 7 will be held by topic 1 and so on
 
-//Explanation
-//Each topic will contain 8 rows and 8 cols and will have 16 nodes.
-//Each node will hold either a row or col.
-//So rows 0 to 7 and col 0 to 7 will be held by topic 1 and so on
-
-//Bug
-//Currently each topic doesn't have 8 cols and 8 rows(may have more or less) to the hash function in RowColumnDistributor class.
-
+// Bug
+// Currently each topic doesn't have 8 cols and 8 rows(may have more or less) to
+// the hash function in RowColumnDistributor class.

@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.gossipsub;
 
 public class Block {
     public static int block_id_counter = 0;

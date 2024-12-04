@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.gossipsub;
 //*************************Same Class as Kademlia******
 import peersim.core.CommonState;
 
@@ -8,8 +8,8 @@ import peersim.core.CommonState;
  * @author Daniele Furlan, Maurizio Bonani
  * @version 1.0
  */
-public class SimpleEvent {
-
+public class SimpleEvent 
+{
     /**
      * The identifier of the type of the event.
      */

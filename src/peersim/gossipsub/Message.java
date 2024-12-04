@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.gossipsub;
 
 import java.lang.reflect.Type;
 import java.math.BigInteger;
@@ -43,6 +43,8 @@ public class Message extends SimpleEvent {
 
     //Responcse to IWANT
     public static final int MSG_DATA = 3;
+
+    public static final int MSG_BLOCK_PROPOSER = 4;
 
 
     // ______________________________________________________________________________________________
@@ -130,11 +132,12 @@ public class Message extends SimpleEvent {
 
     // ______________________________________________________________________________________________
     public Message copy() {
-        Message dolly = new Message();
+        Message dolly = new Message(this.id,this.type);
         dolly.type = this.type;
         dolly.src = this.src;
         dolly.dest = this.dest;
         dolly.body = this.body; // deep cloning?
+        dolly.messageTopicID = this.messageTopicID;
 
         return dolly;
     }
@@ -150,6 +153,8 @@ public class Message extends SimpleEvent {
                 return "MSG_IWANT";
             case MSG_DATA:
                 return "MSG_RESPONSE";
+            case MSG_BLOCK_PROPOSER:
+                return "MSG_BLOCK_PROPOSER";
             default:
                 return "UNKNOW:" + type;
         }

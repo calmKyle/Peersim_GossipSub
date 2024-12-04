@@ -1,4 +1,4 @@
-//package peersim.GossipSub;
+//package peersim.gossipsub;
 //
 //import java.util.Comparator;
 //

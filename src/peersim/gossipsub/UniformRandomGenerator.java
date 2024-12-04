@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.gossipsub;
 //*************************Same Class as Kademlia******
 import java.math.BigInteger;
 import java.util.Random;
@@ -41,6 +41,7 @@ public final class UniformRandomGenerator {
 
     // ______________________________________________________________________________________________
     /**
+     * initialized this random generator with the specified random seeder and the number of desider bits to generate
      * initialized this random generator with the specified random seeder and the number of desider bits to generate
      *
      * @param aBits

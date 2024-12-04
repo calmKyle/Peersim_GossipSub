@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.gossipsub;
 //*************************Same Class as Kademlia******
 import peersim.config.Configuration;
 import peersim.core.CommonState;
@@ -35,10 +35,10 @@ public class GossipSubObserver implements Control{
          */
         public static IncrementalStats msg_deliv = new IncrementalStats();
 
-        /**
-         * keep statistic of number of find operation
-         */
-        public static IncrementalStats find_op = new IncrementalStats();
+//        /**
+//         * keep statistic of number of find operation
+//         */
+//        public static IncrementalStats find_op = new IncrementalStats();
 
         /** Parameter of the protocol we want to observe */
         private static final String PAR_PROT = "protocol";

@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.gossipsub;
 //*************************Same Class as Kademlia******
 import java.math.BigInteger;
 

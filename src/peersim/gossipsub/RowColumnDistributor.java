@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.gossipsub;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;
