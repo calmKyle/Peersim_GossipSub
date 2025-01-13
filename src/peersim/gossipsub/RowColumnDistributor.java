@@ -1,4 +1,6 @@
 package peersim.gossipsub;
+// This class is not in use currently because it was not evenly distributing the rows and cols to the topics
+// You could use DHT or a better hash function to distribute the rows and cols evenly. but have justed skipped that over here
 
 import java.math.BigInteger;
 import java.security.MessageDigest;

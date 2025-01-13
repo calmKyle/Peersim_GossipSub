@@ -96,4 +96,25 @@ public class GossipSubObserver implements Control{
         }
     }
 
+//TO DOs
+// Make these configurable
+//1. Number of copies of each row/col that are distributed by the block producer ===LEFT
+//2. Number of topics ===
+//3. Number of rows
+//4. Number of columns
+//5. Matrix size
+//6. If whole/complete row/col to be sent to individual node or not
+//7. Number of validators
+//8. maximumBandwidth
+//9. currentBandwidth
+
+
+
+//1. RTT(Round trip time)
+//2. Latency(Time it took to recieve the data/sample after the request message was sent)
+//3. Number of Retransmissions
+//4. Bandwidth
+//5. Number of packet/sample loss
+//6. Time it takes distribute the rows/cols and the time it takes for sampling
+//7. Number of messages delivered(show stats for: type of message, number of hops)
 

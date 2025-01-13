@@ -101,11 +101,11 @@ public class CustomDistribution implements peersim.core.Control {
         // List of all nodes in the network
         List<Node> allNodes = new ArrayList<>(networkNodes.values());
 
-        RowColumnDistributor r = new RowColumnDistributor(512, 512); // This class is used to initialize rows/cols to nodes. Currently, it doesn't give unique rows/cols to nodes
-        int epoch = 1;
-        int slot = 6;
-        int idx = 1; // Counter to up to NUMBER_OF_VALIDATOR_NODES. Assuming the first NUMBER_OF_VALIDATOR_NODES(1024) nodes in the network at validator nodes
-        
+//        RowColumnDistributor r = new RowColumnDistributor(512, 512); // This class is used to initialize rows/cols to nodes. Currently, it doesn't give unique rows/cols to nodes
+//        int epoch = 1;
+//        int slot = 6;
+        int idx = 0; // Counter to up to NUMBER_OF_VALIDATOR_NODES. Assuming the first NUMBER_OF_VALIDATOR_NODES(1024) nodes in the network at validator nodes
+        int topicNumber = 0;
         for (Node node : allNodes) 
         {
             if (node == blockProposerNode) // Skipping the node if its a block proposer
@@ -113,36 +113,52 @@ public class CustomDistribution implements peersim.core.Control {
                 continue;
             }
 
-            if (idx > NUMBER_OF_VALIDATOR_NODES) // Assuming that the first 1024 nodes in the network will be the validator nodes that will receive the row/col from the block proposer
+            if (idx >= NUMBER_OF_VALIDATOR_NODES) // Assuming that the first 1024 nodes in the network will be the validator nodes that will receive the row/col from the block proposer
             {
                 // System.out.println(("idx " + idx));
                 break;
             }
             BigInteger nodeId = ((GossipSubProtocol) (node.getProtocol(gossipProtocolID))).getNodeId();
 
-            int alc = r.fNode(nodeId, epoch, slot); // Getting the row or col number to be allocated to the node
-
             // System.out.println("Allocation for nodeID: " + nodeId + " " + alc);
             GossipSubProtocol iGossip = (GossipSubProtocol) (node.getProtocol(gossipProtocolID)); // Get the protocol instance of the node
 
-            if (alc < r.numberOfRows) // Node will hold a row
-            { 
-                int topicNumber = (alc / 8) + 1; // Calculation to find which topic will this row belong to
-
-                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
-                // System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
-                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
-
-            } 
-            else // Node will hold a column
-            { 
-                int topicNumber = ((alc - r.numberOfRows) / 8) + 1; // Calculation to find which topic will this column belong to
-                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
-
-                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
-                // System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
+            if(idx%16==0) // Increase the topic Number after every 8 rows and 8 cols
+            {
+//                System.out.println("HI "+idx+" ");
+                topicNumber++;
+//                System.out.println(topicNumber);
             }
+
+            iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
+//           System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
+            topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
+
             idx++;
+
+            // Removed/Commented this part out as this was not evenly distributing the rows and cols.
+            // Each topic didn't have 8 cols and 8 rows(may have more or less) due to
+            // the hash function in RowColumnDistributor class.
+//            int alc = r.fNode(nodeId, epoch, slot); // Getting the row or col number to be allocated to the node
+//
+//            if (alc < r.numberOfRows) // Node will hold a row
+//            {
+//                int topicNumber = (alc / 8) + 1; // Calculation to find which topic will this row belong to
+//
+//                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
+//                // System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
+//                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
+//
+//            }
+//            else // Node will hold a column
+//            {
+//                int topicNumber = ((alc - r.numberOfRows) / 8) + 1; // Calculation to find which topic will this column belong to
+//                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
+//
+//                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
+//                // System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
+//            }
+
         }
         System.out.println("Intial topic setup is compleeted hurry!!!!");
         TopicBasedMesh tbm = new TopicBasedMesh(this.prefix); // To set the mesh in each topic

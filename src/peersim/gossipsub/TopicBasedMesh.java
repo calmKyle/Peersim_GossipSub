@@ -2,11 +2,7 @@ package peersim.gossipsub;
 
 import peersim.config.Configuration;
 import peersim.core.Node;
-import peersim.dynamics.WireGraph;
-import peersim.dynamics.WireWS;
 import peersim.graph.BitMatrixGraph;
-import peersim.graph.ConstUndirGraph;
-import peersim.graph.Graph;
 
 import java.math.BigInteger;
 import java.util.HashMap;

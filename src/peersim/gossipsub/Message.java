@@ -46,6 +46,12 @@ public class Message extends SimpleEvent {
 
     public static final int MSG_BLOCK_PROPOSER = 4;
 
+    public static final int MSG_SAMPLE_DATA_REQUEST = 5;
+
+    public static final int MSG_SAMPLE_DATA_RESPONSE = 6;
+
+    public static final int MSG_START_SAMPLING = 7;
+
 
     // ______________________________________________________________________________________________
     /**
@@ -80,13 +86,16 @@ public class Message extends SimpleEvent {
 
     protected String messageTopicID;
 
+    protected boolean isRow;
+
+    protected int rowOrColumnNumber;
     // ______________________________________________________________________________________________
     /**
      * Creates an empty message by using default values (message type = MSG_LOOKUP and <code>new String("")</code> value for the
      * body of the message)
      */
     public Message() {
-        this(MSG_EMPTY, "");
+        this(MSG_EMPTY, "",false,-1);
     }
 
     /**
@@ -95,15 +104,17 @@ public class Message extends SimpleEvent {
      * @param messageType
      *            int type of the message
      */
-    public Message(int messageType) {
-        this(messageType, "");
+    public Message(int messageType,boolean isRow, int RoworColNum) {
+        this(messageType, "",isRow,RoworColNum);
     }
 
     //Used to create the metadata messages
-    public Message(long id, int messageType) {
+    public Message(long id, int messageType,boolean isRow,int rowOrColumnNumber) {
         super(messageType);
         this.id = id;  // Set the id manually
         this.body = "";
+        this.isRow = isRow;
+        this.rowOrColumnNumber = rowOrColumnNumber;
 //        this.type = messageType;
 
     }
@@ -116,10 +127,12 @@ public class Message extends SimpleEvent {
      * @param body
      *            Object body to assign (shallow copy)
      */
-    public Message(int messageType, Object body) {
+    public Message(int messageType, Object body,boolean isRow,int rowOrColumnNumber) {
         super(messageType);
         this.id = (ID_GENERATOR++);
         this.body = body;
+        this.isRow = isRow;
+        this.rowOrColumnNumber = rowOrColumnNumber;
     }
 
 
@@ -132,12 +145,14 @@ public class Message extends SimpleEvent {
 
     // ______________________________________________________________________________________________
     public Message copy() {
-        Message dolly = new Message(this.id,this.type);
+        Message dolly = new Message(this.id,this.type,this.isRow,this.rowOrColumnNumber);
         dolly.type = this.type;
         dolly.src = this.src;
         dolly.dest = this.dest;
         dolly.body = this.body; // deep cloning?
         dolly.messageTopicID = this.messageTopicID;
+//        dolly.isRow = this.isRow;
+//        dolly.rowOrColumnNumber =this.rowOrColumnNumber;
 
         return dolly;
     }
@@ -155,6 +170,12 @@ public class Message extends SimpleEvent {
                 return "MSG_RESPONSE";
             case MSG_BLOCK_PROPOSER:
                 return "MSG_BLOCK_PROPOSER";
+            case MSG_SAMPLE_DATA_REQUEST:
+                return "MSG_SAMPLE_DATA_REQUEST";
+            case MSG_SAMPLE_DATA_RESPONSE:
+                return "MSG_SAMPLE_DATA_RESPONSE";
+            case MSG_START_SAMPLING:
+                return "MSG_START_SAMPLING";
             default:
                 return "UNKNOW:" + type;
         }
