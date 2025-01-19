@@ -53,14 +53,14 @@ public class TrafficGenerator implements Control {
         return m;
     }
 
-    private Message startSamplingMessage(Node n)
-    {
-        Message m = new Message(7,"start sampling",false,-1);
-        m.timestamp = CommonState.getTime();
-
-        m.dest = ((GossipSubProtocol) (n.getProtocol(pid))).nodeId;
-        return m;
-    }
+//    private Message startSamplingMessage(Node n)
+//    {
+//        Message m = new Message(7,"start sampling",false,-1);
+//        m.timestamp = CommonState.getTime();
+//
+//        m.dest = ((GossipSubProtocol) (n.getProtocol(pid))).nodeId;
+//        return m;
+//    }
 
     // ______________________________________________________________________________________________
     /**
@@ -74,15 +74,15 @@ public class TrafficGenerator implements Control {
         // send message
         EDSimulator.add(0, startBlockProducerMessage(), CustomDistribution.blockProposerNode, pid);
 
-        for (Node nd : CustomDistribution.networkNodes.values()) // Looping over all the topics
-        {
-            if(nd==CustomDistribution.blockProposerNode)
-            {
-                continue;
-            }
-            EDSimulator.add(2, startSamplingMessage(nd), nd, pid);
-            break;
-        }
+//        for (Node nd : CustomDistribution.networkNodes.values()) // Looping over all the topics
+//        {
+//            if(nd==CustomDistribution.blockProposerNode)
+//            {
+//                continue;
+//            }
+//            EDSimulator.add(2, startSamplingMessage(nd), nd, pid); // What is the unit of delay-------------------
+//            break;
+//        }
 
         return false;
     }

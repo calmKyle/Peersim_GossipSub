@@ -20,8 +20,9 @@ import peersim.core.Node;
 public class CustomDistribution implements peersim.core.Control {
 
     private static final String PAR_PROT = "protocol";
-    private static final int NUMBER_OF_TOPICS = 64; // Each Topic containing total 8 rows & cols where each row/column is held by one validator node
-    private static final int NUMBER_OF_VALIDATOR_NODES = 1024; // How many validator nodes are there per slot.
+    private static final int NUMBER_OF_TOPICS = Configuration.getInt("NUMBER_OF_TOPICS", 64); // Each Topic containing total 8 rows & cols where each row/column is held by one validator node
+    private static final int NUMBER_OF_VALIDATOR_NODES = Configuration.getInt("NUMBER_OF_VALIDATORS", 1024); // How many validator nodes are there per slot.
+    private static final int NUMBER_OF_ROWSCOLS_IN_A_TOPIC = Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC");; // Number of rows and columns a topic will hold
     private int gossipProtocolID;
     private UniformRandomGenerator urg;
     private static final Random random = new Random();
@@ -31,10 +32,9 @@ public class CustomDistribution implements peersim.core.Control {
 
     public static Map<BigInteger, Node> networkNodes = new HashMap<>();// <nodeID,Node> Map containing all the nodes of the network
 
-    public static Map<String, Topic> topics = new HashMap<>(NUMBER_OF_TOPICS); // <TopicId,Topic>
+    public static Map<String, Topic> topics = new LinkedHashMap<>(NUMBER_OF_TOPICS); // <TopicId,Topic>
 
-    public CustomDistribution(String prefix) 
-    {
+    public CustomDistribution(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
         urg = new UniformRandomGenerator(160, CommonState.r);
 
@@ -48,11 +48,9 @@ public class CustomDistribution implements peersim.core.Control {
      *
      * @return boolean always false
      */
-    public boolean execute() 
-    {
+    public boolean execute() {
         BigInteger tmp;
-        for (int i = 0; i < Network.size(); ++i) 
-        {
+        for (int i = 0; i < Network.size(); ++i) {
             tmp = urg.generate(); //Createing a random BigInteger Id for the node
 
             Node n = Network.get(i);
@@ -69,23 +67,19 @@ public class CustomDistribution implements peersim.core.Control {
             }
             // System.out.println("---Node ID is:---" + ((GossipSubProtocol)(n.getProtocol(gossipProtocolID))).getNodeId() +" "+ i+ "\n");
         }
-        try 
-        {
+        try {
             initialiseTopics();
-        } catch (NoSuchAlgorithmException e) 
-        {
+        } catch (NoSuchAlgorithmException e) {
             // throw new RuntimeException(e);
         }
         return false;
     }
 
-    public Map<BigInteger, Node> getNetworkNodes() 
-    {
+    public Map<BigInteger, Node> getNetworkNodes() {
         return networkNodes;
     }
 
-    private void initialiseTopics() throws NoSuchAlgorithmException 
-    {
+    private void initialiseTopics() throws NoSuchAlgorithmException {
         System.out.println("Initial topic setup for the block proposer in customDistribution class");
         // Initialising the topics with the name/ID
         Topic t = null;
@@ -106,8 +100,7 @@ public class CustomDistribution implements peersim.core.Control {
 //        int slot = 6;
         int idx = 0; // Counter to up to NUMBER_OF_VALIDATOR_NODES. Assuming the first NUMBER_OF_VALIDATOR_NODES(1024) nodes in the network at validator nodes
         int topicNumber = 0;
-        for (Node node : allNodes) 
-        {
+        for (Node node : allNodes) {
             if (node == blockProposerNode) // Skipping the node if its a block proposer
             {
                 continue;
@@ -123,7 +116,7 @@ public class CustomDistribution implements peersim.core.Control {
             // System.out.println("Allocation for nodeID: " + nodeId + " " + alc);
             GossipSubProtocol iGossip = (GossipSubProtocol) (node.getProtocol(gossipProtocolID)); // Get the protocol instance of the node
 
-            if(idx%16==0) // Increase the topic Number after every 8 rows and 8 cols
+            if (idx % NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 0) // Increase the topic Number after every 8 rows and 8 cols (if NUMBER_OF_ROWSCOLS_IN_A_TOPIC=16)
             {
 //                System.out.println("HI "+idx+" ");
                 topicNumber++;
@@ -164,65 +157,7 @@ public class CustomDistribution implements peersim.core.Control {
         TopicBasedMesh tbm = new TopicBasedMesh(this.prefix); // To set the mesh in each topic
         tbm.createTopicMesh();
 
-        // blockProducer();
     }
-
-    // private void blockProducer() {
-    // int rowNumber = 0;
-    // int columnNumber = 0;
-    //
-    // Block b = new Block(512, 512); //Creating a block
-    //
-    // GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol)
-    // (blockProposerNode.getProtocol(gossipProtocolID)); // Get the protocol
-    // instance of the block proposer
-    //// System.out.println("Block propsoser id is ------:" +
-    // iGossipBlockProposer.getNodeId());
-    //
-    // for (Map.Entry<String, Topic> topicEntry : topics.entrySet()) //Looping over
-    // all the topics
-    // {
-    // int cnt = 0;
-    // for (Node n : topicEntry.getValue().topicMembers) // Looping over all the
-    // nodes in a given topic
-    // {
-    //
-    // if (cnt < 8) // Allocating first 8 nodes in the topic with rows
-    // {
-    // int[] rowToSend = b.getRowData(rowNumber); //row to be sent
-    //
-    // Message newMessage = new Message(3, rowToSend);
-    // newMessage.src = iGossipBlockProposer.getNodeId();
-    // BigInteger destID = ((GossipSubProtocol)
-    // n.getProtocol(gossipProtocolID)).getNodeId();
-    // newMessage.dest = destID;
-    //
-    // iGossipBlockProposer.sendMessage(newMessage, destID, gossipProtocolID);
-    // //Block proposer sending the row data to validator node
-    // rowNumber++;
-    // cnt++;
-    // }
-    // else //Allocating the rest 8 nodes in the topic with columns
-    // {
-    // if(columnNumber==512) //added this as it causing indexoverflow error as there
-    // is a bug in row/col allocation
-    // {
-    // continue;
-    // }
-    // int[] colToSend = b.getColumnData(columnNumber);
-    //
-    // Message newMessage = new Message(3,colToSend);
-    // BigInteger destID = ((GossipSubProtocol)
-    // n.getProtocol(gossipProtocolID)).getNodeId();
-    //
-    // iGossipBlockProposer.sendMessage(newMessage,destID,gossipProtocolID);
-    // columnNumber++;
-    // cnt++;
-    //
-    // }
-    // }
-    // }
-    // }
 }
 
 // Explanation

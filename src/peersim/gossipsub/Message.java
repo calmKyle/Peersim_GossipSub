@@ -51,6 +51,8 @@ public class Message extends SimpleEvent {
     public static final int MSG_SAMPLE_DATA_RESPONSE = 6;
 
     public static final int MSG_START_SAMPLING = 7;
+//
+//    public static final int MSG_RESET_BANDWIDTH = 8;
 
 
     // ______________________________________________________________________________________________
@@ -79,16 +81,13 @@ public class Message extends SimpleEvent {
      */
     public BigInteger src;
 
-    /**
-     * Available to count the number of hops the message did.
-     */
-    protected int nrHops = 0;
-
     protected String messageTopicID;
 
     protected boolean isRow;
 
     protected int rowOrColumnNumber;
+
+    public long messageSendingTime; // It is the time stamp at which the message was sent
     // ______________________________________________________________________________________________
     /**
      * Creates an empty message by using default values (message type = MSG_LOOKUP and <code>new String("")</code> value for the
@@ -116,6 +115,7 @@ public class Message extends SimpleEvent {
         this.isRow = isRow;
         this.rowOrColumnNumber = rowOrColumnNumber;
 //        this.type = messageType;
+        this.messageSendingTime = 0;
 
     }
 
@@ -151,6 +151,7 @@ public class Message extends SimpleEvent {
         dolly.dest = this.dest;
         dolly.body = this.body; // deep cloning?
         dolly.messageTopicID = this.messageTopicID;
+        dolly.messageSendingTime = this.messageSendingTime;
 //        dolly.isRow = this.isRow;
 //        dolly.rowOrColumnNumber =this.rowOrColumnNumber;
 
@@ -174,8 +175,10 @@ public class Message extends SimpleEvent {
                 return "MSG_SAMPLE_DATA_REQUEST";
             case MSG_SAMPLE_DATA_RESPONSE:
                 return "MSG_SAMPLE_DATA_RESPONSE";
-            case MSG_START_SAMPLING:
-                return "MSG_START_SAMPLING";
+//            case MSG_START_SAMPLING:
+//                return "MSG_START_SAMPLING";
+//            case MSG_RESET_BANDWIDTH:
+//                return "MSG_RESET_BANDWIDTH";
             default:
                 return "UNKNOW:" + type;
         }

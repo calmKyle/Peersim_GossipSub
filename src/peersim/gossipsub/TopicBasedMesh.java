@@ -27,7 +27,7 @@ public class TopicBasedMesh {
             BitMatrixGraph g = new BitMatrixGraph(curTopic.topicMembers.size(), false);
             // System.out.println("Topic ID"+ topicEntry.getValue().topicID);
 
-             System.out.println("Topic name :"+curTopic.topicID+" size "+curTopic.topicMembers.size());
+//             System.out.println("Topic name :"+curTopic.topicID+" size "+curTopic.topicMembers.size());
 
             Map<Long, Integer> nodeIdToIndex = new HashMap<>(); // A map to store the nodeID to the index position in the topic member list
             Set<BigInteger> topicMemberSet = new HashSet<>(); // A hashset containing all the members of a given topic. This is created because it is used in gossipsub protocol

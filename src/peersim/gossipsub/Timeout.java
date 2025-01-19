@@ -25,20 +25,20 @@ public class Timeout extends SimpleEvent {
      */
     public long msgID;
 
-    /**
-     * The id of the operation in wich the message has been sent
-     */
-    public long opID;
+//    /**
+//     * The id of the operation in wich the message has been sent
+//     */
+//    public long opID;
 
     // ______________________________________________________________________________________________
     /**
      * Creates an empty message by using default values (message type = MSG_LOOKUP and <code>new String("")</code> value for the
      * body of the message)
      */
-    public Timeout(BigInteger node, long msgID, long opID) {
+    public Timeout(BigInteger node, long msgID) {
         super(TIMEOUT);
         this.node = node;
         this.msgID = msgID;
-        this.opID = opID;
+//        this.opID = opID;
     }
 }
