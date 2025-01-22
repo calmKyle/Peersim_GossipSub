@@ -25,6 +25,8 @@ public class Timeout extends SimpleEvent {
      */
     public long msgID;
 
+    public int type; //0 for seeding part messages timeout and 1 for sample messages timeout
+
 //    /**
 //     * The id of the operation in wich the message has been sent
 //     */
@@ -35,10 +37,15 @@ public class Timeout extends SimpleEvent {
      * Creates an empty message by using default values (message type = MSG_LOOKUP and <code>new String("")</code> value for the
      * body of the message)
      */
-    public Timeout(BigInteger node, long msgID) {
+    public Timeout(int type,BigInteger node, long msgID) {
         super(TIMEOUT);
+
+        this.type = type;
         this.node = node;
         this.msgID = msgID;
 //        this.opID = opID;
     }
 }
+
+//Messes: 1 for message added partNo
+//2 added type in timoeut

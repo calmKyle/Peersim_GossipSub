@@ -46,7 +46,7 @@ public class TrafficGenerator implements Control {
      */
     private Message startBlockProducerMessage() 
     {
-        Message m = new Message(4,"You are the block producer. Start sending the data to all validator nodes in the topic",false,-1);
+        Message m = new Message(4,"You are the block producer. Start sending the data to all validator nodes in the topic",false,-1,-1,-1);
         m.timestamp = CommonState.getTime();
 
         m.dest = ((GossipSubProtocol) (CustomDistribution.blockProposerNode.getProtocol(pid))).nodeId;
