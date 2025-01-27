@@ -67,7 +67,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private ArrayList<Message> messageQueue = new ArrayList<>(); // arraylist to store the messages to be sent from this node
     private ArrayList<Long> messageTransmissionDelayQueue = new ArrayList<>(); // arraylist to transmission delay time for the message to be sent
     //    trace the sample request message sent for timeout purpose
-    private TreeMap<Long, Long> sentMsg;
+    private TreeMap<Long, Message> sentMsg;
     private TreeMap<Long, Message> sentSeedingPartMsg;
     int randomwSampleCounter; //This variable will store a random number when initially initialized  and decremented everytime this node gets the IHAVE message. When it becomes 0 it will send IWANT message to sending node. It will only be useful in distributionStragerty 1 because 2 it eventually recieves 8 row/cols and 3 it recieves 2 rows/cols as the validator node has to sample 2 complete rows/cols and 75 samples
 
@@ -110,7 +110,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         this.NoOfSamplesRecieved = 0;
         this.NoOfSeedPartsRecieved =0;
 
-        sentMsg = new TreeMap<Long, Long>();
+        sentMsg = new TreeMap<Long, Message>();
         sentSeedingPartMsg = new TreeMap<Long, Message>();
 
         distributionStrategy = Configuration.getInt("DISTRIBUTION_STRATEGY");
@@ -583,7 +583,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
 //            Message sampleReqMes = createMessage(-1, Message.MSG_SAMPLE_DATA_REQUEST, destId, topicToSubscribe.topicID, Integer.toString(SamplingIdx),rowOrColDecider==0,rowOrColNo);
 //            Message sampleReqMes = createMessage(-1, Message.MSG_SAMPLE_DATA_REQUEST, destId, topicToSubscribe.topicID, Integer.toString(0),rowOrColDecider==0,0,0);
-        this.sentMsg.put(sampleReqMes.id, sampleReqMes.timestamp);
+        this.sentMsg.put(sampleReqMes.id, sampleReqMes);
         NoOfSampleRequestsSent++;
 //        System.out.println("Number of sample request sent "+NoOfSampleRequestsSent);
         this.publishMessage(sampleReqMes, destId, gossipSubId);
@@ -679,7 +679,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         sampleArrivalTime.add(CommonState.getTime());
         sampleDelayTime.add(CommonState.getTime() - m.timestamp);
-        samplingRTTTimeStore.add(CommonState.getTime() - m.timestamp);
+        samplingRTTTimeStore.add(CommonState.getTime());
         NoOfSamplesRecieved++;
         if (m.body != null) {
 //            System.out.println("Yahoooo! got the sample data from node "+m.src);
@@ -753,14 +753,17 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             case peersim.gossipsub.Timeout.TIMEOUT: // timeout
                 peersim.gossipsub.Timeout t = (Timeout) event;
                 if (sentMsg.containsKey(t.msgID)) { // the response msg isn't arrived
-                    // remove form sentMsg
-                    sentMsg.remove(t.msgID);
 
 //                System.out.println("Sample request message TimeOut. Sample not recieved. Sent a sample request again");
                     sampleRequestUnsuccessful++;
 //                System.out.println("sample request unsuccessfull "+ sampleRequestUnsuccessful);
                     //Send sample request again
-                    sampleDataRequest();
+                    Message sampleMsgSent = sentMsg.get(t.msgID);
+                    sentMsg.remove(t.msgID); // remove form sentMsg
+                    Message msgToResend = this.createMessage(-1, sampleMsgSent.type, sampleMsgSent.dest, sampleMsgSent.messageTopicID, sampleMsgSent.body, sampleMsgSent.isRow, sampleMsgSent.rowOrColumnNumber, sampleMsgSent.partNumber, 0,sampleMsgSent.ackId);
+                    sentMsg.put(msgToResend.id, msgToResend);
+                    publishMessage(msgToResend, msgToResend.dest, myPid);
+
                 } else if (sentSeedingPartMsg.containsKey(t.msgID)) {
                     Message sentMsg = sentSeedingPartMsg.get(t.msgID);
                     sentSeedingPartMsg.remove(t.msgID);

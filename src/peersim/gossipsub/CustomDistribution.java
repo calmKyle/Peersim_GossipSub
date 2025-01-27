@@ -30,7 +30,7 @@ public class CustomDistribution implements peersim.core.Control {
 
     public String prefix;
 
-    public static Map<BigInteger, Node> networkNodes = new HashMap<>();// <nodeID,Node> Map containing all the nodes of the network
+    public static Map<BigInteger, Node> networkNodes = new LinkedHashMap<>();// <nodeID,Node> Map containing all the nodes of the network
 
     public static Map<String, Topic> topics = new LinkedHashMap<>(NUMBER_OF_TOPICS); // <TopicId,Topic>
 
