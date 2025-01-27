@@ -116,7 +116,7 @@ public class CustomDistribution implements peersim.core.Control {
             // System.out.println("Allocation for nodeID: " + nodeId + " " + alc);
             GossipSubProtocol iGossip = (GossipSubProtocol) (node.getProtocol(gossipProtocolID)); // Get the protocol instance of the node
 
-            if (idx % NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 0) // Increase the topic Number after every 8 rows and 8 cols (if NUMBER_OF_ROWSCOLS_IN_A_TOPIC=16)
+            if (idx % 128 == 0) // Increase the topic number adding 128 nodes to a given topic
             {
 //                System.out.println("HI "+idx+" ");
                 topicNumber++;

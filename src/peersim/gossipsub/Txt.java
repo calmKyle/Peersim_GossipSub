@@ -27,3 +27,21 @@
 // The nodes will send IHAVE metadata messages to all the topic members but they wont send IWANT in return as it each node has 2 rows/cols
 // And then start sampling
 
+
+//Changes made on 27-01-2025
+//1. In congfig file
+//2.
+
+// Update to the simulation on 27-01-2025
+//1. Made number of validators nodes equal to 8192
+//2. Number of topic is same(=64). Since there are 64 committees per slot and there are 32 slots in a epoch. And since the committees are decided at the start of the epoch,
+// we can assign the topics based on it. So like topic 0 will have all the validator nodes from all the 32 slots who are the members of committee 1 and so....
+//3. Each topic will hold 8 rows and 8 cols.
+//4. Each row/col will be held by 8 validator nodes
+//5. Each topic will have 128 nodes.
+
+// Method -2 distribution implementation
+// Each topic will have 128 nodes and will manage 8 rows and 8 cols
+// First 64 nodes will be responsible for rows whereas the next 64 nodes will be responsible for cols
+// All the rows and cols will be divided into 8 parts
+// The first 8 nodes in topic will hold first part of all 8 rows, next 8 will hold 2nd parts of all rows and so on.....

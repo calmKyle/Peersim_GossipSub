@@ -74,7 +74,7 @@ public class GossipSubObserver implements Control{
 
             int count = 0;
             for (Node nd : CustomDistribution.networkNodes.values()) {
-                if (count == 1024) {
+                if (count == 8192) {
                     break;
                 }
                 if (nd == CustomDistribution.blockProposerNode) {
