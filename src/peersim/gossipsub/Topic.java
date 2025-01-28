@@ -21,4 +21,18 @@ public class Topic
         topicMembers.add(n);
     }
 
+    public void removeMember(Node n)
+    {
+        int i=0;
+        for(Node node:topicMembers)
+        {
+            if(node.equals(n))
+            {
+                topicMembers.remove(i);
+                return;
+            }
+            i++;
+        }
+    }
+
 }

@@ -125,33 +125,10 @@ public class CustomDistribution implements peersim.core.Control {
 
             iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
 //           System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
+            iGossip.localMesh.put(topics.get("Topic-" + topicNumber).topicID, new HashSet<>());
             topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
 
             idx++;
-
-            // Removed/Commented this part out as this was not evenly distributing the rows and cols.
-            // Each topic didn't have 8 cols and 8 rows(may have more or less) due to
-            // the hash function in RowColumnDistributor class.
-//            int alc = r.fNode(nodeId, epoch, slot); // Getting the row or col number to be allocated to the node
-//
-//            if (alc < r.numberOfRows) // Node will hold a row
-//            {
-//                int topicNumber = (alc / 8) + 1; // Calculation to find which topic will this row belong to
-//
-//                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
-//                // System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
-//                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
-//
-//            }
-//            else // Node will hold a column
-//            {
-//                int topicNumber = ((alc - r.numberOfRows) / 8) + 1; // Calculation to find which topic will this column belong to
-//                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
-//
-//                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
-//                // System.out.println("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
-//            }
-
         }
         System.out.println("Intial topic setup is compleeted hurry!!!!");
         TopicBasedMesh tbm = new TopicBasedMesh(this.prefix); // To set the mesh in each topic
