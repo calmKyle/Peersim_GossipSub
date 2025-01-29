@@ -1,5 +1,6 @@
-package peersim.gossipsub;
+package peersim.gossipsub.PANDAS;
 
+import peersim.config.Configuration;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.edsim.EDSimulator;
@@ -10,10 +11,11 @@ import peersim.edsim.EDSimulator;
 public class SeedMessageHandler implements EDProtocol {
 
   public static final String PAR_PROT = "protocol";
-
   private final int protocolId;
+  private final String prefix;  // Store the prefix for cloning
 
   public SeedMessageHandler(String prefix) {
+    this.prefix = prefix;  // Save prefix for cloning
     this.protocolId = Configuration.getPid(prefix + "." + PAR_PROT);
   }
 
@@ -31,16 +33,11 @@ public class SeedMessageHandler implements EDProtocol {
    * @param node the node that received the message
    */
   private void receiveSeed(SeedMessage msg, Node node) {
-    System.out.println("Node " + node.getID() + " received a seed from " + msg.sender.getID());
-    // Example of handling data: simply printing or storing the data
-    // This should be expanded based on actual requirements of data consolidation or
-    // verification
+    System.out.println("Node " + node.getID() + " received a seed from " + (msg.getSender()).getID());
 
-    // Assuming `data` needs to be consolidated or verified
-    if (verifyData(msg.data)) {
+    if (verifyData(msg.getData())) {
       System.out.println("Data verified successfully at Node " + node.getID());
-      // Potentially forwarding or further processing the data
-      forwardData(node, msg.data);
+      forwardData(node, msg.getData());
     } else {
       System.out.println("Data verification failed at Node " + node.getID());
     }
@@ -52,10 +49,8 @@ public class SeedMessageHandler implements EDProtocol {
    * @param data the data to verify
    * @return true if the data is correct, false otherwise
    */
-  private boolean verifyData(Object data) {
-    // Implement verification logic here
-    // This is a placeholder for data verification logic
-    return true; // Assuming verification is always successful for demonstration
+  public boolean verifyData(Object data) {
+    return true; // Placeholder for actual verification logic
   }
 
   /**
@@ -65,15 +60,12 @@ public class SeedMessageHandler implements EDProtocol {
    * @param data the data to forward
    */
   private void forwardData(Node node, Object data) {
-    // Implement data forwarding or additional processing logic here
-    // This could involve sending data to other nodes or processing it locally
     System.out.println("Node " + node.getID() + " is forwarding data.");
-    // For example, simulate forwarding with a delay
-    EDSimulator.add(100, new SeedMessage(node, data), node, protocolId);
+    EDSimulator.add(100, new SeedMessage(node, data, protocolId, protocolId, protocolId), node, protocolId);
   }
 
   @Override
   public Object clone() {
-    return new SeedMessageHandler();
+    return new SeedMessageHandler(this.prefix);  // Use the stored prefix to create a new instance
   }
 }

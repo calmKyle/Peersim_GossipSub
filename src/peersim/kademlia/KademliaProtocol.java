@@ -11,6 +11,8 @@ package peersim.kademlia;
 
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.TreeMap;
 
 import peersim.config.Configuration;
@@ -386,5 +388,29 @@ public class KademliaProtocol implements Cloneable, EDProtocol {
 		this.nodeId = tmp;
 		this.routingTable.nodeId = tmp;
 	}
+
+	private Map<BigInteger, Object> storage = new HashMap<>();
+
+
+
+	/**
+	 * Store data in the DHT under a given key.
+	 * @param key The key to store data under.
+	 * @param value The data to store.
+	 */
+	public void store(BigInteger key, Object value) {
+		storage.put(key, value);
+		System.out.println("Stored data at key: " + key);
+	}
+
+	/**
+	 * Lookup data from the DHT using a given key.
+	 * @param key The key to retrieve data for.
+	 * @return The stored data, or null if not found.
+	 */
+	public Object lookup(BigInteger key) {
+		return storage.get(key);
+	}
+
 
 }

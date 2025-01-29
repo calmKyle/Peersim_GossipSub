@@ -14,8 +14,11 @@ run:
 	java -Xmx500m -cp $(LIB_JARS):classes peersim.Simulator example.cfg
 
 rungossip:
-	java -Xmx500m -cp $(LIB_JARS):classes peersim.Simulator gossipConfig.cfg
+	java -Xmx5000m -cp $(LIB_JARS):classes peersim.Simulator gossipConfig.cfg
 
+PANDAS:
+	java -Xmx1000m -cp  $(LIB_JARS):classes peersim.Simulator PANDASconf.cfg
+	
 all: compile doc run
 
 clean:
