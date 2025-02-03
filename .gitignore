@@ -1,4 +1,3 @@
 *.csv
-/classes/
-
-
+classes/*
+classes/**/*

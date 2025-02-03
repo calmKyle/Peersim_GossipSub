@@ -29,7 +29,6 @@ public class CustomDistribution implements peersim.core.Control {
 
     public String prefix;
 
-
     public CustomDistribution(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
         this.urg = new UniformRandomGenerator(160, CommonState.r);
@@ -43,6 +42,7 @@ public class CustomDistribution implements peersim.core.Control {
     public boolean execute() {
         initializeNodes();
         initializeTopics();
+        assignValidatorsToTopics();
         return false;
     }
 
@@ -54,22 +54,24 @@ public class CustomDistribution implements peersim.core.Control {
             ((GossipSubProtocol) node.getProtocol(gossipProtocolID)).setNodeId(nodeId);
             networkNodes.put(nodeId, node);
 
-            if (i == 0) blockProposerNode = node; // Set the first node as block proposer
+            if (i == 0)
+                blockProposerNode = node; // Set the first node as block proposer
         }
     }
 
-    private void initializeTopics() {
-        System.out.println("Initializing topics...");
-
-        for (int i = 1; i <= NUMBER_OF_TOPICS; i++) {
-            topics.put("Topic-" + i, new Topic("Topic-" + i));
+    public static void initializeTopics() {
+        if (topics == null) {
+            System.err.println("[ERROR] `topics` is not initialized! Check where it is declared.");
+            return;
         }
 
-        assignValidatorsToTopics();
-
-        System.out.println("Topics initialized successfully!");
-        new TopicBasedMesh(this.prefix).createTopicMesh();
-
+        for (int i = 1; i <= NUMBER_OF_TOPICS; i++) {
+            String topicKey = "Topic-" + i;
+            if (!topics.containsKey(topicKey)) {
+                // System.out.println("[INFO] Creating missing topic: " + topicKey);
+                topics.put(topicKey, new Topic(topicKey)); // MODIFYING the existing `topics`, not reassigning
+            }
+        }
     }
 
     private void assignValidatorsToTopics() {
@@ -77,8 +79,12 @@ public class CustomDistribution implements peersim.core.Control {
         int topicIndex = 0, idx = 0;
 
         for (Node node : allNodes) {
-            if (idx >= NUMBER_OF_VALIDATOR_NODES) break;
-            if (node == blockProposerNode) continue; // Skip block proposer
+            if (idx >= NUMBER_OF_VALIDATOR_NODES)
+                break;
+            if (node == blockProposerNode)
+                continue; // Skip block proposer
+
+            // System.out.println("[DEBUG] Assigning node ID: " + node.getID());
 
             GossipSubProtocol nodeGossip = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
             topicIndex = (idx / 128) + 1; // Assign nodes to topics in groups of 128

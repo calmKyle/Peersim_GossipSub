@@ -54,6 +54,7 @@ public class Message extends SimpleEvent {
     public long ackId;
     public BigInteger dest;
     public BigInteger src;
+
     protected String messageTopicID;
     protected boolean isRow;
     protected int rowOrColumnNumber;
@@ -105,28 +106,61 @@ public class Message extends SimpleEvent {
      * Creates a deep copy of the message body to prevent unintentional
      * modifications.
      */
+    // private Object deepCopyBody(Object body) {
+    // if (body instanceof String) {
+    // return new String((String) body);
+    // } else if (body instanceof byte[][]) {
+    // byte[][] original = (byte[][]) body;
+    // byte[][] copy = new byte[original.length][];
+    // for (int i = 0; i < original.length; i++) {
+    // copy[i] = original[i].clone();
+    // }
+    // return copy;
+    // } else if (body instanceof byte[][][]) {
+    // byte[][][] original = (byte[][][]) body;
+    // byte[][][] copy = new byte[original.length][][];
+    // for (int i = 0; i < original.length; i++) {
+    // copy[i] = new byte[original[i].length][];
+    // for (int j = 0; j < original[i].length; j++) {
+    // copy[i][j] = original[i][j].clone();
+    // }
+    // }
+    // return copy;
+    // }
+    // return body; // Default case: return as-is for other object types
+    // }
     private Object deepCopyBody(Object body) {
-        if (body instanceof String) {
-            return new String((String) body);
-        } else if (body instanceof byte[][]) {
+        if (body instanceof byte[][]) {
             byte[][] original = (byte[][]) body;
             byte[][] copy = new byte[original.length][];
             for (int i = 0; i < original.length; i++) {
-                copy[i] = original[i].clone();
+                if (original[i] != null) {
+                    copy[i] = original[i].clone();
+                } else {
+                    copy[i] = new byte[0];
+                }
             }
             return copy;
         } else if (body instanceof byte[][][]) {
             byte[][][] original = (byte[][][]) body;
             byte[][][] copy = new byte[original.length][][];
             for (int i = 0; i < original.length; i++) {
-                copy[i] = new byte[original[i].length][];
-                for (int j = 0; j < original[i].length; j++) {
-                    copy[i][j] = original[i][j].clone();
+                if (original[i] != null) {
+                    copy[i] = new byte[original[i].length][];
+                    for (int j = 0; j < original[i].length; j++) {
+                        if (original[i][j] != null) {
+                            copy[i][j] = original[i][j].clone();
+                        } else {
+                            copy[i][j] = new byte[0];
+                        }
+                    }
+                } else {
+                    copy[i] = new byte[0][0];
                 }
             }
             return copy;
         }
-        return body; // Default case: return as-is for other object types
+        return body; // Default case
     }
 
     /**
