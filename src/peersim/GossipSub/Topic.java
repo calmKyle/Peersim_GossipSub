@@ -8,7 +8,7 @@ public class Topic
 {
     public String topicID;
 
-    public ArrayList<Node> topicMembers;
+    public ArrayList<Node> topicMembers; //List containing all the nodes in a particular topic
 
     public Topic(String topicID)
     {

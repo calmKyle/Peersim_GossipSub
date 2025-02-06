@@ -1,4 +1,4 @@
-package peersim.GossipSub;
+package peersim.GossipSub.PANDAS;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;

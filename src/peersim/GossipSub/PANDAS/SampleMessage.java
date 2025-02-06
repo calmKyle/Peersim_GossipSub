@@ -1,8 +1,9 @@
 package peersim.GossipSub.PANDAS;
 
 import java.math.BigInteger;
+
+import peersim.GossipSub.Message;
 import peersim.core.Node;
-import peersim.gossipsub.Message;
 
 public class SampleMessage extends Message {
     private int row;
@@ -29,7 +30,15 @@ public class SampleMessage extends Message {
         this.column = 0; // Default column
     }
 
-    public int getRow() { return row; }
-    public int getColumn() { return column; }
-    public int getBlockID() { return blockID; }
+    public int getRow() {
+        return row;
+    }
+
+    public int getColumn() {
+        return column;
+    }
+
+    public int getBlockID() {
+        return blockID;
+    }
 }

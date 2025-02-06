@@ -1,3 +1,4 @@
+package peersim.GossipSub;
 //package peersim.gossipsub;
 //
 //import peersim.config.Configuration;

@@ -1,7 +1,8 @@
 package peersim.GossipSub.PANDAS;
 
-import peersim.gossipsub.Message;
 import java.math.BigInteger;
+
+import peersim.GossipSub.Message;
 
 public class VoteMessage extends Message {
     private boolean approval;

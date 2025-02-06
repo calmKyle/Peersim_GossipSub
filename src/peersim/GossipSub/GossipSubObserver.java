@@ -51,7 +51,7 @@ public class GossipSubObserver implements Control{
      * @return boolean always false
      */
     public boolean execute() {
-        String filePath = "output2.csv";
+        String filePath = "output1.csv";
         boolean append = CommonState.getTime() > 0; // Always append for times > 0
 
         File file = new File(filePath);

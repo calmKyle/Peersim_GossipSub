@@ -1,10 +1,7 @@
 package peersim.GossipSub;
 
-import java.security.KeyPair;
-import java.security.PublicKey;
+import java.security.Key;
 import java.util.Arrays;
-
-import peersim.GossipSub.PANDAS.SignatureValidator;
 
 public class Block {
     public static int block_id_counter = 0;
@@ -13,54 +10,21 @@ public class Block {
     public int rows;
     public int columns;
     public static final int ELEMENT_SIZE = 512; // Size of each element in bytes
-    public long timestamp;
 
-    // Validation and Signature
-    private PublicKey validatorPublicKey; // Store the validator's public key
-    private byte[] signature; // Digital signature of the block
-
-    // public Block(int r, int c, KeyPair validatorKeyPair) {
-    // this.blockID = block_id_counter++;
-    // this.rows = r;
-    // this.columns = c;
-    // this.sampleMatrix = new byte[rows][columns][ELEMENT_SIZE];
-    // this.timestamp = System.currentTimeMillis(); // check the current timestamp
-    // initialiseDataMatrix();
-
-    // this.validatorPublicKey = validatorKeyPair.getPublic();
-
-    // // Generate a digital signature for this block
-    // try {
-    // this.signature =
-    // SignatureValidator.signData(String.valueOf(blockID).getBytes(),
-    // validatorKeyPair.getPrivate());
-    // } catch (Exception e) {
-    // e.printStackTrace();
-    // this.signature = new byte[0]; // Default empty signature
-    // }
-    // }
-
-    public Block(int r, int c, KeyPair validatorKeyPair) {
+    public Block(int r, int c) {
         this.blockID = block_id_counter++;
         this.rows = r;
         this.columns = c;
         this.sampleMatrix = new byte[rows][columns][ELEMENT_SIZE];
-        this.timestamp = System.currentTimeMillis();
         initialiseDataMatrix();
+    }
 
-        if (validatorKeyPair != null) {
-            this.validatorPublicKey = validatorKeyPair.getPublic();
-            try {
-                this.signature = SignatureValidator.signData(String.valueOf(blockID).getBytes(),
-                        validatorKeyPair.getPrivate());
-            } catch (Exception e) {
-                e.printStackTrace();
-                this.signature = new byte[0]; // Default empty signature
-            }
-        } else {
-            this.validatorPublicKey = null;
-            this.signature = new byte[0]; // No signature in test mode
-        }
+    public Block(int r, int c, Key key) {
+        this.blockID = block_id_counter++;
+        this.rows = r;
+        this.columns = c;
+        this.sampleMatrix = new byte[rows][columns][ELEMENT_SIZE];
+        initialiseDataMatrix();
     }
 
     public void initialiseDataMatrix() {
@@ -86,17 +50,5 @@ public class Block {
 
     public byte[] getSample(int r, int c) {
         return sampleMatrix[r][c];
-    }
-
-    public long getTimestamp() {
-        return timestamp;
-    }
-
-    public PublicKey getValidatorPublicKey() {
-        return validatorPublicKey;
-    }
-
-    public byte[] getSignature() {
-        return signature;
     }
 }

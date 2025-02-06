@@ -1,7 +1,8 @@
 package peersim.GossipSub.PANDAS;
 
-import peersim.GossipSub.Message;
 import java.math.BigInteger;
+
+import peersim.GossipSub.Message;
 
 public class ConsensusMessage extends Message {
     private long blockID;

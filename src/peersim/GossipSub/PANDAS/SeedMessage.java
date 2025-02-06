@@ -1,7 +1,7 @@
 package peersim.GossipSub.PANDAS;
 
+import peersim.GossipSub.Message;
 import peersim.core.Node;
-import peersim.gossipsub.Message;
 
 import java.math.BigInteger;
 
@@ -23,7 +23,7 @@ public class SeedMessage extends Message {
     }
 
     public SeedMessage(Node sender, Object data, int blockID, int rows, int columns) {
-        super(Message.MSG_BLOCK_PROPOSER, null, false, rows, columns, 0); 
+        super(Message.MSG_BLOCK_PROPOSER, null, false, rows, columns, 0);
         this.sender = sender;
         this.data = data;
         this.blockID = blockID;

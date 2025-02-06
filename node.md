@@ -1,0 +1,1 @@
+- refactoring on getRemaingRowColPart
