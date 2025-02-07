@@ -374,140 +374,113 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public void handleBlockProducerData(Message m, int myPid) {
-        // System.out.println("Received data from block producer");
-        // System.out.println("Recieved data from nodeID: "+ m.src +" to
-        // "+this.getNodeId()+" ==="+ m.dest+" at time "+CommonState.getTime());
-        if (m.src == ((GossipSubProtocol) (CustomDistribution.blockProposerNode.getProtocol(gossipSubId))).nodeId) {
-            // System.out.println("Node ID: "+this.nodeId+" recieved the data from BP at
-            // "+CommonState.getTime());
-            messageArrivalTimeFromBP.add(CommonState.getTime());
-            // System.out.println("Time in "+this.nodeId+" protocol is
-            // "+CommonState.getTime());
-            messageDelayTimeFromBP.add(CommonState.getTime() - m.timestamp);
-            // System.out.println("RTT in "+this.nodeId+" is
-            // "+(messageDelayTimeFromBP.get(0)));
-            seedArrivalTimeStore.add(CommonState.getTime() - m.timestamp);
-            if (!messageCache.containsKey(m.id)) // Checking the received data is already present
-            {
-                if (messageCache.size() > MESSAGE_CACHE_SIZE)// Checking if the size of cache has exceeded the max value
-                {
-                    Long firstMessage = messageCache.keySet().iterator().next();
-                    messageCache.remove(firstMessage); // Removing the first/oldest message if the cache is full
-                }
+        BigInteger blockProducerId = ((GossipSubProtocol) CustomDistribution.blockProposerNode
+                .getProtocol(gossipSubId)).nodeId;
 
-                messageCache.put(m.id, m); // If the received message isn't present then ad it to the cache
+        // Ensure the message is from the block producer
+        if (!m.src.equals(blockProducerId)) {
+            return;
+        }
 
-                if (m.partNumber != -1 && m.rowOrColumnNumber == -1 && distributionStrategy == 2) // This was sent using
-                                                                                                  // the sharding method
-                {
-                    custodyData2.add((byte[][][]) m.body);
-                    // messageCache.put(m.id,m);
-                    // sending the metadata to all the nodes in this topic
-                    // System.out.println(Arrays.deepToString((Object[]) m.body));
-                    // System.out.println(messageCache.size()+" "+custodyData2.size()+" node
-                    // "+this.nodeId+" "+CommonState.getTime());
-                    Message responseWithMetaData = this.createMessage(m.id, Message.MSG_IHAVE, m.dest, m.messageTopicID,
-                            "", m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, m.ackId); // Temporalily
-                                                                                                   // setting the dummy
-                                                                                                   // .dest. It will set
-                                                                                                   // correctly in the
-                                                                                                   // sendMessageToPeers
-                                                                                                   // Function
-                    getRemainingRowColPart(m, myPid);
-                    // gossipMessageToTopicNodes(responseWithMetaData,
-                    // myPid,m.messageTopicID,this.nodeId);
-                } else if (m.partNumber == -1 && m.rowOrColumnNumber != -1 && distributionStrategy == 1) // This was
-                                                                                                         // sent using
-                                                                                                         // the normal
-                                                                                                         // method
-                {
-                    custodyData1.add((byte[][]) m.body);
-                    // sending the metadata to all the nodes in this topic
-                    Message responseWithMetaData = this.createMessage(m.id, Message.MSG_IHAVE, m.dest, m.messageTopicID,
-                            "", m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, m.ackId); // Temporalily
-                                                                                                   // setting the dummy
-                                                                                                   // .dest. It will set
-                                                                                                   // correctly in the
-                                                                                                   // sendMessageToPeers
-                                                                                                   // Function
-                    gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID, this.nodeId);
-                    startSampling();
-                }
-                // System.out.println("NOde "+this.nodeId+" recieved data from:bp at
-                // "+CommonState.getTime());
-            }
+        long currentTime = CommonState.getTime();
+        messageArrivalTimeFromBP.add(currentTime);
+        messageDelayTimeFromBP.add(currentTime - m.timestamp);
+        seedArrivalTimeStore.add(currentTime - m.timestamp);
+
+        // If the message is already cached, ignore it
+        if (messageCache.containsKey(m.id)) {
+            return;
+        }
+
+        // Maintain cache size limit
+        if (messageCache.size() > MESSAGE_CACHE_SIZE) {
+            Long firstMessage = messageCache.keySet().iterator().next();
+            messageCache.remove(firstMessage);
+        }
+
+        // Add message to cache
+        messageCache.put(m.id, m);
+
+        // Handle different distribution strategies
+        if (m.partNumber != -1 && m.rowOrColumnNumber == -1 && distributionStrategy == 2) {
+            // Sharding method
+            custodyData2.add((byte[][][]) m.body);
+
+            Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.dest, m.messageTopicID, "",
+                    m.isRow, m.rowOrColumnNumber, m.partNumber,
+                    m.timestamp, m.ackId);
+            getRemainingRowColPart(m, myPid);
+
+        } else if (m.partNumber == -1 && m.rowOrColumnNumber != -1 && distributionStrategy == 1) {
+            // Normal method
+            custodyData1.add((byte[][]) m.body);
+
+            Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.dest, m.messageTopicID, "",
+                    m.isRow, m.rowOrColumnNumber, m.partNumber,
+                    m.timestamp, m.ackId);
+            gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID, this.nodeId);
+            startSampling();
         }
     }
 
     // This function handles the data received
     public void handleData(Message m, int myPid) {
-        if (distributionStrategy == 1) {
-            if (messageCache.containsKey(m.id)) // Checking if the m.id is already present;Like have we made the request
-                                                // for. Because the request and response msg have the same id
-            {
-                messageCache.put(m.id, m); // If the received message isn't present then ad it to the cache
-                return;
-            }
-        }
-        // System.out.println("Recieved data from nodeID: "+ m.src +" to
-        // "+this.getNodeId()+" ==="+ m.dest+" at time "+CommonState.getTime());
-        if (messageCache.containsKey(m.id)) // Checking if the m.id is already present;Like have we made the request
-                                            // for. Because the request and response msg have the same id
-        {
+        BigInteger blockProposerId = ((GossipSubProtocol) CustomDistribution.blockProposerNode
+                .getProtocol(gossipSubId)).nodeId;
 
-            // System.out.println("Node ID: "+this.nodeId+" recieved the data from BP at
-            // "+CommonState.getTime());
-            BigInteger blockProposerId = ((GossipSubProtocol) (CustomDistribution.blockProposerNode
-                    .getProtocol(gossipSubId))).nodeId;
-            if (messageCache.size() > MESSAGE_CACHE_SIZE)// Checking if the size of cache has exceeded the max value
-            {
-                for (Map.Entry<Long, Message> msg : messageCache.entrySet()) {
-                    if (msg.getValue().src.equals(blockProposerId)) // Checking if the message is not sent by the block
-                                                                    // proposer
-                    {
-                        continue;
+        // If using distributionStrategy 1, check if the message was already requested
+        if (distributionStrategy == 1 && messageCache.containsKey(m.id)) {
+            messageCache.put(m.id, m);
+            return;
+        }
+
+        // If message is already cached, manage cache size
+        if (messageCache.containsKey(m.id)) {
+            if (messageCache.size() > MESSAGE_CACHE_SIZE) {
+                for (Map.Entry<Long, Message> entry : messageCache.entrySet()) {
+                    if (!entry.getValue().src.equals(blockProposerId)) { // Avoid removing block proposer messages
+                        messageCache.remove(entry.getKey());
+                        break;
                     }
-                    Long firstMessage = messageCache.keySet().iterator().next();
-                    messageCache.remove(msg.getKey()); // Removing the first/oldest message which is not sent by the
-                                                       // block proposer if the cache is full which
-                    break;
                 }
             }
         }
-        messageCache.put(m.id, m); // If the received message isn't present then ad it to the cache
+
+        // Add the message to cache
+        messageCache.put(m.id, m);
+
+        // If this message was expected as a seeding part, update tracking lists
         if (sentSeedingPartMsg.containsKey(m.id)) {
-            seedPartArrivalTimeFromPeer.add(CommonState.getTime());
-            seedPartDelayTimeFromPeer.add(CommonState.getTime() - m.timestamp);
-            seedPartArrivalTimeStore.add(CommonState.getTime() - m.timestamp);
+            long currentTime = CommonState.getTime();
+            seedPartArrivalTimeFromPeer.add(currentTime);
+            seedPartDelayTimeFromPeer.add(currentTime - m.timestamp);
+            seedPartArrivalTimeStore.add(currentTime - m.timestamp);
             NoOfSeedPartsRecieved++;
-            // System.out.println("Hurryy!!!! recieved the seeding part");
+
             sentSeedingPartMsg.remove(m.id);
             custodyData2.add((byte[][][]) m.body);
             partRequestCounter--;
         }
 
+        // If using distributionStrategy 2 and all parts have arrived, start sampling
         if (distributionStrategy == 2 && partRequestCounter == 0) {
-            // System.out.println("Yess");
             startSampling();
         }
 
-        // Sending the message with data to all the peers/local mesh
-        Message responseWithData = this.createMessage(m.id, Message.MSG_DATA, m.dest, m.messageTopicID, m.body, m.isRow,
-                m.rowOrColumnNumber, m.partNumber, m.timestamp, -1); // Temporalily setting the dummy .dest. It will set
-                                                                     // correctly in the sendMessageToPeers Function
-        // sendMessageToPeers(responseWithData, myPid, m.messageTopicID, m.src);
+        // Create response messages
+        Message responseWithData = createMessage(m.id, Message.MSG_DATA, m.dest, m.messageTopicID, m.body,
+                m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, -1);
 
-        // sending the metadata to all the nodes in this topic
-        Message responseWithMetaData = this.createMessage(m.id, Message.MSG_IHAVE, m.dest, m.messageTopicID, "",
-                m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, -1); // Temporalily setting the dummy .dest. It
-                                                                              // will set correctly in the
-                                                                              // sendMessageToPeers Function
-        // gossipMessageToTopicNodes(responseWithMetaData, myPid,
-        // m.messageTopicID,this.nodeId);
+        Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.dest, m.messageTopicID, "",
+                m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, -1);
+
+        // sendMessageToPeers(responseWithData, myPid, m.messageTopicID, m.src);
+        // gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID,
+        // this.nodeId);
     }
 
     // Function the create the Message instance
-    private Message createMessage(long id, int type, BigInteger dest, String topicID, Object body, boolean isRow,
+    public Message createMessage(long id, int type, BigInteger dest, String topicID, Object body, boolean isRow,
             int RowOrColNum, int partNum, long timeStamp, long ackid) {
         Message msg;
         if (id == -1) // Create a new message with new message Id
@@ -532,221 +505,460 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // Find the node ID of the node who is holding the required sample data
     // Send the message
     // In the message data send an idx of the row/col to be sampled
+
+    /** This sample Data Request will be replace by the PANDAS paper later on */
     public void sampleDataRequest() {
-        // System.out.println("This node is sampling " + this.nodeId);
         Random random = new Random();
 
+        // Decide whether to sample a row (0) or a column (1)
         int rowOrColDecider = random.nextInt(2);
-        int randomSampleIndex = random.nextInt(Configuration.getInt("NUMBER_OF_COLUMNS", 512)); // 0 to 262143 inclusive
-                                                                                                // (total numbers of
-                                                                                                // rows/col = 512;each
-                                                                                                // contains 512 to
-                                                                                                // samples;512*512=262144)
-        int SamplingIdx = randomSampleIndex; // get sample a particular idx at a given row/col
+        int randomSampleIndex = random.nextInt(Configuration.getInt("NUMBER_OF_COLUMNS", 512));
+        int SamplingIdx = randomSampleIndex; // Index of the sample in the chosen row/column
         int rowOrColNo = randomSampleIndex;
-        int topicNo = rowOrColNo / ((Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC", 16) / 2));
-        Topic topicToSubscribe = CustomDistribution.topics.get("Topic-" + (topicNo + 1));
-        if (topicToSubscribe == null) {
-            // System.out.println("error");
 
+        // Determine the topic number based on row/column index
+        int topicNo = rowOrColNo / (Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC", 16) / 2);
+        Topic topicToSubscribe = CustomDistribution.topics.get("Topic-" + (topicNo + 1));
+
+        if (topicToSubscribe == null) {
+            System.err.println("Error: Topic not found");
             return;
         }
-        this.subscribeTopic(topicToSubscribe); // Subscribe to the topic to which the row/col to be sampled belongs to
 
-        int nodeTopicPosition = (8 * rowOrColDecider) + ((rowOrColNo / 64));
+        // Subscribe to the topic before sampling
+        this.subscribeTopic(topicToSubscribe);
+
+        // Determine node topic position
+        int nodeTopicPosition = (8 * rowOrColDecider) + (rowOrColNo / 64);
         int nodeIndex = 0;
+
         if (distributionStrategy == 1) {
-            int sampleHolderNodeIdx = random.nextInt(8); // Random number generated to select which the node to send the
-                                                         // request as 8 nodes hold the same rows/cols
-            nodeIndex = ((rowOrColNo % 8) * 8) + sampleHolderNodeIdx * 1; // As 8 nodes hold the same rows/cols.
+            // Strategy 1: Select one of the 8 nodes holding the same row/column
+            int sampleHolderNodeIdx = random.nextInt(8);
+            nodeIndex = ((rowOrColNo % 8) * 8) + sampleHolderNodeIdx;
         } else if (distributionStrategy == 2) {
-            nodeIndex = random.nextInt(64); // As 64 nodes in the topic will hold 8 rows/cols as they willl reconstruct
-                                            // the whole row/col after reciveing the parts. So you can sample any node
+            // Strategy 2: Select any of the 64 nodes responsible for reconstructing
+            // rows/cols
+            nodeIndex = random.nextInt(64);
         }
-        // System.out.println(nodeTopicPosition);
+
         BigInteger destId = null;
-        if (rowOrColDecider == 0) { // Row sampling
-            // Nodes 0-7 handle rows
-            // destId = ((Old_GossipSubProtocol)
-            // (topicToSubscribe.topicMembers.get(nodeIndex)
-            // .getProtocol(gossipSubId))).nodeId;
 
-            if (nodeIndex < topicToSubscribe.topicMembers.size()) {
-                Node targetNode = topicToSubscribe.topicMembers.get(nodeIndex);
-                if (targetNode != null) {
-                    Protocol protocol = targetNode.getProtocol(gossipSubId);
-                    if (protocol instanceof GossipSubProtocol) {
-                        destId = ((GossipSubProtocol) protocol).nodeId;
-                    } else {
-                        System.err.println(
-                                "Error: Protocol at index " + nodeIndex + " is not of type GossipSubProtocol");
-                        return;
-                    }
+        // Determine the target node based on whether we're sampling a row or a column
+        int targetIndex = (rowOrColDecider == 0) ? nodeIndex : nodeIndex + 64;
+
+        if (targetIndex < topicToSubscribe.topicMembers.size()) {
+            Node targetNode = topicToSubscribe.topicMembers.get(targetIndex);
+            if (targetNode != null) {
+                Protocol protocol = targetNode.getProtocol(gossipSubId);
+                if (protocol instanceof GossipSubProtocol) {
+                    destId = ((GossipSubProtocol) protocol).nodeId;
                 } else {
-                    System.err.println("Error: Null node at index " + nodeIndex);
-                    return;
-                }
-
-            } else {
-                System.err.println("Error: nodeIndex " + nodeIndex + " out of bounds. topicMembers size: "
-                        + topicToSubscribe.topicMembers.size());
-                return;
-            }
-
-        } else
-
-        { // Column sampling
-          // Nodes 8-15 handle columns
-          // destId = ((Old_GossipSubProtocol)
-          // (topicToSubscribe.topicMembers.get(nodeIndex + 64)
-          // .getProtocol(gossipSubId))).nodeId;
-            if (nodeIndex + 64 < topicToSubscribe.topicMembers.size()) {
-                Node targetNode = topicToSubscribe.topicMembers.get(nodeIndex + 64);
-                if (targetNode != null) {
-                    Protocol protocol = targetNode.getProtocol(gossipSubId);
-                    if (protocol instanceof GossipSubProtocol) {
-                        destId = ((GossipSubProtocol) protocol).nodeId;
-                    } else {
-                        System.err.println("Error: Protocol at index " + (nodeIndex + 64)
-                                + " is not of type GossipSubProtocol");
-                        return;
-                    }
-                } else {
-                    System.err.println("Error: Null node at index " + (nodeIndex + 64));
+                    System.err.println("Error: Protocol at index " + targetIndex + " is not of type GossipSubProtocol");
                     return;
                 }
             } else {
-                System.err.println("Error: nodeIndex + 64 (" + (nodeIndex + 64) + ") out of bounds. topicMembers size: "
-                        + topicToSubscribe.topicMembers.size());
+                System.err.println("Error: Null node at index " + targetIndex);
                 return;
             }
-
+        } else {
+            System.err.println("Error: Index " + targetIndex + " out of bounds. Topic members size: "
+                    + topicToSubscribe.topicMembers.size());
+            return;
         }
-        if (destId == this.nodeId) {
-            // System.out.println("cant sample bcz destId is equal to current nodeId");
-            // System.out.println(destId+" "+this.nodeId);
+
+        // Ensure we are not sampling from ourselves
+        if (destId.equals(this.nodeId)) {
             sampleDataRequest();
             return;
         }
 
-        Message sampleReqMes = createMessage(-1, Message.MSG_SAMPLE_DATA_REQUEST, destId, topicToSubscribe.topicID,
-                Integer.toString(SamplingIdx), rowOrColDecider == 0, rowOrColNo, -1, 0, -1);// Need to change/calculate
-                                                                                            // the part the partNo. Just
-                                                                                            // added some random value
-                                                                                            // atm
+        // Create a sample data request message
+        Message sampleReqMes = createMessage(
+                -1, Message.MSG_SAMPLE_DATA_REQUEST, destId, topicToSubscribe.topicID,
+                Integer.toString(SamplingIdx), rowOrColDecider == 0, rowOrColNo, -1, 0, -1);
 
+        // Store the message and send it
         this.sentMsg.put(sampleReqMes.id, sampleReqMes);
         NoOfSampleRequestsSent++;
-        // System.out.println("Number of sample request sent "+NoOfSampleRequestsSent);
         this.publishMessage(sampleReqMes, destId, gossipSubId);
 
-        // Setting the timeout. This will node will send the sample request again if it
-        // doesn't recieve the sample within given time
-        peersim.GossipSub.Timeout t = new peersim.GossipSub.Timeout(1, destId, sampleReqMes.id);
+        // Set timeout to resend the request if no response is received within 2 * RTT
+        peersim.GossipSub.Timeout timeoutEvent = new peersim.GossipSub.Timeout(1, destId, sampleReqMes.id);
         Node src = CustomDistribution.networkNodes.get(this.nodeId);
         Node dest = CustomDistribution.networkNodes.get(sampleReqMes.dest);
         long latency = transport.getLatency(src, dest);
 
-        EDSimulator.add(4 * latency, t, src, gossipSubId); // set delay = 2*RTT
-
+        EDSimulator.add(4 * latency, timeoutEvent, src, gossipSubId);
     }
 
-    // Repeat this 75 times
-    // Make sure that the sampling is not done for the same
-    // samples---------------------------------------
+    /**
+     * Initiates 75 sample data requests while ensuring uniqueness in sampling.
+     */
     public void startSampling() {
         for (int i = 0; i < 75; i++) {
             sampleDataRequest();
         }
     }
 
-    public void handleSampleRequest(Message m, int myPid) // Sending the requested sample data if the current node has
-                                                          // it
-    {
-        // System.out.println("Request received for sample");
-        boolean requestedRow = m.isRow;
-        int rowOrColNumb = m.rowOrColumnNumber;
-        int idx = Integer.parseInt((String) m.body);
-        // System.out.println("This node recieved a sampling request "+this.nodeId);
-        // System.out.println(idx);
-        // System.out.println("Message cashe size "+messageCache.size()+" this node id
-        // "+this.nodeId+ " time "+CommonState.getTime());
+    /**
+     * Handles a sample request by checking if the requested data is available
+     * and sending a response if found.
+     *
+     * @param m     The message containing the sample request.
+     * @param myPid The process ID of the current node.
+     */
+    public void handleSampleRequest(Message m, int myPid) {
+        // Extract request details
+        int idx = Integer.parseInt((String) m.body); // Index of requested sample data
         BigInteger blockProposerId = ((GossipSubProtocol) (CustomDistribution.blockProposerNode
                 .getProtocol(gossipSubId))).nodeId;
 
-        for (Map.Entry<Long, Message> msg : messageCache.entrySet()) {
-            Message curMessage = msg.getValue();
-            if (distributionStrategy == 1) {
-                // System.out.println("*****");
-                // if(curMessage.src.compareTo(blockProposerId)==0)
+        // Check messages in cache to find the requested data
+        for (Map.Entry<Long, Message> entry : messageCache.entrySet()) {
+            Message curMessage = entry.getValue();
 
-                // System.out.print(curMessage.isRow+" "+m.isRow+" ");
-                // System.out.print(curMessage.rowOrColumnNumber+" "+m.rowOrColumnNumber+" ");
-                // System.out.println(curMessage.messageTopicID+" "+m.messageTopicID);
-                // System.out.println(this.nodeId);
-                // System.out.println("*****");
-                if (curMessage.src.equals(blockProposerId) && curMessage.isRow == m.isRow
-                        && curMessage.rowOrColumnNumber == m.rowOrColumnNumber) // Checking if the message is not sent
-                                                                                // by the block proposer
-                {
-                    // System.out.println("yes inside");
-                    // System.out.println("nodeID "+this.nodeId);
-                    byte[][] data = (byte[][]) curMessage.body; // If the number stored at this index is greater than
-                                                                // 127 it will store the negative value as byte is type
-                                                                // is signed meaning the values range in 127 to -127
+            if (distributionStrategy == 1) {
+                // Check if the message was originally sent by the block proposer
+                // and matches the requested row/column information
+                if (curMessage.src.equals(blockProposerId) &&
+                        curMessage.isRow == m.isRow &&
+                        curMessage.rowOrColumnNumber == m.rowOrColumnNumber) {
+
+                    // Extract and send the requested sample data
+                    byte[][] data = (byte[][]) curMessage.body;
                     byte sampleDataResp = data[0][idx];
-                    Message sampleResponse = createMessage(m.id, Message.MSG_SAMPLE_DATA_RESPONSE, m.src,
-                            m.messageTopicID, Integer.toString(sampleDataResp), m.isRow, m.rowOrColumnNumber,
-                            m.partNumber, m.timestamp, m.ackId);
+
+                    Message sampleResponse = createMessage(
+                            m.id, Message.MSG_SAMPLE_DATA_RESPONSE, m.src,
+                            m.messageTopicID, Integer.toString(sampleDataResp),
+                            m.isRow, m.rowOrColumnNumber, m.partNumber,
+                            m.timestamp, m.ackId);
+
                     this.publishMessage(sampleResponse, m.src, gossipSubId);
                     return;
-                } else if (!custodyData1.isEmpty() && curMessage.body == custodyData1.get(0)) {
-                    // System.out.print("Received sampling request "+this.nodeId+"row/col =
-                    // "+curMessage.rowOrColumnNumber+" TOPIC NUMBER "+(curMessage.messageTopicID)+"
-                    // is row ");
-                    // System.out.println(curMessage.isRow==true);
-
                 }
 
+                // Additional handling for custody data (not sending a response here)
+                if (!custodyData1.isEmpty() && curMessage.body == custodyData1.get(0)) {
+                    // This condition checks if the requested data is stored in custodyData1
+                    // (No response is sent in this case, but this could be expanded in the future)
+                    // return;
+                }
             }
         }
-        if (distributionStrategy == 2) {
-            // System.out.println("yesssss");
-            // if (curMessage.partNumber != -1 && curMessage.rowOrColumnNumber == -1 &&
-            // curMessage.rowOrColumnNumber == m.rowOrColumnNumber && curMessage.isRow ==
-            // m.isRow) {
 
-            if (custodyData2.size() == 4) // checking if the node recieved half the row/cow (4 out of 8 parts)
-            {
-                byte[][][] data = (byte[][][]) custodyData2.get(0);// Currently we are just sending random sample
-                                                                   // response as we are not forming the whole row/col
-                                                                   // over here but in reality the will form the whole
-                                                                   // row/col if it has 50% cells
-                byte sampleDataResp = data[0][0][0];
-                Message sampleResponse = createMessage(m.id, Message.MSG_SAMPLE_DATA_RESPONSE, m.src, m.messageTopicID,
-                        Integer.toString(sampleDataResp), m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp,
-                        m.ackId);
-                this.publishMessage(sampleResponse, m.src, gossipSubId);
-            } else {
-                // System.out.println(this.nodeId+ " No!!!!!!");
-            }
-            // }
+        // Handle distribution strategy 2 (checking custody data)
+        if (distributionStrategy == 2 && custodyData2.size() == 4) {
+            // If the node has at least 50% of the row/column data, send a response
+            // Fetch the stored data without unnecessary casting
+            byte[][][] data = custodyData2.get(0);
+            byte sampleDataResp = data[0][0][0];
 
+            Message sampleResponse = createMessage(
+                    m.id, Message.MSG_SAMPLE_DATA_RESPONSE, m.src,
+                    m.messageTopicID, Integer.toString(sampleDataResp),
+                    m.isRow, m.rowOrColumnNumber, m.partNumber,
+                    m.timestamp, m.ackId);
+
+            this.publishMessage(sampleResponse, m.src, gossipSubId);
         }
-        // }
-
     }
 
+    /**
+     * Handles the arrival of a sample response by recording its timing details
+     * and updating the count of received samples.
+     *
+     * @param m     The message containing the sample response.
+     * @param myPid The process ID of the current node.
+     */
     public void handleSampleResponse(Message m, int myPid) {
+        long currentTime = CommonState.getTime();
 
-        sampleArrivalTime.add(CommonState.getTime());
-        sampleDelayTime.add(CommonState.getTime() - m.timestamp);
-        samplingRTTTimeStore.add(CommonState.getTime());
+        // Record sample arrival and delay times
+        sampleArrivalTime.add(currentTime);
+        sampleDelayTime.add(currentTime - m.timestamp);
+        samplingRTTTimeStore.add(currentTime);
+
+        // Increment the count of received samples
         NoOfSamplesRecieved++;
-        if (m.body != null) {
-            // System.out.println("Yahoooo! got the sample data from node "+m.src);
-            // System.out.println(m.body);
+    }
+
+    public BigInteger getNodeId() {
+        return this.nodeId;
+    }
+
+    /**
+     * set the current NodeId
+     *
+     * @param tmp BigInteger
+     */
+    public void setNodeId(BigInteger tmp) {
+        this.nodeId = tmp;
+    }
+
+    // Trying to implement
+    // The validator can recontruct the row/columns if it has 50%(256 cells) of each
+    // row/col
+    // The BP does send the whole row/col divided into parts, where number of parts
+    // equals to number of rows/cols in a topic.
+    // So the first 8 nodes in the topic will hold the row parts and the next 8
+    // nodes will hold the column parts
+    // So the first node will fold the 1st parts of all the 8 rows which are divided
+    // into 8 parts
+
+    /**
+     * The block proposer distributes row and column data to nodes in different
+     * topics.
+     */
+    private void blockProducer() {
+        int rowNumber = 0;
+        int columnNumber = 0;
+
+        // Create a block with the configured number of rows and columns
+        Block block = new Block(
+                Configuration.getInt("NUMBER_OF_ROWS"),
+                Configuration.getInt("NUMBER_OF_COLUMNS"));
+
+        // Get the block proposer's gossip protocol instance
+        GossipSubProtocol blockProposerProtocol = (GossipSubProtocol) (CustomDistribution.blockProposerNode
+                .getProtocol(gossipSubId));
+
+        System.out.println("Block proposer ID: " + blockProposerProtocol.getNodeId());
+
+        // Iterate over all topics
+        for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
+            int assignedNodes = 0;
+            int nodeCounter = 0;
+
+            // Distribute row/column data to nodes in the topic
+            for (Node node : topicEntry.getValue().topicMembers) {
+                BigInteger destID = ((GossipSubProtocol) node.getProtocol(gossipSubId)).getNodeId();
+                Message newMessage;
+
+                if (assignedNodes < Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2) {
+                    // Assign rows to the first half of nodes
+                    byte[][] rowToSend = block.getRowData(rowNumber);
+                    newMessage = new Message(3, rowToSend, true, rowNumber, -1, -1);
+                } else {
+                    // Assign columns to the remaining nodes
+                    if (columnNumber >= 512) { // Prevent index overflow
+                        continue;
+                    }
+                    byte[][] colToSend = block.getColumnData(columnNumber);
+                    newMessage = new Message(3, colToSend, false, columnNumber, -1, -1);
+                }
+
+                // Set message metadata
+                newMessage.src = this.getNodeId();
+                newMessage.messageTopicID = topicEntry.getValue().topicID;
+                newMessage.dest = destID;
+
+                // Publish message to the recipient node
+                this.publishMessage(newMessage, destID, gossipSubId);
+
+                nodeCounter++;
+                if (nodeCounter % 8 == 0) {
+                    if (assignedNodes < Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2) {
+                        rowNumber++;
+                    } else {
+                        columnNumber++;
+                    }
+                    assignedNodes++;
+                }
+            }
         }
+
+        // Final log messages
+        System.out.println("Total Rows Assigned: " + rowNumber);
+        System.out.println("Total Columns Assigned: " + columnNumber);
+        System.out.println("********* Block proposer has sent all messages ********");
+    }
+
+    private void shardingBasedDistribution() {
+        int numberOfDivisions = Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2;// Equals to the number of
+        // rows/columns per topic
+        int partSize = Configuration.getInt("NUMBER_OF_ROWS") / numberOfDivisions;
+
+        Block b = new Block(Configuration.getInt("NUMBER_OF_ROWS"),
+                Configuration.getInt("NUMBER_OF_COLUMNS")); // Creating
+        // a
+        // block
+        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (CustomDistribution.blockProposerNode
+                .getProtocol(gossipSubId)); // Get the protocol instance of the block proposer
+        System.out.println("Block propsoser id is ------:" +
+                iGossipBlockProposer.getNodeId());
+
+        int curTopicNumber = 0;
+        int cnt;
+        int rowPartNo;
+        int colPartNo;
+        for (Map.Entry<String, Topic> topicEntry : topics.entrySet()) // Looping overall the topics
+        {
+            cnt = 0;
+            rowPartNo = 0;
+            colPartNo = 0;
+            int nodeCounter = 0;
+
+            // System.out.println("Topic ID"+ topicEntry.getValue().topicID);
+            for (Node n : topicEntry.getValue().topicMembers) // Looping over all thenodes in a given topic
+            {
+
+                if (cnt < Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2) // Allocating first 8 nodes in the
+                // topic with rows if
+                // NUMBER_OF_ROWSCOLS_IN_A_TOPIC=16
+                {
+                    byte[][][] rowsToSend = new byte[8][][];
+                    int start = rowPartNo * partSize;
+                    int end = start + partSize;
+                    // System.out.println("*******");
+                    for (int i = 0; i < numberOfDivisions; i++) {
+                        rowsToSend[i] = Arrays.copyOfRange(b.getRowData(curTopicNumber * 8 + i),
+                                start, end);
+                    }
+                    // System.out.println(Arrays.toString(b.getRowData(curTopicNumber * 8 + 1)));
+                    BigInteger destID = ((GossipSubProtocol) n.getProtocol(gossipSubId)).getNodeId();
+                    Message newMessage = new Message(3, rowsToSend, true, -1, rowPartNo, -1);
+                    // System.out.println("Row parts-"+rowPart+" sent to "+destID+ " from BP "+"
+                    // "+Arrays.deepToString(rowsToSend));
+                    // System.out.println("*****");
+                    newMessage.src = this.getNodeId();
+                    newMessage.messageTopicID = topicEntry.getValue().topicID;
+                    newMessage.dest = destID;
+
+                    this.publishMessage(newMessage, destID, gossipSubId); // Block proposersending the row data to
+                    // validator node
+
+                    nodeCounter++;
+                    if (nodeCounter % 8 == 0) {
+                        rowPartNo++;
+                        cnt++;
+                    }
+                } else // Allocating the rest 8 nodes in the topic with columns
+                {
+                    byte[][][] colsToSend = new byte[8][][];
+                    int start = colPartNo * partSize;
+                    int end = start + partSize;
+                    for (int i = 0; i < numberOfDivisions; i++) {
+                        colsToSend[i] = Arrays.copyOfRange(b.getColumnData(curTopicNumber * 8 + i),
+                                start, end);
+                    }
+
+                    BigInteger destID = ((GossipSubProtocol) n.getProtocol(gossipSubId)).getNodeId();
+                    Message newMessage = new Message(3, colsToSend, false, -1, colPartNo, -1);
+                    newMessage.src = this.getNodeId();
+                    newMessage.messageTopicID = topicEntry.getValue().topicID;
+                    newMessage.dest = destID;
+
+                    this.publishMessage(newMessage, destID, gossipSubId);
+
+                    nodeCounter++;
+                    if (nodeCounter % 8 == 0) {
+                        cnt++;
+                        colPartNo++;
+                    }
+                }
+            }
+            curTopicNumber++;
+        }
+
+        System.out.println("*********Block proposer has sent the messages ********");
+    }
+
+    private void shardingBasedDistribution2() {
+        int numberOfDivisions = Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2;
+        int totalRows = Configuration.getInt("NUMBER_OF_ROWS");
+        int totalColumns = Configuration.getInt("NUMBER_OF_COLUMNS");
+        int partSize = Math.max(1, totalRows / numberOfDivisions); // Ensure partSize is at least 1
+
+        Block block = new Block(totalRows, totalColumns);
+
+        GossipSubProtocol blockProposerProtocol = (GossipSubProtocol) (CustomDistribution.blockProposerNode
+                .getProtocol(gossipSubId));
+
+        System.out.println("Block proposer ID: " + blockProposerProtocol.getNodeId());
+
+        int curTopicNumber = 0;
+
+        for (Map.Entry<String, Topic> topicEntry : topics.entrySet()) {
+            int assignedNodes = 0, rowPartNo = 0, colPartNo = 0, nodeCounter = 0;
+
+            for (Node node : topicEntry.getValue().topicMembers) {
+                BigInteger destID = ((GossipSubProtocol) node.getProtocol(gossipSubId)).getNodeId();
+                Message newMessage = null;
+
+                if (assignedNodes < numberOfDivisions) { // Assign row parts
+                    byte[][][] rowsToSend = new byte[8][][];
+
+                    for (int i = 0; i < numberOfDivisions; i++) {
+                        byte[][] rowData = block.getRowData(curTopicNumber * 8 + i);
+                        if (rowData == null) {
+                            System.err.println("ERROR: rowData is null for row index " + (curTopicNumber * 8 + i));
+                            continue;
+                        }
+
+                        int start = rowPartNo * partSize;
+                        if (start >= rowData.length) {
+                            System.err.println("WARNING: Skipping rowPartNo " + rowPartNo + " as start index " + start
+                                    + " is out of bounds.");
+                            continue;
+                        }
+
+                        int end = Math.min(start + partSize, rowData.length); // Ensure end does not exceed array length
+                        rowsToSend[i] = Arrays.copyOfRange(rowData, start, end);
+                    }
+
+                    if (rowsToSend[0] != null) { // Ensure at least some data is sent
+                        newMessage = new Message(3, rowsToSend, true, -1, rowPartNo, -1);
+                        rowPartNo++;
+                    }
+                } else { // Assign column parts
+                    byte[][][] colsToSend = new byte[8][][];
+
+                    for (int i = 0; i < numberOfDivisions; i++) {
+                        byte[][] colData = block.getColumnData(curTopicNumber * 8 + i);
+                        if (colData == null) {
+                            System.err.println("ERROR: colData is null for col index " + (curTopicNumber * 8 + i));
+                            continue;
+                        }
+
+                        int start = colPartNo * partSize;
+                        if (start >= colData.length) {
+                            System.err.println("WARNING: Skipping colPartNo " + colPartNo + " as start index " + start
+                                    + " is out of bounds.");
+                            continue;
+                        }
+
+                        int end = Math.min(start + partSize, colData.length); // Ensure end does not exceed array length
+                        colsToSend[i] = Arrays.copyOfRange(colData, start, end);
+                    }
+
+                    if (colsToSend[0] != null) { // Ensure at least some data is sent
+                        newMessage = new Message(3, colsToSend, false, -1, colPartNo, -1);
+                        colPartNo++;
+                    }
+                }
+
+                if (newMessage == null || newMessage.body == null) {
+                    System.err.println("ERROR: newMessage.body is NULL before sending to " + destID);
+                    continue;
+                }
+
+                newMessage.src = this.getNodeId();
+                newMessage.messageTopicID = topicEntry.getValue().topicID;
+                newMessage.dest = destID;
+
+                this.publishMessage(newMessage, destID, gossipSubId);
+
+                nodeCounter++;
+                if (nodeCounter % 8 == 0) {
+                    assignedNodes++;
+                }
+            }
+            curTopicNumber++;
+        }
+
+        System.out.println("********* Block proposer has sent all messages ********");
     }
 
     @Override
@@ -844,192 +1056,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             // TO DO
 
         }
-    }
-
-    public BigInteger getNodeId() {
-        return this.nodeId;
-    }
-
-    /**
-     * set the current NodeId
-     *
-     * @param tmp BigInteger
-     */
-    public void setNodeId(BigInteger tmp) {
-        this.nodeId = tmp;
-    }
-
-    // Trying to implement
-    // The validator can recontruct the row/columns if it has 50%(256 cells) of each
-    // row/col
-    // The BP does send the whole row/col divided into parts, where number of parts
-    // equals to number of rows/cols in a topic.
-    // So the first 8 nodes in the topic will hold the row parts and the next 8
-    // nodes will hold the column parts
-    // So the first node will fold the 1st parts of all the 8 rows which are divided
-    // into 8 parts
-
-    private void blockProducer() {
-        // System.out.println(Configuration.getInt("NUMBER_COPIES_DISTRIBUTED"));
-        int rowNumber = 0;
-        int columnNumber = 0;
-
-        Block b = new Block(Configuration.getInt("NUMBER_OF_ROWS"), Configuration.getInt("NUMBER_OF_COLUMNS")); // Creating
-                                                                                                                // a
-                                                                                                                // block
-
-        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (CustomDistribution.blockProposerNode
-                .getProtocol(gossipSubId)); // Get the protocol instance of the block proposer
-
-        System.out.println("Block propsoser id is ------:" + iGossipBlockProposer.getNodeId());
-
-        for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) // Looping over all the topics
-        {
-            int cnt = 0;
-            int nodeCounter = 0;
-            // System.out.println("Topic ID"+ topicEntry.getValue().topicID);
-            for (Node n : topicEntry.getValue().topicMembers) // Looping over all the nodes in a given topic
-            {
-                if (cnt < Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2) // Allocating first 8 nodes in the
-                                                                                     // topic with rows if
-                                                                                     // NUMBER_OF_ROWSCOLS_IN_A_TOPIC=16
-                {
-                    byte[][] rowToSend = b.getRowData(rowNumber); // row to be sent
-
-                    BigInteger destID = ((GossipSubProtocol) n.getProtocol(gossipSubId)).getNodeId();
-                    // System.out.println("Row number is "+rowNumber+" node ID "+destID+" for topic
-                    // "+topicEntry.getValue().topicID);
-                    Message newMessage = new Message(3, rowToSend, true, rowNumber, -1, -1);
-                    newMessage.src = this.getNodeId();
-                    newMessage.messageTopicID = topicEntry.getValue().topicID;
-                    // System.out.println("NodeId for given topic is:"+destID);
-                    newMessage.dest = destID;
-
-                    // System.out.println("Message with id: " + newMessage.id + " belongs to " +
-                    // newMessage.dest);
-
-                    this.publishMessage(newMessage, destID, gossipSubId); // Block proposer sending the row data to
-                                                                          // validator node
-                    nodeCounter++;
-                    if (nodeCounter % 8 == 0) {
-                        rowNumber++;
-                        cnt++;
-                    }
-                } else // Allocating the rest 8 nodes in the topic with columns
-                {
-                    if (columnNumber == 512) // added this as it causing indexoverflow error as there is a bug in
-                                             // row/col allocation
-                    {
-                        continue;
-                    }
-                    byte[][] colToSend = b.getColumnData(columnNumber);
-
-                    BigInteger destID = ((GossipSubProtocol) n.getProtocol(gossipSubId)).getNodeId();
-                    // System.out.println("Col number is "+columnNumber+" node ID "+destID+" for
-                    // topic "+topicEntry.getValue().topicID);
-                    Message newMessage = new Message(3, colToSend, false, columnNumber, -1, -1);
-                    newMessage.src = this.getNodeId();
-                    newMessage.messageTopicID = topicEntry.getValue().topicID;
-                    newMessage.dest = destID;
-
-                    this.publishMessage(newMessage, destID, gossipSubId);
-                    nodeCounter++;
-                    if (nodeCounter % 8 == 0) {
-                        columnNumber++;
-                        cnt++;
-                    }
-                }
-            }
-        }
-        System.out.println(rowNumber);
-        System.out.println(columnNumber);
-        System.out.println("*********Block proposer has sent the messages ********");
-    }
-
-    private void shardingBasedDistribution() {
-        int numberOfDivisions = Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2;// Equals to the number of
-                                                                                          // rows/columns per topic
-        int partSize = Configuration.getInt("NUMBER_OF_ROWS") / numberOfDivisions;
-
-        Block b = new Block(Configuration.getInt("NUMBER_OF_ROWS"), Configuration.getInt("NUMBER_OF_COLUMNS")); // Creating
-                                                                                                                // a
-                                                                                                                // block
-        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (CustomDistribution.blockProposerNode
-                .getProtocol(gossipSubId)); // Get the protocol instance of the block proposer
-        System.out.println("Block propsoser id is ------:" + iGossipBlockProposer.getNodeId());
-
-        int curTopicNumber = 0;
-        int cnt;
-        int rowPartNo;
-        int colPartNo;
-        for (Map.Entry<String, Topic> topicEntry : topics.entrySet()) // Looping over all the topics
-        {
-            cnt = 0;
-            rowPartNo = 0;
-            colPartNo = 0;
-            int nodeCounter = 0;
-
-            // System.out.println("Topic ID"+ topicEntry.getValue().topicID);
-            for (Node n : topicEntry.getValue().topicMembers) // Looping over all the nodes in a given topic
-            {
-
-                if (cnt < Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2) // Allocating first 8 nodes in the
-                                                                                     // topic with rows if
-                                                                                     // NUMBER_OF_ROWSCOLS_IN_A_TOPIC=16
-                {
-                    byte[][][] rowsToSend = new byte[8][][];
-                    int start = rowPartNo * partSize;
-                    int end = start + partSize;
-                    // System.out.println("*******");
-                    for (int i = 0; i < numberOfDivisions; i++) {
-                        rowsToSend[i] = Arrays.copyOfRange(b.getRowData(curTopicNumber * 8 + i), start, end);
-                    }
-                    // System.out.println(Arrays.toString(b.getRowData(curTopicNumber * 8 + 1)));
-                    BigInteger destID = ((GossipSubProtocol) n.getProtocol(gossipSubId)).getNodeId();
-                    Message newMessage = new Message(3, rowsToSend, true, -1, rowPartNo, -1);
-                    // System.out.println("Row parts-"+rowPart+" sent to "+destID+ " from BP "+"
-                    // "+Arrays.deepToString(rowsToSend));
-                    // System.out.println("*****");
-                    newMessage.src = this.getNodeId();
-                    newMessage.messageTopicID = topicEntry.getValue().topicID;
-                    newMessage.dest = destID;
-
-                    this.publishMessage(newMessage, destID, gossipSubId); // Block proposer sending the row data to
-                                                                          // validator node
-
-                    nodeCounter++;
-                    if (nodeCounter % 8 == 0) {
-                        rowPartNo++;
-                        cnt++;
-                    }
-                } else // Allocating the rest 8 nodes in the topic with columns
-                {
-                    byte[][][] colsToSend = new byte[8][][];
-                    int start = colPartNo * partSize;
-                    int end = start + partSize;
-                    for (int i = 0; i < numberOfDivisions; i++) {
-                        colsToSend[i] = Arrays.copyOfRange(b.getColumnData(curTopicNumber * 8 + i), start, end);
-                    }
-
-                    BigInteger destID = ((GossipSubProtocol) n.getProtocol(gossipSubId)).getNodeId();
-                    Message newMessage = new Message(3, colsToSend, false, -1, colPartNo, -1);
-                    newMessage.src = this.getNodeId();
-                    newMessage.messageTopicID = topicEntry.getValue().topicID;
-                    newMessage.dest = destID;
-
-                    this.publishMessage(newMessage, destID, gossipSubId);
-
-                    nodeCounter++;
-                    if (nodeCounter % 8 == 0) {
-                        cnt++;
-                        colPartNo++;
-                    }
-                }
-            }
-            curTopicNumber++;
-        }
-
-        System.out.println("*********Block proposer has sent the messages ********");
     }
 }
 
