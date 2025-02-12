@@ -1,0 +1,47 @@
+package peersim.GossipSub;
+
+import peersim.config.Configuration;
+import peersim.core.Control;
+import peersim.core.Network;
+import peersim.core.Node;
+
+import java.math.BigInteger;
+import java.util.*;
+
+public class DynamicMeshControl implements Control {
+    private static final String PAR_PROT = "protocol";
+    private final int gossipProtocolID;
+    private final Random random;
+
+    public DynamicMeshControl(String prefix) {
+        this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
+        this.random = new Random();
+    }
+
+    @Override
+    public boolean execute() {
+        System.out.println("=== Mesh State at Cycle " + peersim.core.CommonState.getTime() + " ===");
+
+        // Iterate over all topics
+        for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
+            String topicID = topicEntry.getKey();
+            Set<String> nodeNames = new HashSet<>();
+
+            // Collect all nodes in the topic mesh
+            for (Node n : topicEntry.getValue().topicMembers) {
+                GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
+
+                // Get node ID as a string
+                String nodeName = "Node-" + gsp.getNodeId();
+                nodeNames.add(nodeName);
+            }
+
+            // Print mesh information
+            if (!nodeNames.isEmpty()) {
+                System.out.println("Mesh for " + topicID + " contains nodes: " + nodeNames);
+            }
+        }
+
+        return false; // Keep running periodically
+    }
+}

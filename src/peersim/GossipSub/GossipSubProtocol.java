@@ -16,6 +16,8 @@ import static peersim.GossipSub.CustomDistribution.*;
 
 import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Collectors;
+
 import peersim.core.Protocol;
 
 public class GossipSubProtocol implements Cloneable, EDProtocol {
@@ -49,8 +51,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private UnreliableTransport transport;
     private int tid;
     private int gossipSubId;
-    private int degreeLow = 6;
-    private int degreeHigh = 14;
+    public int minDegree = 8;
+    public int maxDegree = 14;
     protected int degree = 8;
     private int interfaceBandwidth;
     private int blockProducerBandwidth;
@@ -130,6 +132,80 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public Object clone() {
         GossipSubProtocol cln = new GossipSubProtocol(GossipSubProtocol.prefix);
         return cln;
+    }
+
+    // Function to update degree dynamically
+    public void setMeshDegree(int newDegree) {
+        if (newDegree >= minDegree && newDegree <= maxDegree) {
+            this.degree = newDegree;
+            updateMeshConnections();
+        } else {
+            System.out.println("Degree must be between " + minDegree + " and " + maxDegree);
+        }
+    }
+
+    public void updateMeshConnections() {
+        if (subscribedTopics.isEmpty())
+            return;
+
+        for (String topicID : subscribedTopics.stream().map(t -> t.topicID).collect(Collectors.toList())) {
+            localMesh.putIfAbsent(topicID, new HashSet<>()); // Ensure localMesh is initialized
+
+            Set<BigInteger> peers = localMesh.get(topicID);
+            if (peers == null)
+                continue;
+
+            // If mesh size is too small, add more peers
+            if (peers.size() < degree) {
+                addMorePeers(topicID, degree - peers.size());
+            }
+
+            // If mesh size is too large, remove excess peers
+            if (peers.size() > degree) {
+                removeExcessPeers(topicID, peers.size() - degree);
+            }
+        }
+    }
+
+    // Function to add new peers when the mesh is too small
+    private void addMorePeers(String topicID, int count) {
+        Topic topic = CustomDistribution.topics.get(topicID);
+        if (topic == null)
+            return;
+
+        List<Node> potentialPeers = new ArrayList<>(topic.topicMembers);
+        Collections.shuffle(potentialPeers);
+
+        for (Node newPeer : potentialPeers) {
+            if (count <= 0)
+                break;
+
+            GossipSubProtocol peerNode = (GossipSubProtocol) newPeer.getProtocol(gossipSubId);
+            if (!peerNode.localMesh.get(topicID).contains(this.nodeId)) {
+                // Establish bi-directional connection
+                peerNode.localMesh.get(topicID).add(this.nodeId);
+                this.localMesh.get(topicID).add(peerNode.nodeId);
+                count--;
+            }
+        }
+    }
+
+    // Function to remove excess peers when the mesh is too large
+    private void removeExcessPeers(String topicID, int count) {
+        if (!localMesh.containsKey(topicID))
+            return;
+
+        Iterator<BigInteger> iterator = localMesh.get(topicID).iterator();
+        while (iterator.hasNext() && count > 0) {
+            BigInteger peerID = iterator.next();
+            iterator.remove();
+            count--;
+
+            // Remove the reference from the peer's localMesh as well
+            GossipSubProtocol peerNode = (GossipSubProtocol) CustomDistribution.networkNodes.get(peerID)
+                    .getProtocol(gossipSubId);
+            peerNode.localMesh.get(topicID).remove(this.nodeId);
+        }
     }
 
     // Calculating the size of the message in bytes
@@ -389,7 +465,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         publishMessage(request, m.src, myPid);
     }
 
-
     /**
      * Forwards the received message as a gossip message to peers.
      */
@@ -431,7 +506,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             }
         }
     }
-
 
     public void handleBlockProducerData(Message m, int myPid) {
         GossipSubProtocol proposerProtocol = (GossipSubProtocol) CustomDistribution.blockProposerNode
@@ -734,7 +808,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
      * @param myPid The process ID of the current node.
      */
     public void handleSampleResponse(Message m, int myPid) {
-        System.out.println("Received the samples");
+        // System.out.println("Received the samples");
 
         final long currentTime = CommonState.getTime();
         final long delayTime = currentTime - m.timestamp;

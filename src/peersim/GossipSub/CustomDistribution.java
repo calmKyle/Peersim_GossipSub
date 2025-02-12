@@ -55,16 +55,45 @@ public class CustomDistribution implements peersim.core.Control {
      *
      * @return boolean always false
      */
+    // public boolean execute() {
+    // for (int i = 0; i < Network.size(); ++i) {
+    // final BigInteger tmp = urg.generate(); // Generate a random BigInteger ID for
+    // the node
+    // Node n = Network.get(i);
+
+    // // Set node ID in GossipSubProtocol
+    // ((GossipSubProtocol) n.getProtocol(gossipProtocolID)).setNodeId(tmp);
+
+    // // Add node to network map
+    // networkNodes.put(tmp, n);
+
+    // // Set the first node as the block proposer
+    // if (i == 0) {
+    // blockProposerNode = n;
+    // }
+    // }
+
+    // try {
+    // initialiseTopics();
+    // } catch (NoSuchAlgorithmException e) {
+    // System.err.println("Error initializing topics: " + e.getMessage());
+    // }
+
+    // return false;
+    // }
     public boolean execute() {
         for (int i = 0; i < Network.size(); ++i) {
-            final BigInteger tmp = urg.generate(); // Generate a random BigInteger ID for the node
             Node n = Network.get(i);
+            GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
 
-            // Set node ID in GossipSubProtocol
-            ((GossipSubProtocol) n.getProtocol(gossipProtocolID)).setNodeId(tmp);
+            // Assign a unique Node ID
+            BigInteger nodeId = urg.generate();
+            gsp.setNodeId(nodeId);
+            networkNodes.put(nodeId, n);
 
-            // Add node to network map
-            networkNodes.put(tmp, n);
+            // Assign an initial random mesh degree
+            int randomDegree = CommonState.r.nextInt(gsp.minDegree, gsp.maxDegree);
+            gsp.setMeshDegree(randomDegree);
 
             // Set the first node as the block proposer
             if (i == 0) {
