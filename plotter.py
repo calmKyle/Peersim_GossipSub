@@ -82,38 +82,38 @@ plt.show()
 
 #############################
 # Sample request / recieved percentage 
-import matplotlib.pyplot as plt
-import pandas as pd
+# import matplotlib.pyplot as plt
+# import pandas as pd
 
-# Load data from CSV file
-data = pd.read_csv('output1.csv')
+# # Load data from CSV file
+# data = pd.read_csv('output1.csv')
 
-# Assuming columns 'Total Sample Req Sent' and 'Total Sample Received' are in the DataFrame
-data['Percent Received over Requested'] = (data['Total Sample Received'] / data['Total Sample Req Sent']) * 100
-data['Total Sample Req Timedout'] = 100 - data['Percent Received over Requested']  # Assuming no other losses
+# # Assuming columns 'Total Sample Req Sent' and 'Total Sample Received' are in the DataFrame
+# data['Percent Received over Requested'] = (data['Total Sample Received'] / data['Total Sample Req Sent']) * 100
+# data['Total Sample Req Timedout'] = 100 - data['Percent Received over Requested']  # Assuming no other losses
 
-# Create a figure with two subplots side by side
-fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
+# # Create a figure with two subplots side by side
+# fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 6))
 
-# Plotting Percent Received over Requested and Total Sample Req Timedout on the first subplot
-axes[0].bar(data.index, data['Percent Received over Requested'], color='blue', label='Percent Received over Requested')
-axes[0].bar(data.index, data['Total Sample Req Timedout'], color='red', bottom=data['Percent Received over Requested'], label='Total Sample Req Timedout')
-axes[0].set_title('Percentage of Samples Received and Lost over Samples Requested')
-axes[0].set_xlabel('Sample Index')
-axes[0].set_ylabel('Percentage (%)')
-axes[0].set_ylim(0, 100)  # Ensuring y-limit is up to 100% for clarity
-axes[0].set_yticks(range(0, 101, 10))  # Setting y-ticks at 10% intervals
-axes[0].legend()
+# # Plotting Percent Received over Requested and Total Sample Req Timedout on the first subplot
+# axes[0].bar(data.index, data['Percent Received over Requested'], color='blue', label='Percent Received over Requested')
+# axes[0].bar(data.index, data['Total Sample Req Timedout'], color='red', bottom=data['Percent Received over Requested'], label='Total Sample Req Timedout')
+# axes[0].set_title('Percentage of Samples Received and Lost over Samples Requested')
+# axes[0].set_xlabel('Sample Index')
+# axes[0].set_ylabel('Percentage (%)')
+# axes[0].set_ylim(0, 100)  # Ensuring y-limit is up to 100% for clarity
+# axes[0].set_yticks(range(0, 101, 10))  # Setting y-ticks at 10% intervals
+# axes[0].legend()
 
-# Calculate 'Percent Received over 512' and plot on the second subplot
-data['Percent Received over 512'] = (data['Total Sample Received'] / 512) * 100
-axes[1].bar(data.index, data['Percent Received over 512'], color='green')
-axes[1].set_title('Percentage of Samples Received over 512')
-axes[1].set_xlabel('Sample Index')
-axes[1].set_ylabel('Percentage (%)')
-axes[1].set_ylim(0, 100)  # Ensuring y-limit is up to 100% for clarity
-axes[1].set_yticks(range(0, 101, 10))  # Setting y-ticks at 10% intervals
+# # Calculate 'Percent Received over 512' and plot on the second subplot
+# data['Percent Received over 512'] = (data['Total Sample Received'] / 512) * 100
+# axes[1].bar(data.index, data['Percent Received over 512'], color='green')
+# axes[1].set_title('Percentage of Samples Received over 512')
+# axes[1].set_xlabel('Sample Index')
+# axes[1].set_ylabel('Percentage (%)')
+# axes[1].set_ylim(0, 100)  # Ensuring y-limit is up to 100% for clarity
+# axes[1].set_yticks(range(0, 101, 10))  # Setting y-ticks at 10% intervals
 
-# Improve layout and show plot
-plt.tight_layout()
-plt.show()
+# # Improve layout and show plot
+# plt.tight_layout()
+# plt.show()

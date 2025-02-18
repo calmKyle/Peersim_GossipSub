@@ -5,44 +5,38 @@ import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
 
-import java.math.BigInteger;
-import java.util.*;
+import java.util.Map;
 
 public class DynamicMeshControl implements Control {
     private static final String PAR_PROT = "protocol";
+    private static final boolean DEBUG = false; // Toggle debug logging
     private final int gossipProtocolID;
-    private final Random random;
 
     public DynamicMeshControl(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
-        this.random = new Random();
     }
 
     @Override
     public boolean execute() {
-        // System.out.println("=== Mesh State at Cycle " +
-        // peersim.core.CommonState.getTime() + " ===");
+        if (DEBUG) {
+            System.out.println("=== Mesh State at Cycle " + peersim.core.CommonState.getTime() + " ===");
+        }
 
-        // Iterate over all topics
         for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
             String topicID = topicEntry.getKey();
-            Set<String> nodeNames = new HashSet<>();
+            StringBuilder meshInfo = new StringBuilder("Mesh for ").append(topicID).append(": ");
 
-            // Collect all nodes in the topic mesh
-            for (Node n : topicEntry.getValue().topicMembers) {
-                GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
-
-                // Get node ID as a string
-                String nodeName = "Node-" + gsp.getNodeId();
-                nodeNames.add(nodeName);
+            // Efficient iteration over topic members
+            for (Node node : topicEntry.getValue().topicMembers) {
+                GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
+                meshInfo.append("Node-").append(gsp.getNodeId()).append(" ");
             }
 
-            // Print mesh information
-            if (!nodeNames.isEmpty()) {
-                // System.out.println("Mesh for " + topicID + " contains nodes: " + nodeNames);
+            if (DEBUG) {
+                System.out.println(meshInfo);
             }
         }
 
-        return false; // Keep running periodically
+        return false; // Continue running periodically
     }
 }

@@ -835,6 +835,22 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         this.nodeId = tmp;
     }
 
+    public void healMesh() {
+        for (String topicID : subscribedTopics.stream().map(t -> t.topicID).collect(Collectors.toList())) {
+            if (!localMesh.containsKey(topicID)) continue;
+    
+            Set<BigInteger> peers = localMesh.get(topicID);
+            if (peers.size() < minDegree) {
+                // Add more peers to restore connectivity
+                int neededPeers = minDegree - peers.size();
+                TopicBasedMesh meshManager = new TopicBasedMesh(GossipSubProtocol.prefix);
+                meshManager.addMorePeers(this, topicID, neededPeers);
+                System.out.println("Mesh healed for " + topicID + ", added " + neededPeers + " peers.");
+            }
+        }
+    }
+    
+
     // Trying to implement
     // The validator can recontruct the row/columns if it has 50%(256 cells) of each
     // row/col
@@ -851,7 +867,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
      */
     private void nCopiesDistributionStrategy() {
 
-        int numberOfCopiesToSend = Configuration.getInt("NUMBER_COPIES_DISTRIBUTED");
+        int numberOfCopiesToSend = Configuration.getInt("NUMBER_COPIES_DISTRIBUTED", 1);
         int rowNumber = 0;
         int columnNumber = 0;
 
