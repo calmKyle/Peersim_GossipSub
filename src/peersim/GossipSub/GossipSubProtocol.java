@@ -51,12 +51,14 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private UnreliableTransport transport;
     private int tid;
     private int gossipSubId;
-    public int minDegree = 8;
-    public int maxDegree = 14;
+    public int minDegree = Configuration.getInt("MIN_DEGREE", 4);
+    public int maxDegree = Configuration.getInt("MAX_DEGREE", 8);;
     protected int degree = 8;
     private int interfaceBandwidth;
     private int blockProducerBandwidth;
     private int distributionStrategy;
+
+    private int SampleTime = Configuration.getInt("SAMPLETIME", 75);
 
     protected long totalDataTransmitted;
     protected long totalTransmissionTime;
@@ -720,7 +722,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
      * Starts the sampling process. (at least 73)
      */
     public void startSampling() {
-        for (int i = 0; i < 73; i++) {
+        for (int i = 0; i < SampleTime; i++) {
             sampleDataRequest();
         }
     }

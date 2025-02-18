@@ -20,7 +20,8 @@ public class DynamicMeshControl implements Control {
 
     @Override
     public boolean execute() {
-        System.out.println("=== Mesh State at Cycle " + peersim.core.CommonState.getTime() + " ===");
+        // System.out.println("=== Mesh State at Cycle " +
+        // peersim.core.CommonState.getTime() + " ===");
 
         // Iterate over all topics
         for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
@@ -38,7 +39,7 @@ public class DynamicMeshControl implements Control {
 
             // Print mesh information
             if (!nodeNames.isEmpty()) {
-                System.out.println("Mesh for " + topicID + " contains nodes: " + nodeNames);
+                // System.out.println("Mesh for " + topicID + " contains nodes: " + nodeNames);
             }
         }
 
