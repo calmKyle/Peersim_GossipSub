@@ -16,8 +16,8 @@ run:
 rungossip:
 	java -Xmx5000m -cp $(LIB_JARS):classes peersim.Simulator gossipConfig.cfg
 
-PANDAS:
-	java -Xmx5000m -Xms2000m -cp  $(LIB_JARS):classes peersim.Simulator GossipConfig.cfg
+PANDAS_Gossip:
+	java -Xmx32000m -Xms2000m -cp  $(LIB_JARS):classes peersim.Simulator GossipConfig.cfg
 	
 all: compile doc run
 

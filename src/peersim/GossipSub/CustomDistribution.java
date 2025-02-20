@@ -20,31 +20,33 @@ import peersim.core.Node;
 public class CustomDistribution implements peersim.core.Control {
 
     private static final String PAR_PROT = "protocol";
+    private static final int NUMBER_OF_TOPICS = Configuration.getInt("NUMBER_OF_TOPICS", 64); // Each Topic containing total 8 rows & cols where each row/column is held by one validator node
+    private static final int NUMBER_OF_VALIDATOR_NODES = Configuration.getInt("NUMBER_OF_VALIDATORS", 8192); // How many validator nodes are there per slot.
+    private static final int NUMBER_OF_ROWSCOLS_IN_A_TOPIC = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC",16); // Number of rows and columns a topic will hold
+    private static final int NUMBER_OF_VALIDATORS_PER_TOPIC = Configuration.getInt("NUMBER_OF_VALIDATORS_PER_TOPIC",128);
+    private static final int NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC = NUMBER_OF_ROWSCOLS_IN_A_TOPIC ==1 ? NUMBER_OF_VALIDATORS_PER_TOPIC :
+            (int) Math.ceil((NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
+//    private static final int NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC = Configuration.getInt("NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC",8);
+//    private static final int NUMBER_OF_VALIDATORS_PER_TOPIC = Configuration.getInt("NUMBER_OF_VALIDATORS_PER_TOPIC",128);
 
-    // Configuration parameters
-    private static final int NUMBER_OF_TOPICS = Configuration.getInt("NUMBER_OF_TOPICS", 64);
-    private static final int NUMBER_OF_VALIDATOR_NODES = Configuration.getInt("NUMBER_OF_VALIDATORS", 1024);
-    private static final int NUMBER_OF_ROWSCOLS_IN_A_TOPIC = Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC");
-
-    private final int gossipProtocolID;
-    private final UniformRandomGenerator urg;
+    private int gossipProtocolID;
+    private UniformRandomGenerator urg;
     private static final Random random = new Random();
-
     public static Node blockProposerNode;
+    public static HashMap<Integer,ArrayList<BigInteger>>rowCustodyNodes = new HashMap<>(); // <rowNumber<Nodes custodying this row>>
+    public static HashMap<Integer,ArrayList<BigInteger>>columnCustodyNodes = new HashMap<>();
+    public static Block block = new Block(Configuration.getInt("NUMBER_OF_ROWS"), Configuration.getInt("NUMBER_OF_COLUMNS"));
 
-    // Custody node mappings
-    public static final Map<Integer, ArrayList<BigInteger>> rowCustodyNodes = new HashMap<>();
-    public static final Map<Integer, ArrayList<BigInteger>> columnCustodyNodes = new HashMap<>();
+    public String prefix;
 
-    public final String prefix;
+    public static Map<BigInteger, Node> networkNodes = new LinkedHashMap<>();// <nodeID,Node> Map containing all the nodes of the network
 
-    // Network-wide data structures
-    public static final Map<BigInteger, Node> networkNodes = new LinkedHashMap<>(); // <NodeID, Node> map
-    public static final Map<String, Topic> topics = new LinkedHashMap<>(NUMBER_OF_TOPICS); // <TopicID, Topic> map
+    public static Map<String, Topic> topics = new LinkedHashMap<>(NUMBER_OF_TOPICS); // <TopicId,Topic>
 
     public CustomDistribution(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
-        this.urg = new UniformRandomGenerator(160, CommonState.r);
+        urg = new UniformRandomGenerator(160, CommonState.r);
+
         this.prefix = prefix;
     }
 
@@ -56,169 +58,199 @@ public class CustomDistribution implements peersim.core.Control {
      * @return boolean always false
      */
     public boolean execute() {
+        System.out.println("NUMBER_OF_ROWSCOLS_IN_A_TOPIC "+NUMBER_OF_ROWSCOLS_IN_A_TOPIC);
+        System.out.println("NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC "+NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
+        System.out.println("NUMBER_OF_VALIDATORS_PER_TOPIC "+NUMBER_OF_VALIDATORS_PER_TOPIC);
+        BigInteger tmp;
         for (int i = 0; i < Network.size(); ++i) {
-            final BigInteger tmp = urg.generate(); // Generate a random BigInteger ID forthe node
+            tmp = urg.generate(); //Createing a random BigInteger Id for the node
+
             Node n = Network.get(i);
+            ((GossipSubProtocol) (n.getProtocol(gossipProtocolID))).setNodeId(tmp); // Setting the nodeId for the node in gossipsub protocol
 
-            // Set node ID in GossipSubProtocol
-            ((GossipSubProtocol) n.getProtocol(gossipProtocolID)).setNodeId(tmp);
+            networkNodes.put(tmp, n); //Adding the node and its nodeId to the static list of nodes in the network
 
-            // Add node to network map
-            networkNodes.put(tmp, n);
-
-            // Set the first node as the block proposer
-            if (i == 0) {
+            if (i == 0) // Setting the first node in the network as the block producer
+            {
                 blockProposerNode = n;
             }
         }
-
         try {
             initialiseTopics();
         } catch (NoSuchAlgorithmException e) {
-            System.err.println("Error initializing topics: " + e.getMessage());
-        }
 
+        }
         return false;
     }
-    // public boolean execute() {
-    // for (int i = 0; i < Network.size(); ++i) {
-    // Node n = Network.get(i);
-    // GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
 
-    // // Assign a unique Node ID
-    // BigInteger nodeId = urg.generate();
-    // gsp.setNodeId(nodeId);
-    // networkNodes.put(nodeId, n);
-
-    // // Assign an initial random mesh degree
-    // int randomDegree = CommonState.r.nextInt(gsp.minDegree, gsp.maxDegree);
-    // gsp.setMeshDegree(randomDegree);
-
-    // // Set the first node as the block proposer
-    // if (i == 0) {
-    // blockProposerNode = n;
-    // }
-    // }
-
-    // try {
-    // initialiseTopics();
-    // } catch (NoSuchAlgorithmException e) {
-    // System.err.println("Error initializing topics: " + e.getMessage());
-    // }
-
-    // return false;
-    // }
-
-    /**
-     * Returns the network nodes map.
-     */
     public Map<BigInteger, Node> getNetworkNodes() {
         return networkNodes;
     }
 
     private void initialiseTopics() throws NoSuchAlgorithmException {
-        System.out.println("Initializing topics for the block proposer in CustomDistribution...");
-
-        // Get block proposer protocol instance
-        GossipSubProtocol gossipBlockProposer = (GossipSubProtocol) Network.get(0).getProtocol(gossipProtocolID);
-
-        // Initialize topics
-        for (int i = 1; i <= NUMBER_OF_TOPICS; i++) {
-            topics.put("Topic-" + i, new Topic("Topic-" + i));
+        System.out.println("Initial topic setup for the block proposer in customDistribution class");
+        // Initialising the topics with the name/ID
+        Topic t = null;
+        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (Network.get(0).getProtocol(gossipProtocolID)); // Getting the gossipsub instance of the block proposer
+        int rowNumber = 0;
+        int columnNumber = 0;
+        for (int i = 1; i <= NUMBER_OF_TOPICS; i++) // Initialising the all the topics in the network
+        {
+            t = new Topic("Topic-" + i);
+            topics.put("Topic-" + i, t);
+            // iGossipBlockProposer.subscribeTopic(t); // Subcribing the block proposer to all the topics. (NOTE: THIS LOGIC IS REMOVED AS IT IS SENDING THE MES DIRECTLY TO THE INDIVUAL NODE)
         }
-
-        // List of all nodes in the network (excluding block proposer)
+        // List of all nodes in the network
         List<Node> allNodes = new ArrayList<>(networkNodes.values());
-        allNodes.remove(blockProposerNode);
 
-        int rowNumber = 0, columnNumber = 0, topicNumber = 0, cnt = 0, nodeCounter = 0, idx = 0;
-
-        rowCustodyNodes.put(0, new ArrayList<>());
-        columnCustodyNodes.put(0, new ArrayList<>());
-
-        for (Node node : allNodes) {
-            if (idx >= NUMBER_OF_VALIDATOR_NODES) {
-                break; // Only process validator nodes
+        int idx = 0; // Counter to up to NUMBER_OF_VALIDATOR_NODES. Assuming the first NUMBER_OF_VALIDATOR_NODES(1024) nodes in the network at validator nodes
+        int topicNumber = 0;
+        int topicNumber2 =0;
+        int cnt = 0;
+        int nodeCounter = 0;
+        rowCustodyNodes.put(0,new ArrayList<>());
+        columnCustodyNodes.put(0,new ArrayList<>());
+        int halfRowsCols = Math.max(1, NUMBER_OF_ROWSCOLS_IN_A_TOPIC / 2);
+        for(int a=0;a<allNodes.size();a++)
+        {
+            if (allNodes.get(a) == blockProposerNode) // Skipping the node if its a block proposer
+            {
+                continue;
+            }
+            if (idx >= NUMBER_OF_VALIDATOR_NODES) // Assuming that the first 8192 nodes in the network will be the validator nodes that will receive the row/col from the block proposer
+            {
+                break;
             }
 
-            GossipSubProtocol gossipNode = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
-            BigInteger nodeId = gossipNode.getNodeId();
-
-            // Increase topic number after every 128 nodes
-            if (idx % 128 == 0) {
-                cnt = 0;
+            if (idx % NUMBER_OF_VALIDATORS_PER_TOPIC == 0) // Increase the topic number adding 128 nodes to a given topic
+            {
+                cnt=0;
                 nodeCounter = 0;
                 topicNumber++;
             }
 
-            // Assign custody
-            if (cnt < (Configuration.getInt("NUMBER_OF_ROWSCOLS_IN_A_TOPIC") / 2)) {
-                assignCustodyRow(gossipNode, rowNumber);
+            boolean isRow = (cnt < halfRowsCols);
+            for(int b=0;b<NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC;b++)
+            {
+                if (allNodes.get(a) == blockProposerNode) // Skipping the node if its a block proposer
+                {
+                    b--;
+                    continue;
+                }
+                Node node = allNodes.get(a);
+                BigInteger nodeId = ((GossipSubProtocol) (node.getProtocol(gossipProtocolID))).getNodeId();
+
+                GossipSubProtocol iGossip = (GossipSubProtocol) (node.getProtocol(gossipProtocolID)); // Get the protocol instance of the node
+                iGossip.custody1 = "row"+rowNumber;
+                rowCustodyNodes.get(rowNumber).add(iGossip.nodeId);
+                int randomRow =rowNumber;
+                while(randomRow==rowNumber){
+                    randomRow = (int)(Math.random() * ((Configuration.getInt("NUMBER_OF_ROWS"))));
+                    topicNumber2 = (randomRow/Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"))+1;
+                    if(NUMBER_OF_ROWSCOLS_IN_A_TOPIC==1)
+                    {
+                        topicNumber2 = (randomRow*2)+1;
+                    }
+                }
+                iGossip.custody2 = "row"+randomRow;
+                if(!rowCustodyNodes.containsKey(randomRow))
+                {
+                    rowCustodyNodes.put(randomRow,new ArrayList<>());
+                }
+                rowCustodyNodes.get(randomRow).add(iGossip.nodeId);
+
                 nodeCounter++;
-                if (nodeCounter % 8 == 0) {
+                a++;
+                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
+                System.out.print("Topic Allocation for nodeID: " + nodeId + " " + topicNumber+" "+topicNumber2);
+                System.out.println(" "+iGossip.custody1+" "+iGossip.custody2);
+                iGossip.localMesh.put(topics.get("Topic-" + topicNumber).topicID, new HashSet<>());
+                iGossip.gossipMesh.put(topics.get("Topic-" + topicNumber).topicID, new HashSet<>());
+                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
+
+                if(!(iGossip.isSubscribedToTopic(topics.get("Topic-" + topicNumber2))))
+                {
+                    iGossip.subscribeTopic(topics.get("Topic-" + topicNumber2)); // Subsribing the node to the given topic
+//              System.out.print("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
+//              System.out.println(" "+iGossip.custody1+" "+iGossip.custody2);
+                    iGossip.localMesh.put(topics.get("Topic-" + topicNumber2).topicID, new HashSet<>());
+                    iGossip.gossipMesh.put(topics.get("Topic-" + topicNumber2).topicID, new HashSet<>());
+                    topics.get("Topic-" + topicNumber2).addMember(node); // Adding the node to the list of members for a given topic
+                }
+                idx++;
+                if (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
                     rowNumber++;
                     cnt++;
-                    rowCustodyNodes.put(rowNumber, new ArrayList<>());
-                }
-            } else {
-                assignCustodyColumn(gossipNode, columnNumber);
-                nodeCounter++;
-                if (nodeCounter % 8 == 0) {
-                    columnNumber++;
-                    cnt++;
-                    columnCustodyNodes.put(columnNumber, new ArrayList<>());
+                    rowCustodyNodes.put(rowNumber,new ArrayList<>());
                 }
             }
+            if (idx % NUMBER_OF_VALIDATORS_PER_TOPIC == 0) // Increase the topic number adding 128 nodes to a given topic
+            {
+                cnt=0;
+                nodeCounter = 0;
+                topicNumber++;
+            }
+            for(int c=0;c<NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC;c++)
+            {
+                if (allNodes.get(a) == blockProposerNode) // Skipping the node if its a block proposer
+                {
+                    c--;
+                    continue;
+                }
+                Node node = allNodes.get(a);
+                BigInteger nodeId = ((GossipSubProtocol) (node.getProtocol(gossipProtocolID))).getNodeId();
 
-            // Subscribe node to topic
-            Topic topic = topics.get("Topic-" + topicNumber);
-            gossipNode.subscribeTopic(topic);
-            gossipNode.localMesh.put(topic.topicID, new HashSet<>());
-            gossipNode.gossipMesh.put(topic.topicID, new HashSet<>());
-            topic.addMember(node);
+                // System.out.println("Allocation for nodeID: " + nodeId + " " + alc);
+                GossipSubProtocol iGossip = (GossipSubProtocol) (node.getProtocol(gossipProtocolID)); // Get the protocol instance of the node
+                iGossip.custody1 = "column"+columnNumber;
+                columnCustodyNodes.get(columnNumber).add(iGossip.nodeId);
+                int randomCol =columnNumber;
+                while(randomCol==columnNumber){
+                      randomCol = (int)(Math.random() * ((Configuration.getInt("NUMBER_OF_ROWS"))));
+                      topicNumber2 = (randomCol/Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"))+1;
+                        if(NUMBER_OF_ROWSCOLS_IN_A_TOPIC==1)
+                        {
+                            topicNumber2 = (randomCol*2)+2;
+                        }
+                }
+                iGossip.custody2 = "column"+randomCol;
 
-            idx++;
+                if(!columnCustodyNodes.containsKey(randomCol))
+                {
+                    columnCustodyNodes.put(randomCol,new ArrayList<>());
+                }
+                columnCustodyNodes.get(randomCol).add(iGossip.nodeId);
+                nodeCounter++;
+                a++;
+                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber)); // Subsribing the node to the given topic
+                System.out.print("Topic Allocation for nodeID: " + nodeId + " " + topicNumber+" "+topicNumber2);
+                System.out.println(" "+iGossip.custody1+" "+iGossip.custody2);
+                iGossip.localMesh.put(topics.get("Topic-" + topicNumber).topicID, new HashSet<>());
+                iGossip.gossipMesh.put(topics.get("Topic-" + topicNumber).topicID, new HashSet<>());
+                topics.get("Topic-" + topicNumber).addMember(node); // Adding the node to the list of members for a given topic
+
+            if(!(iGossip.isSubscribedToTopic(topics.get("Topic-" + topicNumber2))))
+            {
+                iGossip.subscribeTopic(topics.get("Topic-" + topicNumber2)); // Subsribing the node to the given topic
+//              System.out.print("Topic Allocation for nodeID: " + nodeId + " " + topicNumber);
+//              System.out.println(" "+iGossip.custody1+" "+iGossip.custody2);
+                iGossip.localMesh.put(topics.get("Topic-" + topicNumber2).topicID, new HashSet<>());
+                iGossip.gossipMesh.put(topics.get("Topic-" + topicNumber2).topicID, new HashSet<>());
+                topics.get("Topic-" + topicNumber2).addMember(node); // Adding the node to the list of members for a given topic
+                }
+                idx++;
+                if (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
+                    columnNumber++;
+                    cnt++;
+                    columnCustodyNodes.put(columnNumber,new ArrayList<>());
+                }
+            }
+            a--;
         }
-
-        System.out.println("Initial topic setup completed successfully!");
-        new TopicBasedMesh(this.prefix).createTopicMesh(); // Set the mesh in each topic
+        System.out.println("Intial topic setup is compleeted hurry!!!!");
+        TopicBasedMesh tbm = new TopicBasedMesh(this.prefix); // To set the mesh in each topic
+        tbm.createTopicMesh();
     }
-
-    /**
-     * Assigns custody of a row to a node.
-     */
-    private void assignCustodyRow(GossipSubProtocol gossipNode, int rowNumber) {
-        gossipNode.custody1 = "row" + rowNumber;
-        rowCustodyNodes.computeIfAbsent(rowNumber, k -> new ArrayList<>()).add(gossipNode.nodeId);
-
-        int randomRow = generateDifferentRandom(rowNumber);
-        gossipNode.custody2 = "row" + randomRow;
-        rowCustodyNodes.computeIfAbsent(randomRow, k -> new ArrayList<>()).add(gossipNode.nodeId);
-    }
-
-    /**
-     * Assigns custody of a column to a node.
-     */
-    private void assignCustodyColumn(GossipSubProtocol gossipNode, int columnNumber) {
-        gossipNode.custody1 = "column" + columnNumber;
-        columnCustodyNodes.computeIfAbsent(columnNumber, k -> new ArrayList<>()).add(gossipNode.nodeId);
-
-        int randomCol = generateDifferentRandom(columnNumber);
-        gossipNode.custody2 = "column" + randomCol;
-        columnCustodyNodes.computeIfAbsent(randomCol, k -> new ArrayList<>()).add(gossipNode.nodeId);
-    }
-
-    /**
-     * Generates a random index different from the provided index.
-     */
-    private int generateDifferentRandom(int currentIndex) {
-        int newIndex;
-        do {
-            newIndex = 8 * (currentIndex / 8) + (int) (Math.random() * 8);
-        } while (newIndex == currentIndex);
-        return newIndex;
-    }
-
 }
 
 // Explanation

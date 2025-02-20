@@ -1,6 +1,5 @@
 package peersim.GossipSub;
 
-import java.security.Key;
 import java.util.Arrays;
 
 public class Block {
@@ -12,14 +11,6 @@ public class Block {
     public static final int ELEMENT_SIZE = 512; // Size of each element in bytes
 
     public Block(int r, int c) {
-        this.blockID = block_id_counter++;
-        this.rows = r;
-        this.columns = c;
-        this.sampleMatrix = new byte[rows][columns][ELEMENT_SIZE];
-        initialiseDataMatrix();
-    }
-
-    public Block(int r, int c, Key key) {
         this.blockID = block_id_counter++;
         this.rows = r;
         this.columns = c;

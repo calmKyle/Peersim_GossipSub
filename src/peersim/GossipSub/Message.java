@@ -51,8 +51,8 @@ public class Message extends SimpleEvent {
     public static final int MSG_SAMPLE_DATA_RESPONSE = 6;
 
     public static final int MSG_START_SAMPLING = 7;
-//
-//    public static final int MSG_RESET_BANDWIDTH = 8;
+
+    public static final int MSG_RESET_BANDWIDTH = 8;
 
 
     // ______________________________________________________________________________________________
@@ -182,10 +182,10 @@ public class Message extends SimpleEvent {
                 return "MSG_SAMPLE_DATA_REQUEST";
             case MSG_SAMPLE_DATA_RESPONSE:
                 return "MSG_SAMPLE_DATA_RESPONSE";
-//            case MSG_START_SAMPLING:
-//                return "MSG_START_SAMPLING";
-//            case MSG_RESET_BANDWIDTH:
-//                return "MSG_RESET_BANDWIDTH";
+           case MSG_START_SAMPLING:
+               return "MSG_START_SAMPLING";
+           case MSG_RESET_BANDWIDTH:
+               return "MSG_RESET_BANDWIDTH";
             default:
                 return "UNKNOW:" + type;
         }
