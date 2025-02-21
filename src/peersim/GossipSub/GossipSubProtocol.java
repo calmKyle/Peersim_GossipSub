@@ -11,6 +11,7 @@ import peersim.transport.UnreliableTransport;
 import peersim.util.IncrementalStats;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static peersim.GossipSub.CustomDistribution.*;
@@ -34,8 +35,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private UnreliableTransport transport;
     private int tid;
     private int gossipSubId;
-    private int degreeLow = 6;
-    private int degreeHigh = 14;
+    private int minDegree = 6;
+    private int maxDegree = 14;
     protected int degree = 8;
 
     private Set<Topic> subscribedTopics = new HashSet<>();
@@ -99,6 +100,80 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public Object clone() {
         GossipSubProtocol cln = new GossipSubProtocol(GossipSubProtocol.prefix);
         return cln;
+    }
+
+    // Function to update degree dynamically
+    public void setMeshDegree(int newDegree) {
+        if (newDegree >= minDegree && newDegree <= maxDegree) {
+            this.degree = newDegree;
+            updateMeshConnections();
+        } else {
+            System.out.println("Degree must be between " + minDegree + " and " + maxDegree);
+        }
+    }
+
+    public void updateMeshConnections() {
+        if (subscribedTopics.isEmpty())
+            return;
+
+        for (String topicID : subscribedTopics.stream().map(t -> t.topicID).collect(Collectors.toList())) {
+            localMesh.putIfAbsent(topicID, new HashSet<>()); // Ensure localMesh is initialized
+
+            Set<BigInteger> peers = localMesh.get(topicID);
+            if (peers == null)
+                continue;
+
+            // If mesh size is too small, add more peers
+            if (peers.size() < degree) {
+                addMorePeers(topicID, degree - peers.size());
+            }
+
+            // If mesh size is too large, remove excess peers
+            if (peers.size() > degree) {
+                removeExcessPeers(topicID, peers.size() - degree);
+            }
+        }
+    }
+
+    // Function to add new peers when the mesh is too small
+    private void addMorePeers(String topicID, int count) {
+        Topic topic = CustomDistribution.topics.get(topicID);
+        if (topic == null)
+            return;
+
+        List<Node> potentialPeers = new ArrayList<>(topic.topicMembers);
+        Collections.shuffle(potentialPeers);
+
+        for (Node newPeer : potentialPeers) {
+            if (count <= 0)
+                break;
+
+            GossipSubProtocol peerNode = (GossipSubProtocol) newPeer.getProtocol(gossipSubId);
+            if (!peerNode.localMesh.get(topicID).contains(this.nodeId)) {
+                // Establish bi-directional connection
+                peerNode.localMesh.get(topicID).add(this.nodeId);
+                this.localMesh.get(topicID).add(peerNode.nodeId);
+                count--;
+            }
+        }
+    }
+
+    // Function to remove excess peers when the mesh is too large
+    private void removeExcessPeers(String topicID, int count) {
+        if (!localMesh.containsKey(topicID))
+            return;
+
+        Iterator<BigInteger> iterator = localMesh.get(topicID).iterator();
+        while (iterator.hasNext() && count > 0) {
+            BigInteger peerID = iterator.next();
+            iterator.remove();
+            count--;
+
+            // Remove the reference from the peer's localMesh as well
+            GossipSubProtocol peerNode = (GossipSubProtocol) CustomDistribution.networkNodes.get(peerID)
+                    .getProtocol(gossipSubId);
+            peerNode.localMesh.get(topicID).remove(this.nodeId);
+        }
     }
 
     private int calculateMessageSize(Message message) {
@@ -532,63 +607,73 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public void sampleDataRequest() {
-
         Random random = new Random();
 
-        int rowOrColDecider = random.nextInt(2);
+        // Randomly decide whether to sample a row or column
+        boolean isRow = random.nextBoolean();
         int randomSampleIndex = random.nextInt(Configuration.getInt("NUMBER_OF_COLUMNS", 512));
 
-        int SamplingIdx = randomSampleIndex;
         int rowOrColNo = randomSampleIndex;
-        int noOfRowsAndColsInTopic = (Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 16));
-        int topicNo = 0;
-        if (noOfRowsAndColsInTopic == 1) {
-            if (rowOrColDecider == 0) {
-                topicNo = (rowOrColNo * 2) + 1;
-            } else {
-                topicNo = (rowOrColNo * 2) + 2;
-            }
-        } else {
-            topicNo = rowOrColNo / (noOfRowsAndColsInTopic / 2);
-        }
-        Topic topicToSubscribe = CustomDistribution.topics.get("Topic-" + (topicNo + 1));
+        int noOfRowsAndColsInTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 16);
+
+        // Determine topic number based on configuration
+        int topicNo = (noOfRowsAndColsInTopic == 1)
+                ? (rowOrColNo * 2) + (isRow ? 1 : 2)
+                : rowOrColNo / (noOfRowsAndColsInTopic / 2);
+
+        // Subscribe to the topic
+        Topic topicToSubscribe = CustomDistribution.topics.get("Topic-" + (topicNo));
         if (topicToSubscribe == null) {
-            // System.out.println("nulll");
+            System.out.println("Topic not found: Topic-" + (topicNo));
             return;
         }
         this.subscribeTopic(topicToSubscribe);
 
-        BigInteger destId = null;
-        if (distributionStrategy == 3 || distributionStrategy == 2) {
-            if (rowOrColDecider == 0) {
-                ArrayList<BigInteger> rowHolders = rowCustodyNodes.get(rowOrColNo);
-                int sampleHolderNodeIdx = random.nextInt((rowHolders.size()));
-                destId = rowHolders.get(sampleHolderNodeIdx);
-            } else {
-                ArrayList<BigInteger> colHolders = columnCustodyNodes.get(rowOrColNo);
-                int sampleHolderNodeIdx = random.nextInt((colHolders.size()));
-                destId = colHolders.get(sampleHolderNodeIdx);
-            }
+        // Select a random node holding the row or column
+        BigInteger destId = selectRandomHolder(isRow, rowOrColNo, random);
+        if (destId == null || destId.equals(this.nodeId)) {
+            System.out.println("Invalid or self-selection, retrying sample request...");
+            return; // Avoids recursion, preventing potential stack overflow
         }
-        if (destId == this.nodeId) {
-            sampleDataRequest();
+
+        // Create the sampling request message
+        Message sampleReqMsg = createMessage(
+                -1, Message.MSG_SAMPLE_DATA_REQUEST, this.nodeId, destId,
+                topicToSubscribe.topicID, Integer.toString(randomSampleIndex),
+                isRow, rowOrColNo, -1, 0, -1);
+
+        // Store and send the request
+        this.sentMsg.put(sampleReqMsg.id, sampleReqMsg);
+        noOfSampleRequestsSent++;
+        this.publishMessage(sampleReqMsg, destId, gossipSubId);
+
+        // Schedule timeout for the request
+        scheduleRequestTimeout(sampleReqMsg, destId);
+    }
+
+    // Helper method to select a random row or column holder
+    private BigInteger selectRandomHolder(boolean isRow, int rowOrColNo, Random random) {
+        ArrayList<BigInteger> holders = isRow ? rowCustodyNodes.get(rowOrColNo) : columnCustodyNodes.get(rowOrColNo);
+        if (holders == null || holders.isEmpty()) {
+            System.out.println("No holders found for " + (isRow ? "row" : "column") + " " + rowOrColNo);
+            return null;
+        }
+        return holders.get(random.nextInt(holders.size()));
+    }
+
+    // Helper method to schedule timeout for sample requests
+    private void scheduleRequestTimeout(Message sampleReqMsg, BigInteger destId) {
+        peersim.GossipSub.Timeout timeout = new peersim.GossipSub.Timeout(1, destId, sampleReqMsg.id);
+        Node src = CustomDistribution.networkNodes.get(this.nodeId);
+        Node dest = CustomDistribution.networkNodes.get(sampleReqMsg.dest);
+
+        if (src == null || dest == null) {
+            System.out.println("Invalid source or destination for timeout scheduling.");
             return;
         }
 
-        Message sampleReqMes = createMessage(-1, Message.MSG_SAMPLE_DATA_REQUEST, this.nodeId, destId,
-                topicToSubscribe.topicID, Integer.toString(SamplingIdx), rowOrColDecider == 0, rowOrColNo, -1, 0, -1);
-
-        this.sentMsg.put(sampleReqMes.id, sampleReqMes);
-        noOfSampleRequestsSent++;
-
-        this.publishMessage(sampleReqMes, destId, gossipSubId);
-
-        peersim.GossipSub.Timeout t = new peersim.GossipSub.Timeout(1, destId, sampleReqMes.id);
-        Node src = CustomDistribution.networkNodes.get(this.nodeId);
-        Node dest = CustomDistribution.networkNodes.get(sampleReqMes.dest);
         long latency = transport.getLatency(src, dest);
-
-        EDSimulator.add(4 * latency, t, src, gossipSubId);
+        EDSimulator.add(4 * latency, timeout, src, gossipSubId);
     }
 
     public void handleSampleRequest(Message m, int myPid) {
@@ -908,9 +993,11 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     if (isRowTopic) {
                         partToSend = Arrays.copyOfRange(b.getRowData(rowNumber), (numberOfCopiesSent) * partSize,
                                 ((numberOfCopiesSent) * partSize + partSize));
+                        System.out.println("Row number " + rowNumber + " " + (numberOfCopiesSent) + " " + destID);
                     } else {
                         partToSend = Arrays.copyOfRange(b.getColumnData(columnNumber), (numberOfCopiesSent) * partSize,
                                 ((numberOfCopiesSent) * partSize + partSize));
+                        System.out.println("Column number " + columnNumber + " " + (numberOfCopiesSent) + " " + destID);
 
                     }
                     Message messageTosend = this.createMessage(-1, 3, this.nodeId, destID, currentTopic.topicID,
