@@ -35,8 +35,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private UnreliableTransport transport;
     private int tid;
     private int gossipSubId;
-    private int minDegree = 6;
-    private int maxDegree = 14;
+    private int minDegree = Configuration.getInt("MIN_DEGREE", 4);
+    private int maxDegree = Configuration.getInt("MAX_DEGREE", 16);
     protected int degree = 8;
 
     private Set<Topic> subscribedTopics = new HashSet<>();
