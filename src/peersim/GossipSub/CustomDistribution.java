@@ -113,9 +113,9 @@ public class CustomDistribution implements peersim.core.Control {
      * custody
      * - Second chunk of size NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC => column
      * custody
-     * -> Then move to the next set of nodes. Meanwhile, if we've hit the limit in a
+     * -> Then move to the next set of nodes. Meanwhile, if hit the limit in a
      * topic
-     * -> (NUMBER_OF_VALIDATORS_PER_TOPIC), we move to the next topic.
+     * -> (NUMBER_OF_VALIDATORS_PER_TOPIC), move to the next topic.
      */
     private void assignCustodyWithChunks() {
         System.out.println("Assigning row/column custody in chunks...");
@@ -141,12 +141,12 @@ public class CustomDistribution implements peersim.core.Control {
         int topicNumber = 1; // Start from topic 1
         int assignedInCurrentTopic = 0; // how many nodes assigned so far in the current topic
 
-        // 3. We'll iterate through validatorNodes in a loop,
+        // 3. Iterate through validatorNodes in a loop,
         // alternating between "row chunk" and "column chunk."
         int i = 0;
         while (i < validatorNodes.size()) {
 
-            // If we have assigned enough for the current topic, move to next
+            // If assigned enough for the current topic, move to next
             if (assignedInCurrentTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) {
                 topicNumber++;
                 assignedInCurrentTopic = 0;
@@ -165,7 +165,7 @@ public class CustomDistribution implements peersim.core.Control {
             assignedInCurrentTopic = rowResult.assignedInThisTopic;
             rowNumber = rowResult.nextLabelNumber;
 
-            // if we are out of nodes, break
+            // if are out of nodes, break
             if (i >= validatorNodes.size()) {
                 break;
             }
@@ -215,7 +215,7 @@ public class CustomDistribution implements peersim.core.Control {
 
     /**
      * Assigns custody to a "chunk" of nodes (either ROW or COLUMN), updating
-     * the relevant counters. The loop stops if we run out of nodes or fill the
+     * the relevant counters. The loop stops if run out of nodes or fill the
      * topic.
      *
      * @param validatorNodes All validator nodes
@@ -239,7 +239,7 @@ public class CustomDistribution implements peersim.core.Control {
         int assignedInTopic = assignedSoFar;
 
         for (int count = 0; count < chunkSize; count++) {
-            // If we have used all nodes, or filled the topic, exit early
+            // If have used all nodes, or filled the topic, exit early
             if (i >= validatorNodes.size())
                 break;
             if (assignedInTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC)
@@ -288,7 +288,7 @@ public class CustomDistribution implements peersim.core.Control {
 
             assignedInTopic++;
 
-            // If we've assigned chunkSize nodes in this row/col, move to the next
+            // If assigned chunkSize nodes in this row/col, move to the next
             // labelNumber
             if (assignedInTopic % chunkSize == 0) {
                 labelNumber++;
@@ -317,7 +317,7 @@ public class CustomDistribution implements peersim.core.Control {
     private void subscribeNodeToTopic(GossipSubProtocol gsp, Node node, int topicNumber) {
         Topic topic = topics.get("Topic-" + topicNumber);
         if (topic == null) {
-            return; // in case we exceed or mismatch topic indexing
+            return; // in case exceed or mismatch topic indexing
         }
         if (!gsp.isSubscribedToTopic(topic)) {
             gsp.subscribeTopic(topic);

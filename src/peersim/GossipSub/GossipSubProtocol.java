@@ -831,203 +831,328 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         this.nodeId = tmp;
     }
 
-    private Message createRowOrColMessageForDistribution(int numberOfCopiesSent, Message newMessage, Block b,
-            int rowNumber, String topicId, BigInteger destID, boolean isRow) {
-        if (numberOfCopiesSent == 0) {
-            byte[][] dataToSend = isRow
-                    ? Arrays.copyOfRange(b.getRowData(rowNumber), 0, Configuration.getInt("NUMBER_OF_ROWS") / 2)
-                    : Arrays.copyOfRange(b.getColumnData(rowNumber), 0, Configuration.getInt("NUMBER_OF_ROWS") / 2);
+    //  constants
+    private static final int MAX_DIMENSION_SIZE = 512;
+    private static final int MESSAGE_TYPE = 3;
 
-            newMessage = new Message(3, dataToSend, true, rowNumber, -1, -1);
-            newMessage.src = this.getNodeId();
-            newMessage.messageTopicID = topicId;
-            newMessage.dest = destID;
+    private Message createRowOrColumnMessageForDistribution(
+            int copiesSent,
+            Message baseMessage,
+            Block block,
+            int rowOrColumnIndex,
+            String topicId,
+            BigInteger destinationId,
+            boolean isRow) {
+        // Only build a new 'baseMessage' if this is the first copy
+        if (copiesSent == 0) {
+            int halfRows = Configuration.getInt("NUMBER_OF_ROWS") / 2;
+
+            // Determine which data need to send (row or column).
+            // For example, if rows are large, you're only sending half of it here.
+            byte[][] dataToSend = isRow
+                    ? Arrays.copyOfRange(block.getRowData(rowOrColumnIndex), 0, halfRows)
+                    : Arrays.copyOfRange(block.getColumnData(rowOrColumnIndex), 0, halfRows);
+
+            // Create the initial message that others will copy from
+            baseMessage = new Message(
+                    MESSAGE_TYPE,
+                    dataToSend,
+                    /* isValid? */ true,
+                    rowOrColumnIndex,
+                    /* other args */ -1,
+                    -1);
+            baseMessage.src = this.getNodeId();
+            baseMessage.messageTopicID = topicId;
+            baseMessage.dest = destinationId;
         }
 
-        Message messageToSend = createMessage(newMessage.id, 3, this.nodeId, destID, topicId, newMessage.body,
-                isRow, rowNumber, -1, -1, -1);
+        // Create an actual message to send out (same data as baseMessage)
+        Message messageToSend = createMessage(
+                baseMessage.id,
+                MESSAGE_TYPE,
+                this.nodeId,
+                destinationId,
+                topicId,
+                baseMessage.body,
+                isRow,
+                rowOrColumnIndex,
+                -1,
+                -1,
+                -1);
 
-        System.out.println("I am holding " + (isRow ? "row" : "column") + " " + rowNumber + " for " + destID);
+        System.out.println("I am holding "
+                + (isRow ? "row" : "column")
+                + " " + rowOrColumnIndex
+                + " for " + destinationId);
 
-        publishMessage(messageToSend, destID, gossipSubId);
-        return newMessage;
+        // Publish/send the message
+        publishMessage(messageToSend, destinationId, gossipSubId);
+
+        return baseMessage;
     }
 
     private void nCopiesDistributionStrategy() {
+        // Load all the relevant configuration values
         int numberOfCopiesToSend = Configuration.getInt("NUMBER_COPIES_DISTRIBUTED");
-        int rowNumber = 0;
-        int columnNumber = 0;
+        int numberOfRowsAndColsInTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC");
+
+        int rowIndex = 0; // Tracks which row are distributing
+        int columnIndex = 0; // Tracks which column are distributing
+
+        // Retrieve the block to distribute
         Block b = block;
+
+        // Just an example usage to log the block proposer’s ID
         GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (CustomDistribution.blockProposerNode
                 .getProtocol(gossipSubId));
+        System.out.println("Block proposer id is ------: " + iGossipBlockProposer.getNodeId());
 
-        System.out.println("Block propsoser id is ------:" + iGossipBlockProposer.getNodeId());
         boolean isRowTopic = true;
+        // `isColTopic` is toggled below but never actually used in your snippet.
+        // If it’s truly not used, consider removing it.
         boolean isColTopic = false;
+
+        // Iterate over each topic in the distribution
         for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
-            int cnt = 0;
-            int nodeCounter = 0;
-            int numberOfCopiesSent = 0;
             System.out.println();
             System.out.println();
             System.out.println("****");
             System.out.println(topicEntry.getKey());
-            Message newMessage = null;
+
             Topic currentTopic = topicEntry.getValue();
-            for (Node n : topicEntry.getValue().topicMembers) {
-                GossipSubProtocol g = ((GossipSubProtocol) n.getProtocol(gossipSubId));
-                if (Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC") != 1) {
-                    if (cnt < (Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC") / 2)) {
+
+            int distributionCount = 0; // 'cnt' in original code
+            int nodeCounter = 0;
+            int copiesSent = 0;
+
+            Message baseMessage = null;
+
+            // Iterate over all nodes that are subscribed to this topic
+            for (Node node : currentTopic.topicMembers) {
+                GossipSubProtocol gossipProtocol = (GossipSubProtocol) node.getProtocol(gossipSubId);
+
+                // If the topic size is more than 1, decide if are distributing rows or
+                // columns
+                if (numberOfRowsAndColsInTopic != 1) {
+                    if (distributionCount < (numberOfRowsAndColsInTopic / 2)) {
                         isRowTopic = true;
                     } else {
                         isRowTopic = false;
                     }
                 }
-                {
-                    if (cnt >= (Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC"))) {
-                        break;
-                    }
-                    if (numberOfCopiesSent >= numberOfCopiesToSend
-                            && nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC != 0) {
-                        nodeCounter++;
-                        if (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
-                            numberOfCopiesSent = 0;
-                            if (isRowTopic) {
-                                rowNumber++;
-                            } else {
-                                columnNumber++;
-                            }
-                            cnt++;
-                        }
-                        continue;
-                    }
-                    if (isRowTopic && rowNumber == 512) {
-                        continue;
-                    }
-                    if (!isRowTopic && columnNumber == 512) {
-                        return;
-                    }
-                    BigInteger destID = g.getNodeId();
-                    Message m1 = createRowOrColMessageForDistribution(numberOfCopiesSent, newMessage, b,
-                            isRowTopic == true ? rowNumber : columnNumber, currentTopic.topicID, destID, isRowTopic);
-                    if (numberOfCopiesSent == 0) {
-                        newMessage = m1;
-                    }
-                    // System.out.println("I am holding row " + rowNumber + " " + destID);
+
+                // If distributed enough rows/columns for this topic, break
+                if (distributionCount >= numberOfRowsAndColsInTopic) {
+                    break;
+                }
+
+                // If already sent the desired number of copies
+                // AND the nodeCounter is not at the boundary for a new row/column holder
+                if (copiesSent >= numberOfCopiesToSend
+                        && (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC != 0)) {
                     nodeCounter++;
-                    numberOfCopiesSent++;
+                    // Once hit the boundary again, reset things
                     if (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
-                        numberOfCopiesSent = 0;
+                        copiesSent = 0;
                         if (isRowTopic) {
-                            rowNumber++;
+                            rowIndex++;
                         } else {
-                            columnNumber++;
+                            columnIndex++;
                         }
-                        cnt++;
+                        distributionCount++;
                     }
-                    if (!isRowTopic && columnNumber == 512) {
-                        return;
+                    continue;
+                }
+
+                // Check row/column limits
+                if (isRowTopic && rowIndex == MAX_DIMENSION_SIZE) {
+                    // If reached the limit, move on
+                    continue;
+                }
+                if (!isRowTopic && columnIndex == MAX_DIMENSION_SIZE) {
+                    // If reached the limit, end the distribution entirely
+                    return;
+                }
+
+                // Determine which index are distributing (row or column)
+                int currentIndex = isRowTopic ? rowIndex : columnIndex;
+                BigInteger destinationId = gossipProtocol.getNodeId();
+
+                // Create/send the message
+                Message newMsg = createRowOrColumnMessageForDistribution(
+                        copiesSent,
+                        baseMessage,
+                        b,
+                        currentIndex,
+                        currentTopic.topicID,
+                        destinationId,
+                        isRowTopic);
+
+                // If this was the first time  sent a copy, record it as our base
+                if (copiesSent == 0) {
+                    baseMessage = newMsg;
+                }
+
+                nodeCounter++;
+                copiesSent++;
+
+                // If reached the boundary for holders, reset counters
+                if (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
+                    copiesSent = 0;
+                    if (isRowTopic) {
+                        rowIndex++;
+                    } else {
+                        columnIndex++;
                     }
+                    distributionCount++;
+                }
+
+                // Once again, if hit our max column limit, return
+                if (!isRowTopic && columnIndex == MAX_DIMENSION_SIZE) {
+                    return;
                 }
             }
-            isRowTopic = isRowTopic == true ? false : true;
-            isColTopic = isColTopic == true ? false : true;
+
+            // Flip row/column topic for the next set
+            isRowTopic = !isRowTopic;
+            isColTopic = !isColTopic;
         }
-        System.out.println(rowNumber);
-        System.out.println(columnNumber);
+
+        // Logging final counters and stats
+        System.out.println(rowIndex);
+        System.out.println(columnIndex);
         System.out.println("*********Block proposer has sent the messages ********");
         System.out.println("Data sent size " + totalDataTransmitted);
         System.out.println("Data transmission time " + totalTransmissionTime);
     }
 
     private void shardingBasedDistribution() {
+        // Number of “shards” or subdivisions
         int numberOfDivisions = NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC;
 
-        int numberOfCellsInRowOrCol = Configuration.getInt("NUMBER_OF_ROWS");
+        // Total size of each row or column
+        int numberOfCellsInRowOrColumn = Configuration.getInt("NUMBER_OF_ROWS");
+        // Each part is this many cells
+        int partSize = numberOfCellsInRowOrColumn / numberOfDivisions;
 
-        int partSize = numberOfCellsInRowOrCol / numberOfDivisions;
-
+        // Retrieve the block to distribute
         Block b = block;
 
+        // Log the block proposer ID
         GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (CustomDistribution.blockProposerNode
                 .getProtocol(gossipSubId));
-        System.out.println("Block propsoser id is ------:" + iGossipBlockProposer.getNodeId());
+        System.out.println("Block proposer id is ------: " + iGossipBlockProposer.getNodeId());
         System.out.println("Data sent size " + totalDataTransmitted);
 
-        int rowPartNo;
-        int colPartNo;
-        int rowNumber = 0;
-        int columnNumber = 0;
+        // Track which row/column distributing
+        int rowIndex = 0;
+        int columnIndex = 0;
+
         boolean isRowTopic = true;
+        // isColTopic toggles at the end but isn't used in this snippet. If it's unused
+        // in your code,
+        // consider removing it entirely.
         boolean isColTopic = false;
+
+        // Go through each topic to do sharding-based distribution
         for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
-            int cnt = 0;
-            int nodeCounter = 0;
-            int numberOfCopiesSent = 0;
+
             System.out.println();
             System.out.println();
             System.out.println("****");
             System.out.println(topicEntry.getKey());
 
             Topic currentTopic = topicEntry.getValue();
-            for (Node n : topicEntry.getValue().topicMembers) {
-                GossipSubProtocol g = ((GossipSubProtocol) n.getProtocol(gossipSubId));
-                if (Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC") != 1) {
-                    if (cnt < (Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC") / 2)) {
-                        isRowTopic = true;
-                    } else {
-                        isRowTopic = false;
-                    }
+
+            // Counters to track distribution across this topic
+            int distributionCount = 0; // Originally 'cnt'
+            int nodeIndex = 0; // Originally 'nodeCounter'
+            int copiesSent = 0; // Originally 'numberOfCopiesSent'
+
+            // For all nodes in this topic
+            for (Node node : currentTopic.topicMembers) {
+                GossipSubProtocol gossipProtocol = (GossipSubProtocol) node.getProtocol(gossipSubId);
+
+                // If multiple rows/columns can exist in a single topic, figure out if we’re
+                // distributing rows or columns
+                int rowsAndColsInTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC");
+                if (rowsAndColsInTopic != 1) {
+                    // Distribute the first half as rows, then the second half as columns
+                    isRowTopic = (distributionCount < rowsAndColsInTopic / 2);
                 }
-                {
-                    if (cnt >= (Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC"))) {
-                        break;
-                    }
-                    if (isRowTopic && rowNumber == 512) {
-                        continue;
-                    }
-                    if (!isRowTopic && columnNumber == 512) {
-                        return;
-                    }
 
-                    BigInteger destID = g.getNodeId();
-                    byte[][] partToSend;
+                // If already assigned enough rows/columns for this topic, stop.
+                if (distributionCount >= rowsAndColsInTopic) {
+                    break;
+                }
+
+                // If hit the maximum row/column limit, move on or stop.
+                if (isRowTopic && rowIndex == MAX_DIMENSION_SIZE) {
+                    continue;
+                }
+                if (!isRowTopic && columnIndex == MAX_DIMENSION_SIZE) {
+                    // The original code returns entirely if columns are maxed out.
+                    return;
+                }
+
+                // Prepare the data to send (shard of row or column)
+                BigInteger destId = gossipProtocol.getNodeId();
+                byte[][] partToSend;
+                if (isRowTopic) {
+                    partToSend = Arrays.copyOfRange(
+                            b.getRowData(rowIndex),
+                            copiesSent * partSize,
+                            (copiesSent * partSize) + partSize);
+                    System.out.println("Row number " + rowIndex + " part " + copiesSent + " -> " + destId);
+                } else {
+                    partToSend = Arrays.copyOfRange(
+                            b.getColumnData(columnIndex),
+                            copiesSent * partSize,
+                            (copiesSent * partSize) + partSize);
+                    System.out.println("Column number " + columnIndex + " part " + copiesSent + " -> " + destId);
+                }
+
+                // Build and send the message for this shard
+                Message messageToSend = createMessage(
+                        /* messageID */ -1,
+                        MESSAGE_TYPE,
+                        this.nodeId,
+                        destId,
+                        currentTopic.topicID,
+                        partToSend,
+                        /* isRow? */ isRowTopic,
+                        isRowTopic ? rowIndex : columnIndex,
+                        copiesSent,
+                        -1,
+                        -1);
+                publishMessage(messageToSend, destId, gossipSubId);
+
+                nodeIndex++;
+                copiesSent++;
+
+                // When reach the boundary of row/column holders, move to the next row/column
+                if (nodeIndex % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
+                    copiesSent = 0;
                     if (isRowTopic) {
-                        partToSend = Arrays.copyOfRange(b.getRowData(rowNumber), (numberOfCopiesSent) * partSize,
-                                ((numberOfCopiesSent) * partSize + partSize));
-                        System.out.println("Row number " + rowNumber + " " + (numberOfCopiesSent) + " " + destID);
+                        rowIndex++;
                     } else {
-                        partToSend = Arrays.copyOfRange(b.getColumnData(columnNumber), (numberOfCopiesSent) * partSize,
-                                ((numberOfCopiesSent) * partSize + partSize));
-                        System.out.println("Column number " + columnNumber + " " + (numberOfCopiesSent) + " " + destID);
+                        columnIndex++;
+                    }
+                    distributionCount++;
+                }
 
-                    }
-                    Message messageTosend = this.createMessage(-1, 3, this.nodeId, destID, currentTopic.topicID,
-                            partToSend, isRowTopic, isRowTopic == true ? rowNumber : columnNumber, numberOfCopiesSent,
-                            -1, -1);
-                    // System.out.println("I am holding row " + rowNumber + " " +
-                    // (numberOfCopiesSent) + " " + destID);
-                    this.publishMessage(messageTosend, destID, gossipSubId);
-
-                    nodeCounter++;
-                    numberOfCopiesSent++;
-                    if (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
-                        numberOfCopiesSent = 0;
-                        if (isRowTopic) {
-                            rowNumber++;
-                        } else {
-                            columnNumber++;
-                        }
-                        cnt++;
-                    }
-                    if (!isRowTopic && columnNumber == 512) {
-                        return;
-                    }
+                // If columns max out, stop entirely
+                if (!isRowTopic && columnIndex == MAX_DIMENSION_SIZE) {
+                    return;
                 }
             }
-            isRowTopic = isRowTopic == true ? false : true;
-            isColTopic = isColTopic == true ? false : true;
+
+            // Toggle row vs column topics after finishing one pass
+            isRowTopic = !isRowTopic;
+            isColTopic = !isColTopic; // Only useful if used elsewhere
         }
+
+        // Final logs
         System.out.println("*********Block proposer has sent the messages ********");
         System.out.println("Data sent size " + totalDataTransmitted);
         System.out.println("Data transmission time " + totalTransmissionTime);
