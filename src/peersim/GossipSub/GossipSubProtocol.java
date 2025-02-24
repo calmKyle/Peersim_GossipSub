@@ -92,6 +92,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     protected static List<Set<BigInteger>> rowColHolders = new ArrayList<>(1024);
 
+    private boolean isDEBUG = false;
+
     public GossipSubProtocol(String prefix) {
         GossipSubProtocol.prefix = prefix;
         this.nodeId = null;
@@ -110,7 +112,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             this.degree = newDegree;
             updateMeshConnections();
         } else {
-            System.out.println("Degree must be between " + minDegree + " and " + maxDegree);
+            if (isDEBUG) {
+                System.out.println("[DEGREE ISSUE:]Degree must be between " + minDegree + " and " + maxDegree);
+            }
         }
     }
 
@@ -306,7 +310,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void sendMessageToPeers(Message m, int myPid, String topicID, BigInteger avoid, BigInteger src) {
         Set<BigInteger> peers = localMesh.get(topicID);
         if (peers == null || peers.isEmpty()) {
-            System.out.println("The local mesh for node: " + nodeId + " is empty");
+            if (isDEBUG) {
+                System.out.println("[ERROR SEND MESSAGE: ]The local mesh for node: " + nodeId + " is empty");
+
+            }
             return;
         }
         sendMessageToTopicNodes(m, myPid, topicID, localMesh, avoid, src);
@@ -492,9 +499,12 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 return;
             }
 
-            System.out.println("I don't have " + m.rowOrColumnNumber +
-                    ". I have " + custody2 + " " + custody1 +
-                    ". Responding node: " + nodeId + " to " + m.src);
+            if (isDEBUG) {
+                System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
+                        ". I have " + custody2 + " " + custody1 +
+                        ". Responding node: " + nodeId + " to " + m.src);
+            }
+
         } else if (distributionStrategy == 2) {
             if (findAndSendResponse(m, myPid, custody1Parts) ||
                     findAndSendResponse(m, myPid, custody2Parts) ||
@@ -546,7 +556,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         messageCache.put(m.id, m);
 
         if (m.body == null) {
-            System.out.println("Block proposer received empty data!");
+            if (isDEBUG) {
+                System.out.println("Block proposer received empty data!");
+            }
         }
 
         // Process the received data based on distribution strategy
@@ -626,7 +638,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         // Subscribe to the topic
         Topic topicToSubscribe = CustomDistribution.topics.get("Topic-" + (topicNo));
         if (topicToSubscribe == null) {
-            System.out.println("Topic not found: Topic-" + (topicNo));
+            if (isDEBUG) {
+                System.out.println("Topic not found: Topic-" + (topicNo));
+            }
+
             return;
         }
         this.subscribeTopic(topicToSubscribe);
@@ -634,7 +649,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         // Select a random node holding the row or column
         BigInteger destId = selectRandomHolder(isRow, rowOrColNo, random);
         if (destId == null || destId.equals(this.nodeId)) {
-            System.out.println("Invalid or self-selection, retrying sample request...");
+            if (isDEBUG) {
+                System.out.println("Invalid or self-selection, retrying sample request...");
+            }
             return; // Avoids recursion, preventing potential stack overflow
         }
 
@@ -657,7 +674,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private BigInteger selectRandomHolder(boolean isRow, int rowOrColNo, Random random) {
         ArrayList<BigInteger> holders = isRow ? rowCustodyNodes.get(rowOrColNo) : columnCustodyNodes.get(rowOrColNo);
         if (holders == null || holders.isEmpty()) {
-            System.out.println("No holders found for " + (isRow ? "row" : "column") + " " + rowOrColNo);
+            if (isDEBUG) {
+                System.out.println("No holders found for " + (isRow ? "row" : "column") + " " + rowOrColNo);
+            }
             return null;
         }
         return holders.get(random.nextInt(holders.size()));
@@ -670,7 +689,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         Node dest = CustomDistribution.networkNodes.get(sampleReqMsg.dest);
 
         if (src == null || dest == null) {
-            System.out.println("Invalid source or destination for timeout scheduling.");
+            if (isDEBUG) {
+                System.out.println("Invalid source or destination for timeout scheduling.");
+            }
             return;
         }
 
@@ -721,6 +742,53 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         sampleDelayTime.add(CommonState.getTime() - m.timestamp);
         samplingRTTTimeStore.add(CommonState.getTime());
         noOfSamplesReceived++;
+    }
+
+    private void handleTimeOut(peersim.GossipSub.Timeout timeoutEvent, int myPid) {
+        if (sentMsg.containsKey(timeoutEvent.msgID)) {
+            this.noOfSampleRequestsSent++;
+            sampleRequestUnsuccessful++;
+
+            Message sampleMsgSent = sentMsg.get(timeoutEvent.msgID);
+            sentMsg.remove(timeoutEvent.msgID);
+
+            BigInteger destId;
+            Random random = new Random();
+
+            if (sampleMsgSent.isRow) {
+                ArrayList<BigInteger> rowHolders = rowCustodyNodes.get(sampleMsgSent.rowOrColumnNumber);
+                int sampleHolderNodeIdx = random.nextInt(rowHolders.size());
+                destId = rowHolders.get(sampleHolderNodeIdx);
+            } else {
+                ArrayList<BigInteger> colHolders = columnCustodyNodes.get(sampleMsgSent.rowOrColumnNumber);
+                int sampleHolderNodeIdx = random.nextInt(colHolders.size());
+                destId = colHolders.get(sampleHolderNodeIdx);
+            }
+
+            Message msgToResend = this.createMessage(
+                    -1,
+                    sampleMsgSent.type,
+                    this.nodeId,
+                    destId,
+                    sampleMsgSent.messageTopicID,
+                    sampleMsgSent.body,
+                    sampleMsgSent.isRow,
+                    sampleMsgSent.rowOrColumnNumber,
+                    sampleMsgSent.partNumber,
+                    0,
+                    sampleMsgSent.ackId);
+
+            sentMsg.put(msgToResend.id, msgToResend);
+            publishMessage(msgToResend, msgToResend.dest, myPid);
+
+            peersim.GossipSub.Timeout newTimeout = new peersim.GossipSub.Timeout(1, destId, msgToResend.id);
+
+            Node src = CustomDistribution.networkNodes.get(this.nodeId);
+            Node dest = CustomDistribution.networkNodes.get(destId);
+            long latency = transport.getLatency(src, dest);
+
+            EDSimulator.add(4 * latency, newTimeout, src, gossipSubId);
+        }
     }
 
     @Override
@@ -776,41 +844,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 break;
 
             case peersim.GossipSub.Timeout.TIMEOUT:
-                peersim.GossipSub.Timeout t = (Timeout) event;
-                if (sentMsg.containsKey(t.msgID)) {
-                    this.noOfSampleRequestsSent++;
-
-                    sampleRequestUnsuccessful++;
-
-                    Message sampleMsgSent = sentMsg.get(t.msgID);
-                    sentMsg.remove(t.msgID);
-                    BigInteger destId;
-                    Random random = new Random();
-                    if (sampleMsgSent.isRow == true) {
-                        ArrayList<BigInteger> rowHolders = rowCustodyNodes.get(sampleMsgSent.rowOrColumnNumber);
-                        int sampleHolderNodeIdx = random.nextInt((rowHolders.size()));
-
-                        destId = rowHolders.get(sampleHolderNodeIdx);
-                    } else {
-                        ArrayList<BigInteger> colHolders = columnCustodyNodes.get(sampleMsgSent.rowOrColumnNumber);
-                        int sampleHolderNodeIdx = random.nextInt((colHolders.size()));
-
-                        destId = colHolders.get(sampleHolderNodeIdx);
-
-                    }
-                    Message msgToResend = this.createMessage(-1, sampleMsgSent.type, this.nodeId, destId,
-                            sampleMsgSent.messageTopicID, sampleMsgSent.body, sampleMsgSent.isRow,
-                            sampleMsgSent.rowOrColumnNumber, sampleMsgSent.partNumber, 0, sampleMsgSent.ackId);
-                    sentMsg.put(msgToResend.id, msgToResend);
-
-                    publishMessage(msgToResend, msgToResend.dest, myPid);
-                    peersim.GossipSub.Timeout timeout = new peersim.GossipSub.Timeout(1, destId, msgToResend.id);
-                    Node src = CustomDistribution.networkNodes.get(this.nodeId);
-                    Node dest = CustomDistribution.networkNodes.get(destId);
-                    long latency = transport.getLatency(src, dest);
-
-                    EDSimulator.add(4 * latency, timeout, src, gossipSubId);
-                }
+                handleTimeOut((peersim.GossipSub.Timeout) event, myPid);
                 break;
             case Message.MSG_EMPTY:
                 break;
@@ -831,7 +865,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         this.nodeId = tmp;
     }
 
-    //  constants
+    // constants
     private static final int MAX_DIMENSION_SIZE = 512;
     private static final int MESSAGE_TYPE = 3;
 
@@ -908,8 +942,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         System.out.println("Block proposer id is ------: " + iGossipBlockProposer.getNodeId());
 
         boolean isRowTopic = true;
-        // `isColTopic` is toggled below but never actually used in your snippet.
-        // If it’s truly not used, consider removing it.
         boolean isColTopic = false;
 
         // Iterate over each topic in the distribution
@@ -988,7 +1020,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                         destinationId,
                         isRowTopic);
 
-                // If this was the first time  sent a copy, record it as our base
+                // If this was the first time sent a copy, record it as our base
                 if (copiesSent == 0) {
                     baseMessage = newMsg;
                 }
@@ -1049,9 +1081,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         int columnIndex = 0;
 
         boolean isRowTopic = true;
-        // isColTopic toggles at the end but isn't used in this snippet. If it's unused
-        // in your code,
-        // consider removing it entirely.
         boolean isColTopic = false;
 
         // Go through each topic to do sharding-based distribution
@@ -1103,13 +1132,17 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                             b.getRowData(rowIndex),
                             copiesSent * partSize,
                             (copiesSent * partSize) + partSize);
-                    System.out.println("Row number " + rowIndex + " part " + copiesSent + " -> " + destId);
+                    System.out.println("[SHARDING DISTRIBUTION: ]Row number " + rowIndex + " part " + copiesSent
+                            + " -> " + destId);
+
                 } else {
                     partToSend = Arrays.copyOfRange(
                             b.getColumnData(columnIndex),
                             copiesSent * partSize,
                             (copiesSent * partSize) + partSize);
-                    System.out.println("Column number " + columnIndex + " part " + copiesSent + " -> " + destId);
+                    System.out.println("[SHARDING DISTRIBUTION: ]Column number " + columnIndex + " part "
+                            + copiesSent + " -> " + destId);
+
                 }
 
                 // Build and send the message for this shard
@@ -1149,10 +1182,12 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
             // Toggle row vs column topics after finishing one pass
             isRowTopic = !isRowTopic;
-            isColTopic = !isColTopic; // Only useful if used elsewhere
+            isColTopic = !isColTopic; 
         }
 
         // Final logs
+        System.out.println(rowIndex);
+        System.out.println(columnIndex);
         System.out.println("*********Block proposer has sent the messages ********");
         System.out.println("Data sent size " + totalDataTransmitted);
         System.out.println("Data transmission time " + totalTransmissionTime);
