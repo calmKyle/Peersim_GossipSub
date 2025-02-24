@@ -2,3 +2,4 @@
 *.txt
 classes/*
 classes/**/*
+pandas/*

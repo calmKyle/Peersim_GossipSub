@@ -37,7 +37,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private int gossipSubId;
     private int minDegree = Configuration.getInt("MIN_DEGREE", 4);
     private int maxDegree = Configuration.getInt("MAX_DEGREE", 16);
-    protected int degree = 8;
+    protected int degree = Configuration.getInt("DEGREE", 8);;
 
     private Set<Topic> subscribedTopics = new HashSet<>();
     protected Map<String, Set<BigInteger>> localMesh = new HashMap<>();
@@ -87,6 +87,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public String custody1;
     public String custody2;
     private boolean samplingStarted = false;
+
+    private int sampleAmount = Configuration.getInt("SAMPLE_AMOUNT", 75);
 
     protected static List<Set<BigInteger>> rowColHolders = new ArrayList<>(1024);
 
@@ -382,7 +384,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public void startSampling() {
-        IntStream.range(0, 256).forEach(i -> sampleDataRequest());
+        IntStream.range(0, sampleAmount).forEach(i -> sampleDataRequest());
     }
 
     public void handleIHave(Message m, int myPid) {

@@ -133,8 +133,8 @@ axes[1].set_xticks(xtick_positions)
 
 # **Save plot instead of showing in headless environments**
 plt.tight_layout()
-plt.savefig('output.png', dpi=300, bbox_inches='tight')
-print("Plot saved as output.png")
+# plt.savefig('output.png', dpi=300, bbox_inches='tight')
+# print("Plot saved as output.png")
 
 # **Show plot only if running in an interactive environment**
 try:
@@ -264,8 +264,8 @@ plt.ylabel("CDF")
 plt.grid(True)
 
 # Set custom axis limits
-plt.xlim(0, 5000)    # x-axis range from 0 to 1
-plt.ylim(0, 1)  # y-axis range from 0 to 5000
+plt.xlim(0, 5000)   
+plt.ylim(0, 1.1)  
 
 # Highlighting a vertical threshold
 threshold = 4000
