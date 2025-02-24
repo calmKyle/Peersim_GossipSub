@@ -1,3 +1,4 @@
+#########################################################################
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -33,16 +34,44 @@ plt.show()
 # ##Bar graph
 import matplotlib.pyplot as plt
 import pandas as pd
+import re
+
+# Path to your configuration file
+config_file_path = "GossipConfig.cfg"  # Replace with your actual file path
+
+# Dictionary to hold extracted key-value pairs
+config_values = {}
+
+# Regular expression pattern to match key-value pairs
+pattern = re.compile(r'^\s*([^#\s]+)\s+([^\s#]+)')
+
+# Read and parse the configuration file
+with open(config_file_path, 'r') as file:
+    for line in file:
+        # Ignore comments and empty lines
+        if line.strip().startswith("#") or not line.strip():
+            continue
+
+        # Match key-value pairs using regex
+        match = pattern.match(line)
+        if match:
+            key, value = match.groups()
+            config_values[key] = value
+
+# Display extracted values
+for key, value in config_values.items():
+    print(f"{key} = {value}")
+
 
 # Load data from CSV file (Replace 'your_file.csv' with the actual filename)
 data = pd.read_csv('output2.csv')
-
+sample_amount = int(config_values.get("SAMPLE_AMOUNT"))
 # Ensure 'Total Sample Received' exists before computing 'Percent Received'
 if 'Total Sample Received' not in data.columns:
     raise ValueError("Error: 'Total Sample Received' column not found in the CSV file.")
 
 # 🔹 Compute 'Percent Received' (Total samples received out of 73)
-data['Percent Received'] = (data['Total Sample Received'] / 256) * 100
+data['Percent Received'] = (data['Total Sample Received'] / sample_amount) * 100
 
 # 🔹 Categorization function
 def categorize_percent(percent):
@@ -84,6 +113,34 @@ plt.show()
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import re
+
+# Path to your configuration file
+config_file_path = "GossipConfig.cfg"  # Replace with your actual file path
+
+# Dictionary to hold extracted key-value pairs
+config_values = {}
+
+# Regular expression pattern to match key-value pairs
+pattern = re.compile(r'^\s*([^#\s]+)\s+([^\s#]+)')
+
+# Read and parse the configuration file
+with open(config_file_path, 'r') as file:
+    for line in file:
+        # Ignore comments and empty lines
+        if line.strip().startswith("#") or not line.strip():
+            continue
+
+        # Match key-value pairs using regex
+        match = pattern.match(line)
+        if match:
+            key, value = match.groups()
+            config_values[key] = value
+
+# Display extracted values
+for key, value in config_values.items():
+    print(f"{key} = {value}")
+
 
 # Load data
 data = pd.read_csv('output2.csv')
@@ -121,12 +178,33 @@ xtick_positions = np.linspace(0, len(data) - 1, num_ticks, dtype=int)
 axes[0].set_xticks(xtick_positions)
 
 # **Second plot: Percent Received over 512**
-axes[1].plot(data.index, data['Percent Received over 512'], color='green', lw=1.5, alpha=0.7)
+axes[1].plot(
+    data.index, 
+    data['Percent Received over 512'], 
+    color='green', 
+    lw=1.5, 
+    alpha=0.7, 
+    label='Percent Received over 512'
+)
+
+# Fill the area below the line
+axes[1].fill_between(
+    data.index, 
+    data['Percent Received over 512'], 
+    color='green', 
+    alpha=0.3  # Adjust transparency (0 = fully transparent, 1 = fully opaque)
+)
+
+# Set plot titles and labels
 axes[1].set_title('Percentage of Samples Received over 512')
 axes[1].set_xlabel('Sample Index')
 axes[1].set_ylabel('Percentage (%)')
 axes[1].set_ylim(0, 100)
 axes[1].grid(True, linestyle='--', alpha=0.5)
+
+# Add a legend
+axes[1].legend(loc='lower right')
+
 
 # Set x-ticks dynamically
 axes[1].set_xticks(xtick_positions)

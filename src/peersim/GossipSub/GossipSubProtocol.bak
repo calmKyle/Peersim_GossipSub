@@ -35,9 +35,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private UnreliableTransport transport;
     private int tid;
     private int gossipSubId;
-    private int minDegree = Configuration.getInt("MIN_DEGREE", 4);
-    private int maxDegree = Configuration.getInt("MAX_DEGREE", 16);
-    protected int degree = Configuration.getInt("DEGREE", 8);;
+    private int minDegree = 6;
+    private int maxDegree = 14;
+    protected int degree = 8;
 
     private Set<Topic> subscribedTopics = new HashSet<>();
     protected Map<String, Set<BigInteger>> localMesh = new HashMap<>();
@@ -76,7 +76,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     public long totalDataTransmitted = 0;
     public long totalTransmissionTime = 0;
-    public long realElapsedTimeMs = 0;
     private long lastMessageTransmissionTime = 0;
 
     public int sampleRequestUnsuccessful = 0;
@@ -88,8 +87,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public String custody1;
     public String custody2;
     private boolean samplingStarted = false;
-
-    private int sampleAmount = Configuration.getInt("SAMPLE_AMOUNT", 75);
 
     protected static List<Set<BigInteger>> rowColHolders = new ArrayList<>(1024);
 
@@ -182,7 +179,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private int calculateMessageSize(Message message) {
         int size = 0;
 
-        // Fixed-size fields in bytes
+        // Fixed-size fields
         size += 2 * Integer.BYTES + 2 * Long.BYTES + 1; // Includes final 'size += 1'
 
         // Variable-length fields
@@ -265,8 +262,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
 
         long queuingDelay = messageQueue.isEmpty() ? 0
-                : messageTransmissionDelayQueue.get(messageTransmissionDelayQueue.size() - 1)
-                        - CommonState.getTime();
+                : messageTransmissionDelayQueue.get(messageTransmissionDelayQueue.size() - 1) - CommonState.getTime();
 
         int messageSize = calculateMessageSize(m);
         long transmissionDelay = (long) Math.ceil((double) messageSize / bandwidth);
@@ -386,7 +382,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public void startSampling() {
-        IntStream.range(0, sampleAmount).forEach(i -> sampleDataRequest());
+        IntStream.range(0, 256).forEach(i -> sampleDataRequest());
     }
 
     public void handleIHave(Message m, int myPid) {
@@ -635,15 +631,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         // Select a random node holding the row or column
         BigInteger destId = selectRandomHolder(isRow, rowOrColNo, random);
-
-        if (destId == null) {
-            System.out.println("Invalid request, retrying sample request...");
-            // Avoids recursion, preventing potential stack overflow or maximum recursion
-            // depth
-            return;
-        }
-        if (destId.equals(this.nodeId)) {
-            return; // ignore self-selection
+        if (destId == null || destId.equals(this.nodeId)) {
+            System.out.println("Invalid or self-selection, retrying sample request...");
+            return; // Avoids recursion, preventing potential stack overflow
         }
 
         // Create the sampling request message
@@ -826,6 +816,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
+    
     /**
      * set the current NodeId
      *
@@ -838,6 +829,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public BigInteger getNodeId() {
         return this.nodeId;
     }
+
 
     private Message createRowOrColMessageForDistribution(int numberOfCopiesSent, Message newMessage, Block b,
             int rowNumber, String topicId, BigInteger destID, boolean isRow) {
@@ -890,7 +882,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     } else {
                         isRowTopic = false;
                     }
-                } else {
+                }
+                {
                     if (cnt >= (Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC"))) {
                         break;
                     }
@@ -908,7 +901,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                         }
                         continue;
                     }
-                    if ((isRowTopic && rowNumber >= 512) || (!isRowTopic && columnNumber >= 512)) {
+                    if (isRowTopic && rowNumber == 512) {
+                        continue;
+                    }
+                    if (!isRowTopic && columnNumber == 512) {
                         return;
                     }
                     BigInteger destID = g.getNodeId();
@@ -939,8 +935,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         System.out.println(rowNumber);
         System.out.println(columnNumber);
         System.out.println("*********Block proposer has sent the messages ********");
-        System.out.println("Data sent size " + totalDataTransmitted + " bytes");
-        System.out.println("Data transmission time " + totalTransmissionTime);
+        System.out.println("Data sent size " + totalDataTransmitted + "bytes");
+        System.out.println("Data transmission time " + totalTransmissionTime + "ms");
     }
 
     private void shardingBasedDistribution() {
