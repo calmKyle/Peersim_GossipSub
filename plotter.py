@@ -42,7 +42,7 @@ if 'Total Sample Received' not in data.columns:
     raise ValueError("Error: 'Total Sample Received' column not found in the CSV file.")
 
 # 🔹 Compute 'Percent Received' (Total samples received out of 73)
-data['Percent Received'] = (data['Total Sample Received'] / 256) * 100
+data['Percent Received'] = (data['Total Sample Received'] / 512) * 100
 
 # 🔹 Categorization function
 def categorize_percent(percent):
@@ -96,11 +96,11 @@ data['Percent Received over Requested'] = (data['Total Sample Received'] / data[
 data['Total Sample Req Timedout'] = 100 - data['Percent Received over Requested']
 data['Percent Received over 512'] = (data['Total Sample Received'] / 512) * 100
 
-# **Downsampling strategy** (Only apply if dataset is large)
-max_points = 2000  # Maximum points to display
-if len(data) > max_points:
-    step = max(len(data) // max_points, 1)  # Ensure step is at least 1
-    data = data.iloc[::step, :].reset_index(drop=True)  # Reset index after sampling
+# # **Downsampling strategy** (Only apply if dataset is large)
+# max_points = 2000  # Maximum points to display
+# if len(data) > max_points:
+#     step = max(len(data) // max_points, 1)  # Ensure step is at least 1
+#     data = data.iloc[::step, :].reset_index(drop=True)  # Reset index after sampling
 
 # Create figure
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))

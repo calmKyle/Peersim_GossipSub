@@ -9,7 +9,7 @@ import java.util.Map;
 
 public class DynamicMeshControl implements Control {
     private static final String PAR_PROT = "protocol";
-    private static final boolean DEBUG = false; // Toggle debug logging
+    private static final boolean isDEBUG = true; // Toggle isDEBUG logging
     private final int gossipProtocolID;
 
     public DynamicMeshControl(String prefix) {
@@ -18,7 +18,7 @@ public class DynamicMeshControl implements Control {
 
     @Override
     public boolean execute() {
-        if (DEBUG) {
+        if (isDEBUG) {
             System.out.println("=== Mesh State at Cycle " + peersim.core.CommonState.getTime() + " ===");
         }
 
@@ -32,7 +32,7 @@ public class DynamicMeshControl implements Control {
                 meshInfo.append("Node-").append(gsp.getNodeId()).append(" ");
             }
 
-            if (DEBUG) {
+            if (isDEBUG) {
                 System.out.println(meshInfo);
             }
         }
