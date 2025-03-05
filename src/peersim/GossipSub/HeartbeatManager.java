@@ -76,7 +76,7 @@ public class HeartbeatManager {
             psi.cachedScore = newScore;
 
             if (isDEBUG) {
-                System.out.println("[DEBUG HEARTBEAT]   Peer=" + entry.getKey() +
+                System.out.println("[DEBUG SCORE]   Peer=" + entry.getKey() +
                         " oldScore=" + oldScore +
                         " newScore=" + newScore);
             }
