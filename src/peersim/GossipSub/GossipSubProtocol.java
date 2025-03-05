@@ -18,12 +18,10 @@ import static peersim.GossipSub.CustomDistribution.*;
 
 public class GossipSubProtocol implements Cloneable, EDProtocol {
 
-    private static final int MSG_HEARTBEAT = 9999;
+    // private static final int MSG_HEARTBEAT = 9999;
     private static final long HEARTBEAT_PERIOD = 1000; // 1 second
-    // We'll re-advertise (IHAVE) new messages up to 3 times
-    private static final int GOSSIP_ADVERTISE_ROUNDS = 3;
-    // We'll expire (drop) messages from ephemeral cache after 3 seconds
-    private static final long MESSAGE_EXPIRATION_MS = 3000;
+
+    private boolean heartbeatScheduled = false;
 
     // Configuration Constants
     private static int MESSAGE_CACHE_SIZE = 1024;
@@ -103,11 +101,20 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     private Set<Long> seenMessageIDs = new HashSet<>();
 
+    private HeartbeatManager heartbeatManager;
+
     public GossipSubProtocol(String prefix) {
         GossipSubProtocol.prefix = prefix;
         this.nodeId = null;
         this.tid = Configuration.getPid(prefix + "." + PAR_TRANSPORT);
         this.samplingStarted = false;
+
+        this.heartbeatManager = new HeartbeatManager(
+                this,
+                this.ephemeralCache, // make sure ephemeralCache is still declared (e.g., as a LinkedHashMap<Long,
+                                     // EphemeralMsgInfo>)
+                this.peerScores, // likewise for peerScores
+                this.isDEBUG);
 
         // for testing
         this.isDEBUG = Configuration.contains("DEBUG_GOSSIPSUB")
@@ -119,62 +126,14 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return cln;
     }
 
-    // --------------------------------
-    // Heartbeat-based ephemeral cache
-    // --------------------------------
-
-    // We'll keep ephemeral info for each message
-    private static class EphemeralMsgInfo {
-        Message message;
-        long arrivalTime; // when we first stored it
-        int advertiseCount; // how many times we've re-advertised (IHAVE) so far
-
-        EphemeralMsgInfo(Message m) {
-            this.message = m;
-            this.arrivalTime = CommonState.getTime();
-            this.advertiseCount = 0;
-        }
-    }
-
     // Maps message ID -> ephemeral info
     private Map<Long, EphemeralMsgInfo> ephemeralCache = new LinkedHashMap<>();
-
-    // -------------------------------------------------
-    // Peer scoring data (similar to Gossipsub v1.1+)
-    // -------------------------------------------------
-    private static class PeerScoreInfo {
-        // Time in the mesh
-        long timeInMeshStart;
-
-        // # times they delivered a message to me "first"
-        int firstMessageDeliveries;
-
-        // # invalid messages
-        int invalidMessages;
-
-        // # under-delivery
-        int meshUnderDelivery;
-
-        // last computed total
-        double cachedScore;
-
-        long connectedTime;
-
-        public PeerScoreInfo(long currentTime) {
-            this.timeInMeshStart = currentTime;
-            this.connectedTime = currentTime;
-            this.firstMessageDeliveries = 0;
-            this.invalidMessages = 0;
-            this.meshUnderDelivery = 0;
-            this.cachedScore = 0.0;
-        }
-    }
 
     // Map from peer ID -> scoring info
     private Map<BigInteger, PeerScoreInfo> peerScores = new HashMap<>();
 
     // Weighted sum approach
-    private double computeScore(PeerScoreInfo psi) {
+    public double computeScore(PeerScoreInfo psi) {
         double w_timeInMesh = 0.01; // small positive weight
         double w_firstMsg = 0.1; // each first message has some value
         double w_invalid = -1.0; // heavily penalize invalid
@@ -192,80 +151,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return score;
     }
 
-    // ---------------
-    // Heartbeat Code
-    // ---------------
-    private void runHeartbeat(Node myNode, int myPid) {
-        long now = CommonState.getTime();
-
-        if (isDEBUG) {
-            System.out.println("[DEBUG HEARTBEAT] Heartbeat at t=" + now +
-                    " Node=" + nodeId +
-                    " ephemeralCacheSize=" + ephemeralCache.size());
-        }
-
-        // 1) Expire old ephemeral messages
-        Iterator<Map.Entry<Long, EphemeralMsgInfo>> it = ephemeralCache.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<Long, EphemeralMsgInfo> e = it.next();
-            EphemeralMsgInfo info = e.getValue();
-            if (now - info.arrivalTime >= MESSAGE_EXPIRATION_MS) {
-                if (isDEBUG) {
-                    System.out.println("[DEBUG HEARTBEAT] Expiring message " + e.getKey() +
-                            " from ephemeralCache on node " + nodeId);
-                }
-                it.remove();
-            }
-        }
-
-        // 2) Re-advertise (IHAVE) messages up to GOSSIP_ADVERTISE_ROUNDS times
-        for (EphemeralMsgInfo info : ephemeralCache.values()) {
-            if (info.advertiseCount < GOSSIP_ADVERTISE_ROUNDS) {
-                if (isDEBUG) {
-                    System.out.println("[DEBUG HEARTBEAT] Re-advertising messageID=" + info.message.id +
-                            " advertiseCount=" + info.advertiseCount +
-                            " node=" + nodeId);
-                }
-                advertiseMessageIHAVE(info.message, myPid);
-                info.advertiseCount++;
-            }
-        }
-
-        // 3) Update peer scores & prune/graft if needed
-        if (isDEBUG) {
-            System.out.println("[DEBUG HEARTBEAT] Computing peer scores on node " + nodeId);
-        }
-
-        for (Map.Entry<BigInteger, PeerScoreInfo> entry : peerScores.entrySet()) {
-            PeerScoreInfo psi = entry.getValue();
-            double newScore = computeScore(psi);
-            double oldScore = psi.cachedScore;
-            psi.cachedScore = newScore;
-
-            if (isDEBUG) {
-                System.out.println("[DEBUG HEARTBEAT]   Peer=" + entry.getKey() +
-                        " oldScore=" + oldScore +
-                        " newScore=" + newScore);
-            }
-        }
-
-        // Example: prune peers with negative score
-        for (BigInteger peerID : new HashSet<>(peerScores.keySet())) {
-            PeerScoreInfo psi = peerScores.get(peerID);
-            if (psi.cachedScore < 0) {
-                if (isDEBUG) {
-                    System.out.println("[DEBUG HEARTBEAT] Removing peer " + peerID +
-                            " from mesh due to negative score on node " + nodeId);
-                }
-                removePeerFromMesh(peerID);
-            }
-        }
-
-        // If you want to add new peers if we’re below “degree”, do so:
-        updateMeshConnections();
-    }
-
-    private void advertiseMessageIHAVE(Message originalMsg, int myPid) {
+    public void advertiseMessageIHAVE(Message originalMsg, int myPid) {
         if (isDEBUG) {
             System.out.println("[DEBUG] Node " + nodeId +
                     " advertiseMessageIHAVE for msgID=" + originalMsg.id);
@@ -298,13 +184,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-    private void removePeerFromMesh(BigInteger peerID) {
+    public void removePeerFromMesh(BigInteger peerID) {
         // remove from all topics in localMesh
         for (String topicID : localMesh.keySet()) {
             localMesh.get(topicID).remove(peerID);
         }
         // (Optionally, remove from peerScores if you want a clean slate.)
-        // peerScores.remove(peerID);
+        peerScores.remove(peerID);
     }
 
     // Function to update degree dynamically
@@ -646,6 +532,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         responseWithData.src = m.src;
 
+        advertiseMessageIHAVE(m, myPid);
         sendMessageToPeers(responseWithData, myPid, m.messageTopicID, this.nodeId, m.src);
         gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID, this.nodeId, m.src);
         samplingStarter();
@@ -1048,6 +935,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void processEvent(Node myNode, int myPid, Object event) {
         this.gossipSubId = myPid;
         Message m;
+        if (!heartbeatScheduled) {
+            heartbeatScheduled = true;
+            EDSimulator.add(HEARTBEAT_PERIOD, new SimpleEvent(Message.MSG_HEARTBEAT), myNode, myPid);
+        }
 
         switch (((SimpleEvent) event).getType()) {
             case Message.MSG_IHAVE:
@@ -1084,7 +975,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     shardingBasedDistribution();
                 }
                 EDSimulator.add(HEARTBEAT_PERIOD,
-                        new SimpleEvent(MSG_HEARTBEAT), myNode, myPid);
+                        new SimpleEvent(Message.MSG_HEARTBEAT), myNode, myPid);
                 break;
 
             case Message.MSG_SAMPLE_DATA_REQUEST:
@@ -1104,13 +995,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 handleTimeOut((peersim.GossipSub.Timeout) event, myPid);
                 break;
 
-            case MSG_HEARTBEAT:
-                System.out.println("HEARTBEAT TEST");
+            case Message.MSG_HEARTBEAT:
+                System.out.println("[HEARTBEAT TEST]");
 
-                runHeartbeat(myNode, myPid);
+                heartbeatManager.runHeartbeat(myPid);
                 // re-schedule
                 EDSimulator.add(HEARTBEAT_PERIOD,
-                        new SimpleEvent(MSG_HEARTBEAT), myNode, myPid);
+                        new SimpleEvent(Message.MSG_HEARTBEAT), myNode, myPid);
                 break;
 
             case Message.MSG_EMPTY:

@@ -9,7 +9,7 @@ import java.util.Map;
 
 public class DynamicMeshControl implements Control {
     private static final String PAR_PROT = "protocol";
-    private static final boolean isDEBUG = true; // Toggle isDEBUG logging
+    private static final boolean isDEBUG = false; // Toggle isDEBUG logging
     private final int gossipProtocolID;
 
     public DynamicMeshControl(String prefix) {

@@ -5,20 +5,26 @@ import java.math.BigInteger;
 
 /**
  *
- * Message class provide all functionalities to magage the various messages, principally LOOKUP messages (messages from
+ * Message class provide all functionalities to magage the various messages,
+ * principally LOOKUP messages (messages from
  * application level sender destinated to another application level).<br>
  *
  * Types Of messages:<br>
  * (application messages)<BR>
- * - MSG_LOOKUP: indicates that the body Object containes information to application level of the recipient<BR>
+ * - MSG_LOOKUP: indicates that the body Object containes information to
+ * application level of the recipient<BR>
  * <br>
  * (service internal protocol messages)<br>
- * - MSG_JOINREQUEST: message containing a join request of a node, the message is passed between many pastry nodes accorting to
+ * - MSG_JOINREQUEST: message containing a join request of a node, the message
+ * is passed between many pastry nodes accorting to
  * the protocol<br>
- * - MSG_JOINREPLY: according to protocol, the body transport information related to a join reply message <br>
- * - MSG_LSPROBEREQUEST:according to protocol, the body transport information related to a probe request message <br>
+ * - MSG_JOINREPLY: according to protocol, the body transport information
+ * related to a join reply message <br>
+ * - MSG_LSPROBEREQUEST:according to protocol, the body transport information
+ * related to a probe request message <br>
  * - MSG_LSPROBEREPLY: not used in the current implementation<br>
- * - MSG_SERVICEPOLL: internal message used to provide cyclic cleaning service of dead nodes<br>
+ * - MSG_SERVICEPOLL: internal message used to provide cyclic cleaning service
+ * of dead nodes<br>
  *
  *
  * @author Daniele Furlan, Maurizio Bonani
@@ -37,11 +43,10 @@ public class Message extends SimpleEvent {
      */
     public static final int MSG_EMPTY = 0;
 
-
     public static final int MSG_IHAVE = 1;
     public static final int MSG_IWANT = 2;
 
-    //Responcse to IWANT
+    // Responcse to IWANT
     public static final int MSG_DATA = 3;
 
     public static final int MSG_BLOCK_PROPOSER = 4;
@@ -54,6 +59,7 @@ public class Message extends SimpleEvent {
 
     public static final int MSG_RESET_BANDWIDTH = 8;
 
+    public static final int MSG_HEARTBEAT = 9999;
 
     // ______________________________________________________________________________________________
     /**
@@ -62,7 +68,8 @@ public class Message extends SimpleEvent {
     public Object body = null;
 
     /**
-     * ID of the message. this is automatically generated univocally, and should not change
+     * ID of the message. this is automatically generated univocally, and should not
+     * change
      */
     public long id;
 
@@ -91,34 +98,35 @@ public class Message extends SimpleEvent {
 
     public long messageSendingTime; // It is the time stamp at which the message was sent
     // ______________________________________________________________________________________________
+
     /**
-     * Creates an empty message by using default values (message type = MSG_LOOKUP and <code>new String("")</code> value for the
+     * Creates an empty message by using default values (message type = MSG_LOOKUP
+     * and <code>new String("")</code> value for the
      * body of the message)
      */
     public Message() {
-        this(MSG_EMPTY, "",false,-1,-1,-1);
+        this(MSG_EMPTY, "", false, -1, -1, -1);
     }
 
     /**
      * Create a message with specific type and empty body
      *
      * @param messageType
-     *            int type of the message
+     *                    int type of the message
      */
-    public Message(int messageType,boolean isRow, int RoworColNum,int partNo,long ackId) {
-        this(messageType, "",isRow,RoworColNum,partNo,ackId);
+    public Message(int messageType, boolean isRow, int RoworColNum, int partNo, long ackId) {
+        this(messageType, "", isRow, RoworColNum, partNo, ackId);
     }
 
-
-    //Used to create the metadata messages
-    public Message(long id, int messageType,boolean isRow,int rowOrColumnNumber,int partNo,long ackId) {
+    // Used to create the metadata messages
+    public Message(long id, int messageType, boolean isRow, int rowOrColumnNumber, int partNo, long ackId) {
         super(messageType);
-        this.id = id;  // Set the id manually
+        this.id = id; // Set the id manually
         this.body = "";
         this.isRow = isRow;
         this.rowOrColumnNumber = rowOrColumnNumber;
         this.partNumber = partNo;
-//        this.type = messageType;
+        // this.type = messageType;
         this.messageSendingTime = 0;
         this.ackId = ackId;
 
@@ -128,21 +136,19 @@ public class Message extends SimpleEvent {
      * Creates a message with specific type and body
      *
      * @param messageType
-     *            int type of the message
+     *                    int type of the message
      * @param body
-     *            Object body to assign (shallow copy)
+     *                    Object body to assign (shallow copy)
      */
-    public Message(int messageType, Object body,boolean isRow,int rowOrColumnNumber,int partNo,long ackId) {
+    public Message(int messageType, Object body, boolean isRow, int rowOrColumnNumber, int partNo, long ackId) {
         super(messageType);
         this.id = (ID_GENERATOR++);
         this.body = body;
         this.isRow = isRow;
         this.rowOrColumnNumber = rowOrColumnNumber;
         this.partNumber = partNo;
-        this.ackId =ackId;
+        this.ackId = ackId;
     }
-
-
 
     // ______________________________________________________________________________________________
     public String toString() {
@@ -152,15 +158,16 @@ public class Message extends SimpleEvent {
 
     // ______________________________________________________________________________________________
     public Message copy() {
-        Message dolly = new Message(this.id,this.type,this.isRow,this.rowOrColumnNumber,this.partNumber,this.ackId);
+        Message dolly = new Message(this.id, this.type, this.isRow, this.rowOrColumnNumber, this.partNumber,
+                this.ackId);
         dolly.type = this.type;
         dolly.src = this.src;
         dolly.dest = this.dest;
         dolly.body = this.body; // deep cloning?
         dolly.messageTopicID = this.messageTopicID;
         dolly.messageSendingTime = this.messageSendingTime;
-//        dolly.isRow = this.isRow;
-//        dolly.rowOrColumnNumber =this.rowOrColumnNumber;
+        // dolly.isRow = this.isRow;
+        // dolly.rowOrColumnNumber =this.rowOrColumnNumber;
 
         return dolly;
     }
@@ -182,13 +189,12 @@ public class Message extends SimpleEvent {
                 return "MSG_SAMPLE_DATA_REQUEST";
             case MSG_SAMPLE_DATA_RESPONSE:
                 return "MSG_SAMPLE_DATA_RESPONSE";
-           case MSG_START_SAMPLING:
-               return "MSG_START_SAMPLING";
-           case MSG_RESET_BANDWIDTH:
-               return "MSG_RESET_BANDWIDTH";
+            case MSG_START_SAMPLING:
+                return "MSG_START_SAMPLING";
+            case MSG_RESET_BANDWIDTH:
+                return "MSG_RESET_BANDWIDTH";
             default:
                 return "UNKNOW:" + type;
         }
     }
 }
-
