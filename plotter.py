@@ -277,3 +277,53 @@ plt.title("Random n Rows CDFs with Median Focused on Middle Region")
 
 # Show the plot
 plt.show()
+
+
+
+###############################################################
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Load data from CSV
+df = pd.read_csv('output2.csv')
+
+# Assume 'Max Seed RTT' and 'Max Sample RTT' contain the time data
+# times_Seed = df['Seed Arrival Times'].str.split('; ')
+# times_Seed = [int(time) for sublist in times_Seed for time in sublist]
+
+times_Seed = df['Max Seed RTT']
+times_Sample = df['Max Sample RTT']
+
+# Ensure all times are within the desired range of 0 to 4000ms
+# times_Seed = times_Seed[(times_Seed >= 0) & (times_Seed <= 4000)]
+# times_Sample = times_Sample[(times_Sample >= 0) & (times_Sample <= 4000)]
+
+# Calculate the CDF
+data_sorted_seed = np.sort(times_Seed)
+data_sorted_sample = np.sort(times_Sample)
+cumulative_node_count_seed = np.arange(1, len(data_sorted_seed) + 1)
+cumulative_node_count_sample = np.arange(1, len(data_sorted_sample) + 1)
+
+# Plotting the CDF
+plt.figure(figsize=(8, 6))
+plt.step(data_sorted_seed, cumulative_node_count_seed, where='post', label='Seed Arrival Times')
+plt.step(data_sorted_sample, cumulative_node_count_sample, where='post', label='Max Sample RTT')
+plt.title('CDF of Node Distribution Over Time')
+plt.xlabel('Time (ms)')
+plt.ylabel('Number of Nodes')
+
+plt.xlim(0, 5000)   
+# plt.ylim(0, 1.1)  
+max_seed_rtt = data_sorted_seed[-1]  # The last item in sorted array will be the max
+plt.axvline(x=max_seed_rtt, color='blue', linestyle='--', label=f'Max Seed RTT at {max_seed_rtt} ms')
+
+# # Highlighting a vertical threshold
+threshold = 4000
+plt.axvline(x=threshold, color='red', linestyle='--', label=f'Threshold {threshold} ms')
+
+plt.legend()
+plt.grid(True)
+
+# Show the plot
+plt.show()

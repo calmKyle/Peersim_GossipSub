@@ -49,7 +49,7 @@ public class CustomDistribution implements peersim.core.Control {
     public static Map<String, Topic> topics = new LinkedHashMap<>(NUMBER_OF_TOPICS);
 
     public final String prefix;
-    private boolean isDEBUG = true;
+    private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
 
     public CustomDistribution(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);

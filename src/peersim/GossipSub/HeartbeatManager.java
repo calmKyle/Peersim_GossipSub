@@ -5,18 +5,20 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.HashSet;
 import java.util.Map.Entry;
+
+import peersim.config.Configuration;
 import peersim.core.CommonState;
 
 public class HeartbeatManager {
 
     // These constants come from the original GossipSubProtocol
     private static final long MESSAGE_EXPIRATION_MS = 4000;
-    private static final int GOSSIP_ADVERTISE_ROUNDS = 3;
+    private static final int GOSSIP_ADVERTISE_ROUNDS = 1;
 
     private Map<Long, EphemeralMsgInfo> ephemeralCache;
     private Map<BigInteger, PeerScoreInfo> peerScores;
     private GossipSubProtocol protocol; // Reference to the parent protocol instance
-    private boolean isDEBUG;
+    private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
 
     public HeartbeatManager(GossipSubProtocol protocol,
             Map<Long, EphemeralMsgInfo> ephemeralCache,

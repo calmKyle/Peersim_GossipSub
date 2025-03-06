@@ -97,7 +97,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     protected static List<Set<BigInteger>> rowColHolders = new ArrayList<>(1024);
 
-    private boolean isDEBUG = true;
+    private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
 
     private Set<Long> seenMessageIDs = new HashSet<>();
 
@@ -117,8 +117,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 this.isDEBUG);
 
         // for testing
-        this.isDEBUG = Configuration.contains("DEBUG_GOSSIPSUB")
-                && Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
+        // this.isDEBUG = Configuration.contains("DEBUG_GOSSIPSUB")
+        // && Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
     }
 
     public Object clone() {
@@ -728,7 +728,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         if (!seenMessageIDs.contains(m.id)) {
             seenMessageIDs.add(m.id);
             PeerScoreInfo psi = peerScores.get(m.src);
-            System.out.println("[DEBUG SCORE] Node" + peerScores);
+            // System.out.println("[DEBUG SCORE] Node" + peerScores);
             if (psi != null) {
                 psi.firstMessageDeliveries++;
                 if (isDEBUG) {
@@ -996,7 +996,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 break;
 
             case Message.MSG_HEARTBEAT:
-                System.out.println("[HEARTBEAT TEST]");
+                // System.out.println("[HEARTBEAT TEST]");
 
                 heartbeatManager.runHeartbeat(myPid);
                 // re-schedule
