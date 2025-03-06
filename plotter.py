@@ -1,3 +1,36 @@
+# Get data from conf file 
+import re
+
+# Path to your configuration file
+config_file_path = "GossipConfig.cfg"  # Replace with your actual file path
+
+# Dictionary to hold extracted key-value pairs
+config_values = {}
+
+# Regular expression pattern to match key-value pairs
+pattern = re.compile(r'^\s*([^#\s]+)\s+([^\s#]+)')
+
+# Read and parse the configuration file
+with open(config_file_path, 'r') as file:
+    for line in file:
+        # Ignore comments and empty lines
+        if line.strip().startswith("#") or not line.strip():
+            continue
+
+        # Match key-value pairs using regex
+        match = pattern.match(line)
+        if match:
+            key, value = match.groups()
+            config_values[key] = value
+
+# Display extracted values
+for key, value in config_values.items():
+    print(f"{key} = {value}")
+
+sample_amount = int(config_values.get("SAMPLE_AMOUNT"))
+
+
+##########################################
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -41,8 +74,8 @@ data = pd.read_csv('output2.csv')
 if 'Total Sample Received' not in data.columns:
     raise ValueError("Error: 'Total Sample Received' column not found in the CSV file.")
 
-# 🔹 Compute 'Percent Received' (Total samples received out of 73)
-data['Percent Received'] = (data['Total Sample Received'] / 256) * 100
+# 🔹 Compute 'Percent Received' (Total samples received out of sample amount)
+data['Percent Received'] = (data['Total Sample Received'] / sample_amount) * 100
 
 # 🔹 Categorization function
 def categorize_percent(percent):
@@ -94,13 +127,13 @@ data['Total Sample Req Sent'].replace(0, np.nan, inplace=True)  # Avoid divide-b
 # Compute necessary columns
 data['Percent Received over Requested'] = (data['Total Sample Received'] / data['Total Sample Req Sent']) * 100
 data['Total Sample Req Timedout'] = 100 - data['Percent Received over Requested']
-data['Percent Received over 512'] = (data['Total Sample Received'] / 512) * 100
+data['Percent Received over 512'] = (data['Total Sample Received'] / sample_amount) * 100
 
-# **Downsampling strategy** (Only apply if dataset is large)
-max_points = 2000  # Maximum points to display
-if len(data) > max_points:
-    step = max(len(data) // max_points, 1)  # Ensure step is at least 1
-    data = data.iloc[::step, :].reset_index(drop=True)  # Reset index after sampling
+# # **Downsampling strategy** (Only apply if dataset is large)
+# max_points = 2000  # Maximum points to display
+# if len(data) > max_points:
+#     step = max(len(data) // max_points, 1)  # Ensure step is at least 1
+#     data = data.iloc[::step, :].reset_index(drop=True)  # Reset index after sampling
 
 # Create figure
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
@@ -277,7 +310,6 @@ plt.title("Random n Rows CDFs with Median Focused on Middle Region")
 
 # Show the plot
 plt.show()
-
 
 
 ###############################################################
