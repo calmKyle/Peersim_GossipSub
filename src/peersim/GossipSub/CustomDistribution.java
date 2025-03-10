@@ -50,6 +50,7 @@ public class CustomDistribution implements peersim.core.Control {
 
     public final String prefix;
     private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
+    // private boolean isDEBUG = true;
 
     public CustomDistribution(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
@@ -70,6 +71,15 @@ public class CustomDistribution implements peersim.core.Control {
 
             GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
             gsp.setNodeId(nodeId);
+
+            // Each node also needs a HeartbeatManager, which references ephemeralCache +
+            // peerScores
+            HeartbeatManager hm = new HeartbeatManager(
+                    gsp,
+                    gsp.ephemeralCache, // make sure these are accessible
+                    gsp.peerScores,
+                    isDEBUG);
+            gsp.setHeartbeatManager(hm);
 
             networkNodes.put(nodeId, n);
 
@@ -193,6 +203,18 @@ public class CustomDistribution implements peersim.core.Control {
         // 4. Create the mesh in each topic
         TopicBasedMesh tbm = new TopicBasedMesh(this.prefix);
         tbm.createTopicMesh();
+
+        // 5. AFTER all custody assignments are done, verify and print
+        for (Map.Entry<BigInteger, Node> entry : networkNodes.entrySet()) {
+            GossipSubProtocol gsp = (GossipSubProtocol) entry.getValue().getProtocol(gossipProtocolID);
+            String c1 = gsp.custody1;
+            String c2 = gsp.custody2;
+
+            if (c1 == null || c2 == null || c1.isEmpty() || c2.isEmpty()) {
+                System.out.println("[CUSTODY WARNING] Node " + gsp.getNodeId()
+                        + " has incomplete custody: c1=" + c1 + ", c2=" + c2);
+            }
+        }
     }
 
     /**
@@ -277,11 +299,18 @@ public class CustomDistribution implements peersim.core.Control {
             // Subscribe to a secondary topic determined by randomX
             int secondaryTopicNumber = (randomX / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC")) + 1;
             if (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1) {
-                // Distinguish row vs. column
                 if (labelPrefix.equals("row")) {
                     secondaryTopicNumber = (randomX * 2) + 1;
                 } else {
                     secondaryTopicNumber = (randomX * 2) + 2;
+                }
+
+                // Again, clamp or mod the result:
+                if (secondaryTopicNumber > NUMBER_OF_TOPICS) {
+                    secondaryTopicNumber = secondaryTopicNumber % NUMBER_OF_TOPICS;
+                    if (secondaryTopicNumber == 0) {
+                        secondaryTopicNumber = NUMBER_OF_TOPICS;
+                    }
                 }
             }
             subscribeNodeToTopic(gsp, node, secondaryTopicNumber);
@@ -304,6 +333,18 @@ public class CustomDistribution implements peersim.core.Control {
                         "[CHUNK " + labelPrefix.toUpperCase() + "] Node=" + nodeId
                                 + ", T1=" + topicNumber + ", T2=" + secondaryTopicNumber
                                 + ", C1=" + gsp.custody1 + ", C2=" + gsp.custody2);
+
+                for (Map.Entry<BigInteger, Node> entry : networkNodes.entrySet()) {
+                    // GossipSubProtocol gsp = (GossipSubProtocol)
+                    // entry.getValue().getProtocol(gossipProtocolID);
+                    if (gsp.custody1 == null || gsp.custody2 == null
+                            || gsp.custody1.isEmpty() || gsp.custody2.isEmpty()) {
+                        System.out.println("[CUSTODY WARNING] Node "
+                                + gsp.getNodeId() + " only got one seed: "
+                                + "c1=" + gsp.custody1 + ", c2=" + gsp.custody2);
+                    }
+                }
+
             }
         }
 
@@ -331,4 +372,5 @@ public class CustomDistribution implements peersim.core.Control {
             }
         }
     }
+
 }

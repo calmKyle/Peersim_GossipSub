@@ -12,12 +12,14 @@ import peersim.core.CommonState;
 public class HeartbeatManager {
 
     // These constants come from the original GossipSubProtocol
-    private static final long MESSAGE_EXPIRATION_MS = 4000;
-    private static final int GOSSIP_ADVERTISE_ROUNDS = 1;
+    private static final long MESSAGE_EXPIRATION_MS = 4001;
+    private static final int GOSSIP_ADVERTISE_ROUNDS = 2;
+
+    private static final double DECAY_FACTOR = 0.9;
 
     private Map<Long, EphemeralMsgInfo> ephemeralCache;
     private Map<BigInteger, PeerScoreInfo> peerScores;
-    private GossipSubProtocol protocol; // Reference to the parent protocol instance
+    private GossipSubProtocol protocol;
     private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
 
     public HeartbeatManager(GossipSubProtocol protocol,
@@ -40,31 +42,10 @@ public class HeartbeatManager {
         }
 
         // 1) Expire old ephemeral messages
-        Iterator<Entry<Long, EphemeralMsgInfo>> it = ephemeralCache.entrySet().iterator();
-        while (it.hasNext()) {
-            Entry<Long, EphemeralMsgInfo> entry = it.next();
-            EphemeralMsgInfo info = entry.getValue();
-            if (now - info.arrivalTime >= MESSAGE_EXPIRATION_MS) {
-                if (isDEBUG) {
-                    System.out.println("[DEBUG HEARTBEAT] Expiring message " + entry.getKey() +
-                            " from ephemeralCache on node " + protocol.getNodeId());
-                }
-                it.remove();
-            }
-        }
+        expireEphemeralMessages(now);
 
         // 2) Re-advertise (IHAVE) messages up to GOSSIP_ADVERTISE_ROUNDS times
-        for (EphemeralMsgInfo info : ephemeralCache.values()) {
-            if (info.advertiseCount < GOSSIP_ADVERTISE_ROUNDS) {
-                if (isDEBUG) {
-                    System.out.println("[DEBUG HEARTBEAT] Re-advertising messageID=" + info.message.id +
-                            " advertiseCount=" + info.advertiseCount +
-                            " node=" + protocol.getNodeId());
-                }
-                protocol.advertiseMessageIHAVE(info.message, myPid);
-                info.advertiseCount++;
-            }
-        }
+        reAdvertiseEphemeral(myPid);
 
         // 3) Update peer scores & prune/graft if needed
         if (isDEBUG) {
@@ -73,12 +54,13 @@ public class HeartbeatManager {
 
         for (Map.Entry<BigInteger, PeerScoreInfo> entry : peerScores.entrySet()) {
             PeerScoreInfo psi = entry.getValue();
-            double newScore = protocol.computeScore(psi);
+            decayPeerTopicCounters(psi); // <-- new
             double oldScore = psi.cachedScore;
+            double newScore = protocol.computeScore(psi);
             psi.cachedScore = newScore;
 
             if (isDEBUG) {
-                System.out.println("[DEBUG SCORE]   Peer=" + entry.getKey() +
+                System.out.println("[DEBUG SCORE] Peer=" + entry.getKey() +
                         " oldScore=" + oldScore +
                         " newScore=" + newScore);
             }
@@ -89,7 +71,7 @@ public class HeartbeatManager {
             PeerScoreInfo psi = peerScores.get(peerID);
             if (psi.cachedScore < 0) {
                 if (isDEBUG) {
-                    System.out.println("[DEBUG HEARTBEAT] Removing peer " + peerID +
+                    System.out.println("[DEBUG HEARTBEAT] removing peer " + peerID +
                             " from mesh due to negative score on node " + protocol.getNodeId());
                 }
                 protocol.removePeerFromMesh(peerID);
@@ -98,6 +80,48 @@ public class HeartbeatManager {
 
         // Update mesh connections if needed
         protocol.updateMeshConnections();
+    }
+
+    private void expireEphemeralMessages(long now) {
+        Iterator<Entry<Long, EphemeralMsgInfo>> it = ephemeralCache.entrySet().iterator();
+        while (it.hasNext()) {
+            Entry<Long, EphemeralMsgInfo> entry = it.next();
+            EphemeralMsgInfo info = entry.getValue();
+            if (now - info.arrivalTime >= MESSAGE_EXPIRATION_MS) {
+                if (isDEBUG) {
+                    System.out.println("[DEBUG HEARTBEAT] Expiring msg " + entry.getKey() +
+                            " from ephemeralCache on node " + protocol.getNodeId());
+                }
+                it.remove();
+            }
+        }
+    }
+
+    private void reAdvertiseEphemeral(int myPid) {
+        for (EphemeralMsgInfo info : ephemeralCache.values()) {
+            if (info.advertiseCount < GOSSIP_ADVERTISE_ROUNDS) {
+                if (isDEBUG) {
+                    System.out.println("[DEBUG HEARTBEAT] Re-advertising msgID=" + info.message.id +
+                            " node=" + protocol.getNodeId() +
+                            " advCount=" + info.advertiseCount);
+                }
+                protocol.advertiseMessageIHAVE(info.message, myPid);
+                info.advertiseCount++;
+            }
+        }
+    }
+
+    /**
+     * Decays each peer’s counters on each topic by DECAY_FACTOR.
+     */
+    private void decayPeerTopicCounters(PeerScoreInfo psi) {
+        for (PeerScoreInfo.TopicScores tsc : psi.topicScoresMap.values()) {
+            tsc.firstMessageDeliveries = (int) Math.floor(tsc.firstMessageDeliveries * DECAY_FACTOR);
+            tsc.invalidMessages = (int) Math.floor(tsc.invalidMessages * DECAY_FACTOR);
+            tsc.meshMsgDelivered = (int) Math.floor(tsc.meshMsgDelivered * DECAY_FACTOR);
+            // tsc.meshMsgExpected could be left alone or decayed if you prefer
+            // tsc.underDelivery is recalculated each computeScore
+        }
     }
 
 }

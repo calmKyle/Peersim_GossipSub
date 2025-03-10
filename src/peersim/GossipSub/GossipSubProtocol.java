@@ -19,7 +19,7 @@ import static peersim.GossipSub.CustomDistribution.*;
 public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     // private static final int MSG_HEARTBEAT = 9999;
-    private static final long HEARTBEAT_PERIOD = 1000; // 1 second
+    private static final long HEARTBEAT_PERIOD = 2000; // 1 second
 
     private boolean heartbeatScheduled = false;
 
@@ -33,7 +33,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             : (int) Math.ceil(
                     (NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
 
-    private static String prefix;
+    public static String prefix;
 
     // Instance Variables
     public BigInteger nodeId;
@@ -127,26 +127,44 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     // Maps message ID -> ephemeral info
-    private Map<Long, EphemeralMsgInfo> ephemeralCache = new LinkedHashMap<>();
+    public Map<Long, EphemeralMsgInfo> ephemeralCache = new LinkedHashMap<>();
 
     // Map from peer ID -> scoring info
-    private Map<BigInteger, PeerScoreInfo> peerScores = new HashMap<>();
+    public Map<BigInteger, PeerScoreInfo> peerScores = new HashMap<>();
 
     // Weighted sum approach
     public double computeScore(PeerScoreInfo psi) {
-        double w_timeInMesh = 0.01; // small positive weight
-        double w_firstMsg = 0.1; // each first message has some value
-        double w_invalid = -1.0; // heavily penalize invalid
-        double w_underDelivery = -0.5; // penalize under-delivery
-
         long now = CommonState.getTime();
-        double timeInMesh = (now - psi.timeInMeshStart);
-
         double score = 0.0;
-        score += (w_timeInMesh * timeInMesh);
-        score += (w_firstMsg * psi.firstMessageDeliveries);
-        score += (w_invalid * psi.invalidMessages);
-        score += (w_underDelivery * psi.meshUnderDelivery);
+
+        // Some example weights
+        double w_timeInMesh = 0.01;
+        double w_firstMsg = 0.3;
+        double w_invalid = -2.0;
+        double w_underDelivery = -1.0;
+
+        // (Optional) global "time in mesh" reward
+        double timeInMesh = (now - psi.timeInMeshStart);
+        double baseScore = w_timeInMesh * timeInMesh;
+        score += baseScore;
+
+        // Option: We'll just sum across each topic. If you prefer a "minimum" approach,
+        // you'll do that instead. Let's do a sum for demonstration:
+        double topicSum = 0.0;
+        for (Map.Entry<String, PeerScoreInfo.TopicScores> entry : psi.topicScoresMap.entrySet()) {
+            String topicId = entry.getKey();
+            PeerScoreInfo.TopicScores tScores = entry.getValue();
+            // Compute "underDelivery" as expected - delivered
+            tScores.underDelivery = Math.max(0, tScores.meshMsgExpected - tScores.meshMsgDelivered);
+
+            double topicContribution = (w_firstMsg * tScores.firstMessageDeliveries)
+                    + (w_invalid * tScores.invalidMessages)
+                    + (w_underDelivery * tScores.underDelivery);
+
+            topicSum += topicContribution;
+        }
+
+        score += topicSum;
 
         return score;
     }
@@ -175,7 +193,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             if (peer.equals(this.nodeId))
                 continue;
             if (isDEBUG) {
-                System.out.println("[DEBUG]    -> Sending IHAVE(msgID=" + originalMsg.id +
+                System.out.println("[DEBUG] -> Sending IHAVE(msgID=" + originalMsg.id +
                         ") to peer=" + peer + " from node=" + nodeId);
             }
             Message copy = (Message) ihave.copy();
@@ -189,11 +207,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         for (String topicID : localMesh.keySet()) {
             localMesh.get(topicID).remove(peerID);
         }
-        // (Optionally, remove from peerScores if you want a clean slate.)
+        // remove from scoring as well, or optionally keep as "disconnected" data
         peerScores.remove(peerID);
     }
 
-    // Function to update degree dynamically
     public void setMeshDegree(int newDegree) {
         if (newDegree >= minDegree && newDegree <= maxDegree) {
             this.degree = newDegree;
@@ -210,18 +227,14 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
 
         for (String topicID : subscribedTopics.stream().map(t -> t.topicID).collect(Collectors.toList())) {
-            localMesh.putIfAbsent(topicID, new HashSet<>()); // Ensure localMesh is initialized
-
+            localMesh.putIfAbsent(topicID, new HashSet<>());
             Set<BigInteger> peers = localMesh.get(topicID);
             if (peers == null)
                 continue;
 
-            // If mesh size is too small, add more peers
             if (peers.size() < degree) {
                 addMorePeers(topicID, degree - peers.size());
             }
-
-            // If mesh size is too large, remove excess peers
             if (peers.size() > degree) {
                 removeExcessPeers(topicID, peers.size() - degree);
             }
@@ -242,17 +255,12 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 break;
 
             GossipSubProtocol peerNode = (GossipSubProtocol) newPeer.getProtocol(gossipSubId);
-
-            // If that peer's localMesh for this topic doesn't have me,
-            // then we can connect
             if (!peerNode.localMesh.get(topicID).contains(this.nodeId)) {
                 peerNode.localMesh.get(topicID).add(this.nodeId);
                 this.localMesh.get(topicID).add(peerNode.nodeId);
 
                 // also track scoring
                 addPeerScoreIfAbsent(peerNode.nodeId);
-
-                // that peer also track me
                 peerNode.addPeerScoreIfAbsent(this.nodeId);
 
                 count--;
@@ -338,10 +346,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public boolean isSubscribedToTopic(Topic topic) {
-        if (subscribedTopics.contains(topic)) {
-            return true;
-        }
-        return false;
+        return subscribedTopics.contains(topic);
     }
 
     public void setTopicMembersList(String topicName, Set<BigInteger> members) {
@@ -388,11 +393,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         lastMessageTransmissionTime = scheduledTransmissionTime;
     }
 
-    public void sendMessageToTopicNodes(
-            Message m, int myPid, String topicID,
+    public void sendMessageToTopicNodes(Message m, int myPid, String topicID,
             Map<String, Set<BigInteger>> nodesInTopic,
             BigInteger messageSender, BigInteger src) {
-
         Set<BigInteger> topicNodes = nodesInTopic.get(topicID);
         if (topicNodes == null)
             return;
@@ -491,12 +494,23 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         seedArrivalTimeStore.add(currentTime);
     }
 
+    // double check on this !
     public void samplingStarter() {
         if (samplingStarted)
             return;
 
-        boolean shouldStart = (distributionStrategy == 3 && custodyData1.size() == 1 && custodyData2.size() == 1) ||
-                (distributionStrategy == 2 && custodyData1.size() == 2);
+        boolean shouldStart = false;
+
+        if (distributionStrategy == 3) {
+            // Start sampling if EITHER custodyData1 OR custodyData2 has 1 piece
+            if (custodyData1.size() >= 1 || custodyData2.size() >= 1) {
+                shouldStart = true;
+            }
+        } else if (distributionStrategy == 2) {
+            if (custodyData1.size() >= 2) {
+                shouldStart = true;
+            }
+        }
 
         if (shouldStart) {
             samplingStarted = true;
@@ -515,6 +529,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             }
             return;
         }
+        messageCache.put(m.id, m);
 
         if (m.ackId == -6) {
             handleAckMessage(m, myPid);
@@ -533,6 +548,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         responseWithData.src = m.src;
 
         advertiseMessageIHAVE(m, myPid);
+        incrementDelivered(m.src, m.messageTopicID);
         sendMessageToPeers(responseWithData, myPid, m.messageTopicID, this.nodeId, m.src);
         gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID, this.nodeId, m.src);
         samplingStarter();
@@ -547,8 +563,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
         messageCache.put(m.id, m);
         IWANTmessageCache.remove(m.id);
-        // also ephemeral
-        storeInEphemeralCache(m);
         samplingStarter();
     }
 
@@ -656,6 +670,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         GossipSubProtocol proposerNode = (GossipSubProtocol) CustomDistribution.blockProposerNode
                 .getProtocol(gossipSubId);
 
+        incrementDelivered(m.src, m.messageTopicID);
+
         if (m.src != proposerNode.nodeId)
             return;
 
@@ -720,28 +736,53 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             }
             samplingStarter();
         }
+        incrementDelivered(m.src, m.messageTopicID);
         messageCache.put(m.id, m);
-        storeInEphemeralCache(m);
+        // storeInEphemeralCache(m);
     }
 
-    private void markFirstDelivery(Message m) {
-        if (!seenMessageIDs.contains(m.id)) {
-            seenMessageIDs.add(m.id);
-            PeerScoreInfo psi = peerScores.get(m.src);
-            // System.out.println("[DEBUG SCORE] Node" + peerScores);
-            if (psi != null) {
-                psi.firstMessageDeliveries++;
-                if (isDEBUG) {
-                    System.out.println("[DEBUG] Node " + nodeId +
-                            " got first delivery of msgID=" + m.id +
-                            " from peer=" + m.src +
-                            " -> incrementing firstMessageDeliveries to " + psi.firstMessageDeliveries);
-                }
-            }
+    public void markFirstDelivery(Message m) {
+        // We only do "first message" logic if we haven't seen it before. E.g.:
+        // seenMessageIDs, etc. Then:
+        markFirstDelivery(m.src, m.messageTopicID);
+    }
+
+    public void markFirstDelivery(BigInteger srcPeer, String topic) {
+        PeerScoreInfo psi = peerScores.get(srcPeer);
+        if (psi == null)
+            return;
+
+        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+
+        ts.firstMessageDeliveries += 1;
+    }
+
+    public void markInvalidMessage(BigInteger srcPeer, String topic) {
+        PeerScoreInfo psi = peerScores.get(srcPeer);
+        if (psi == null)
+            return;
+
+        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+
+        ts.invalidMessages += 1;
+    }
+
+    /**
+     * Helper to record that srcPeer delivered a message on a topic.
+     * We'll increment their "meshMsgDelivered".
+     */
+    public void incrementDelivered(BigInteger srcPeer, String topic) {
+        PeerScoreInfo psi = peerScores.get(srcPeer);
+        if (psi == null) {
+            // Make a new PeerScoreInfo if needed
+            psi = new PeerScoreInfo(CommonState.getTime());
+            peerScores.put(srcPeer, psi);
         }
+        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+        ts.meshMsgDelivered += 1;
     }
 
-    private Message createMessage(long id, int type, BigInteger src, BigInteger dest,
+    public Message createMessage(long id, int type, BigInteger src, BigInteger dest,
             String topicID, Object body,
             boolean isRow, int RowOrColNum,
             int partNum, long timeStamp, long ackid) {
@@ -959,7 +1000,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     handleBlockProducerData(m, myPid);
                 } else {
                     // normal data
-                    markFirstDelivery(m);
+                    // markFirstDelivery(m);
                     handleData(m, myPid);
                 }
                 break;
@@ -1021,6 +1062,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
      */
     public void setNodeId(BigInteger tmp) {
         this.nodeId = tmp;
+    }
+
+    public void setHeartbeatManager(HeartbeatManager hm) {
+        this.heartbeatManager = hm;
     }
 
     // constants
