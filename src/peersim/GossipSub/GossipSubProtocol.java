@@ -242,7 +242,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     // Function to add new peers when the mesh is too small
-    private void addMorePeers(String topicID, int count) {
+    private void addMorePeers(String topicID, int needed) {
         Topic topic = CustomDistribution.topics.get(topicID);
         if (topic == null)
             return;
@@ -251,37 +251,287 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         Collections.shuffle(potentialPeers);
 
         for (Node newPeer : potentialPeers) {
-            if (count <= 0)
+            // If we've already reached our local 'degree', stop adding more
+            if (localMesh.get(topicID).size() >= degree) {
+                break;
+            }
+
+            if (needed <= 0)
                 break;
 
             GossipSubProtocol peerNode = (GossipSubProtocol) newPeer.getProtocol(gossipSubId);
-            if (!peerNode.localMesh.get(topicID).contains(this.nodeId)) {
-                peerNode.localMesh.get(topicID).add(this.nodeId);
-                this.localMesh.get(topicID).add(peerNode.nodeId);
 
-                // also track scoring
-                addPeerScoreIfAbsent(peerNode.nodeId);
-                peerNode.addPeerScoreIfAbsent(this.nodeId);
+            // If that peer already has us, skip
+            // (only if you want to reduce double-link creation)
+            if (peerNode.localMesh.get(topicID).contains(this.nodeId)) {
+                continue;
+            }
 
-                count--;
+            // We add them to OUR local mesh
+            localMesh.putIfAbsent(topicID, new HashSet<>());
+            localMesh.get(topicID).add(peerNode.nodeId);
+
+            addPeerScoreIfAbsent(peerNode.nodeId);
+
+            // Then we send them a GRAFT, so *they* can decide if they want us in their mesh
+            Message graft = createMessage(
+                    -1,
+                    Message.MSG_GRAFT,
+                    this.nodeId,
+                    peerNode.nodeId,
+                    topicID,
+                    null,
+                    false, -1, -1,
+                    CommonState.getTime(),
+                    -1);
+            publishMessage(graft, peerNode.nodeId, gossipSubId);
+
+            // We used up one slot
+            needed--;
+
+            // If we want to be REALLY sure we don't overshoot, we do:
+            if (localMesh.get(topicID).size() >= degree) {
+                break;
             }
         }
     }
 
-    // Function to remove excess peers when the mesh is too large
-    private void removeExcessPeers(String topicID, int count) {
-        if (!localMesh.containsKey(topicID))
+    public void handleGraft(Message m, int myPid) {
+        String topicID = m.messageTopicID;
+        BigInteger p = m.src; // the peer that is trying to graft onto me
+
+        // For convenience, let's store the current time
+        long now = CommonState.getTime();
+
+        // 1. Log that we got a GRAFT
+        if (isDEBUG) {
+            System.out.println("[DEBUG handleGraft] Node " + nodeId
+                    + " received GRAFT from peer " + p
+                    + " for topic=" + topicID
+                    + " at time=" + now);
+        }
+
+        // 2. Ensure we have a PeerScoreInfo for this peer
+        addPeerScoreIfAbsent(p);
+        PeerScoreInfo psi = peerScores.get(p);
+        if (psi == null) {
+            if (isDEBUG) {
+                System.out.println("[DEBUG handleGraft] No PeerScoreInfo for " + p
+                        + "; ignoring GRAFT.");
+            }
             return;
-        Iterator<BigInteger> it = localMesh.get(topicID).iterator();
-        while (it.hasNext() && count > 0) {
-            BigInteger peerID = it.next();
-            it.remove();
-            count--;
-            GossipSubProtocol peerNode = (GossipSubProtocol) CustomDistribution.networkNodes.get(peerID)
-                    .getProtocol(gossipSubId);
-            peerNode.localMesh.get(topicID).remove(this.nodeId);
+        }
+
+        // 3. Compute their score and do backoff checks
+        double s = computeScore(psi);
+        if (isDEBUG) {
+            System.out.println("[DEBUG handleGraft] Peer " + p + " has score=" + s
+                    + ", time=" + now
+                    + ", pruneBackoffUntil=" + psi.pruneBackoffUntil);
+        }
+
+        // If negative score or in backoff, we prune them immediately
+        if (s < 0 || now < psi.pruneBackoffUntil) {
+            if (isDEBUG) {
+                System.out.println("[DEBUG handleGraft] Peer " + p
+                        + " is being PRUNE'd (score<0 or in backoff).");
+            }
+            Message prune = createMessage(
+                    -1,
+                    Message.MSG_PRUNE,
+                    this.nodeId,
+                    p,
+                    topicID,
+                    null, false, -1, -1,
+                    now,
+                    -1);
+            publishMessage(prune, p, myPid);
+            return; // do not add them to my local mesh
+        }
+
+        // 4. Otherwise, accept them in my local mesh for topicID
+        localMesh.putIfAbsent(topicID, new HashSet<>());
+        localMesh.get(topicID).add(p);
+
+        // Just in case, ensure we track peer's score info
+        addPeerScoreIfAbsent(p);
+
+        if (isDEBUG) {
+            System.out.println("[DEBUG handleGraft] Node " + nodeId
+                    + " accepted peer " + p
+                    + " into mesh for topic=" + topicID
+                    + ". Current mesh size=" + localMesh.get(topicID).size());
+        }
+
+        // 5. If oversubscribed, remove some peers
+        if (localMesh.get(topicID).size() > maxDegree) {
+            if (isDEBUG) {
+                System.out.println("[DEBUG handleGraft] Mesh oversubscribed: size="
+                        + localMesh.get(topicID).size()
+                        + " > maxDegree=" + maxDegree
+                        + ". Will removeExcessPeers(...)");
+            }
+            return;
+
+            // removeExcessPeers(topicID, localMesh.get(topicID).size() - degree);
         }
     }
+
+    public void handlePrune(Message m, int myPid) {
+        BigInteger pruner = m.src; // the node that is pruning me
+        String topicID = m.messageTopicID;
+        long now = CommonState.getTime();
+
+        // 1. Log that we received a PRUNE
+        if (isDEBUG) {
+            System.out.println("[DEBUG handlePrune] Node " + nodeId
+                    + " received PRUNE from " + pruner
+                    + " for topic=" + topicID
+                    + " at time=" + now);
+        }
+
+        // 2. Remove that node from my local mesh (if present).
+        Set<BigInteger> meshPeers = localMesh.getOrDefault(topicID, new HashSet<>());
+        boolean wasPresent = meshPeers.remove(pruner);
+
+        if (!wasPresent) {
+            // Not in our mesh anyway
+            if (isDEBUG) {
+                System.out.println("[DEBUG handlePrune] Node " + nodeId
+                        + " wasn't tracking pruner=" + pruner
+                        + " in localMesh for topic=" + topicID
+                        + ", ignoring.");
+            }
+            return;
+        }
+
+        // 3. Now check if this removal dropped our mesh below minDegree
+        int sizeAfterRemoval = meshPeers.size();
+        if (isDEBUG) {
+            System.out.println("[DEBUG handlePrune] After removing " + pruner
+                    + ", localMesh[" + topicID + "] size=" + sizeAfterRemoval
+                    + " for node=" + nodeId);
+        }
+
+        if (sizeAfterRemoval < minDegree) {
+            int needed = degree - sizeAfterRemoval;
+            if (needed > 0) {
+                if (isDEBUG) {
+                    System.out.println("[DEBUG handlePrune] localMesh[" + topicID + "] too small ("
+                            + sizeAfterRemoval + " < minDegree=" + minDegree
+                            + "). GRAFTing " + needed + " peers...");
+                }
+                addMorePeers(topicID, needed);
+            }
+        }
+
+        // 4. If for some reason we end up bigger than maxDegree, removeExcessPeers
+        if (sizeAfterRemoval > maxDegree) {
+            int over = sizeAfterRemoval - degree;
+            if (isDEBUG) {
+                System.out.println("[DEBUG handlePrune] localMesh[" + topicID + "] oversubscribed size="
+                        + sizeAfterRemoval + " > maxDegree=" + maxDegree
+                        + ". removing 'over'=" + over + " peers...");
+            }
+            removeExcessPeers(topicID, over);
+        }
+
+        // 5. OPTIONAL: record that pruner is refusing me until T
+        // e.g., peerRefuseUntil.put(pruner, now + someBackoff);
+    }
+
+    // e.g. in removeExcessPeers(...) or prunePeer(...)
+    public void prunePeer(BigInteger peerID, String topicID) {
+        long now = CommonState.getTime();
+
+        // 1. Remove from my local mesh
+        Set<BigInteger> meshPeers = localMesh.getOrDefault(topicID, new HashSet<>());
+        boolean wasPresent = meshPeers.remove(peerID);
+
+        if (isDEBUG) {
+            System.out.println("[DEBUG prunePeer] Node " + nodeId
+                    + " is pruning peer " + peerID
+                    + " for topic=" + topicID
+                    + " at time=" + now);
+            if (!wasPresent) {
+                System.out.println("[DEBUG prunePeer] peer " + peerID
+                        + " wasn't in localMesh[" + topicID + "] anyway; ignoring.");
+            } else {
+                System.out.println("[DEBUG prunePeer] localMesh[" + topicID + "] size is now "
+                        + meshPeers.size() + " after removing " + peerID);
+            }
+        }
+
+        if (!wasPresent) {
+            // If the peer wasn't in our mesh, no need to send a PRUNE or set backoff
+            return;
+        }
+
+        // 2. Send them a PRUNE message so they know we've removed them
+        Message prune = createMessage(
+                -1,
+                Message.MSG_PRUNE,
+                this.nodeId,
+                peerID,
+                topicID,
+                null,
+                false,
+                -1,
+                -1,
+                now,
+                -1);
+        publishMessage(prune, peerID, gossipSubId);
+
+        // 3. Set backoff
+        PeerScoreInfo psi = peerScores.get(peerID);
+        if (psi != null) {
+            long backoff = 60000; // 1 minute
+            psi.pruneBackoffUntil = now + backoff;
+
+            if (isDEBUG) {
+                System.out.println("[DEBUG prunePeer] Setting pruneBackoffUntil="
+                        + psi.pruneBackoffUntil
+                        + " for peer " + peerID);
+            }
+        }
+    }
+
+    private void removeExcessPeers(String topicID, int count) {
+        Set<BigInteger> peers = localMesh.get(topicID);
+        if (peers == null)
+            return;
+
+        // 1) Make sure each peer has a PeerScoreInfo
+        for (BigInteger p : peers) {
+            addPeerScoreIfAbsent(p);
+        }
+
+        // 2) Then do the sorting:
+        List<BigInteger> sorted = new ArrayList<>(peers);
+        sorted.sort(Comparator.comparingDouble(p -> computeScore(peerScores.get(p))));
+
+        // 3) Prune the worst 'count' peers
+        for (int i = 0; i < count; i++) {
+            BigInteger toRemove = sorted.get(i);
+            prunePeer(toRemove, topicID);
+        }
+    }
+
+    // // Function to remove excess peers when the mesh is too large
+    // private void removeExcessPeers(String topicID, int count) {
+    // if (!localMesh.containsKey(topicID))
+    // return;
+    // Iterator<BigInteger> it = localMesh.get(topicID).iterator();
+    // while (it.hasNext() && count > 0) {
+    // BigInteger peerID = it.next();
+    // it.remove();
+    // count--;
+    // GossipSubProtocol peerNode = (GossipSubProtocol)
+    // CustomDistribution.networkNodes.get(peerID)
+    // .getProtocol(gossipSubId);
+    // peerNode.localMesh.get(topicID).remove(this.nodeId);
+    // }
+    // }
 
     private void addPeerScoreIfAbsent(BigInteger peerID) {
         if (!peerScores.containsKey(peerID)) {
@@ -522,36 +772,111 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         IntStream.range(0, sampleAmount).forEach(i -> sampleDataRequest());
     }
 
+    // public void handleIHave(Message m, int myPid) {
+    // if (messageCache.containsKey(m.id)) {
+    // if (IWANTmessageCache.containsKey(m.id) && m.body != null) { // Late-arriving
+    // message
+    // processReceivedMessage(m, myPid);
+    // }
+    // return;
+    // }
+    // messageCache.put(m.id, m);
+
+    // if (m.ackId == -6) {
+    // handleAckMessage(m, myPid);
+    // }
+
+    // messageCache.put(m.id, m);
+
+    // storeInEphemeralCache(m);
+
+    // Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.src,
+    // m.dest, m.messageTopicID, null,
+    // m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
+
+    // Message responseWithData = createMessage(m.id, Message.MSG_IHAVE, m.src,
+    // m.dest, m.messageTopicID, m.body,
+    // m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
+
+    // responseWithData.src = m.src;
+
+    // advertiseMessageIHAVE(m, myPid);
+    // incrementDelivered(m.src, m.messageTopicID);
+    // sendMessageToPeers(responseWithData, myPid, m.messageTopicID, this.nodeId,
+    // m.src);
+    // gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID,
+    // this.nodeId, m.src);
+    // samplingStarter();
+    // }
+
     public void handleIHave(Message m, int myPid) {
+        // 1. If we have *already* seen (cached) this message ID, do nothing.
         if (messageCache.containsKey(m.id)) {
-            if (IWANTmessageCache.containsKey(m.id) && m.body != null) { // Late-arriving message
-                processReceivedMessage(m, myPid);
-            }
+            System.out.println(
+                    "[DEBUG handleIHave] Node " + nodeId + " already knows msgId=" + m.id + ", skipping IWANT.");
             return;
         }
-        messageCache.put(m.id, m);
 
-        if (m.ackId == -6) {
-            handleAckMessage(m, myPid);
-        }
-
-        messageCache.put(m.id, m);
+        // 2. Store just an "empty" reference for that ID in messageCache
+        // This indicates "We know about it but don't have the full data yet."
+        // We'll store the same Message object if you like, but it’s body can be null.
+        Message placeholder = createMessage(
+                m.id, // same ID
+                Message.MSG_IHAVE, // or just keep the same type
+                m.src, // who told us about it
+                this.nodeId, // me
+                m.messageTopicID,
+                null, // no body yet
+                m.isRow,
+                m.rowOrColumnNumber,
+                m.partNumber,
+                CommonState.getTime(),
+                m.ackId);
+        messageCache.put(m.id, placeholder);
 
         storeInEphemeralCache(m);
 
-        Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.src, m.dest, m.messageTopicID, null,
-                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
+        // 3. Decide whether we actually want the message data:
+        boolean weAreSubscribed = isSubscribedToTopic(
+                new Topic(m.messageTopicID));
 
-        Message responseWithData = createMessage(m.id, Message.MSG_IHAVE, m.src, m.dest, m.messageTopicID, m.body,
-                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
+        if (!weAreSubscribed) {
+            if (isDEBUG) {
+                System.out.println("[DEBUG handleIHave] Node " + nodeId
+                        + " not subscribed to " + m.messageTopicID
+                        + ", ignoring msgId=" + m.id);
+            }
+            return;
+        }
 
-        responseWithData.src = m.src;
+        // If we want it, we *pull* via IWANT.
+        // if (weAreSubscribed) {
 
-        advertiseMessageIHAVE(m, myPid);
-        incrementDelivered(m.src, m.messageTopicID);
-        sendMessageToPeers(responseWithData, myPid, m.messageTopicID, this.nodeId, m.src);
-        gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID, this.nodeId, m.src);
-        samplingStarter();
+        if (isDEBUG) {
+            System.out.println("[DEBUG handleIHave] Node " + nodeId
+                    + " => LAZY PULL for msgId=" + m.id
+                    + "; sending IWANT to " + m.src);
+        }
+
+        // send IWANT to m.src
+        Message iwantMsg = createMessage(
+                -1,
+                Message.MSG_IWANT,
+                this.nodeId,
+                m.src,
+                m.messageTopicID,
+                /* body= */ null,
+                m.isRow,
+                m.rowOrColumnNumber,
+                m.partNumber,
+                CommonState.getTime(),
+                m.id // ackId can track which message we want
+        );
+        publishMessage(iwantMsg, m.src, myPid);
+        // }
+
+        // 4. DO NOT push data. Pure lazy means we only get it if we do IWANT.
+        // End of handleIHave
     }
 
     // Process a message that arrives late after sending IHAVE
@@ -625,27 +950,73 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public void handleIWANT(Message m, int myPid) {
-        if (distributionStrategy == 3) {
-            if (findAndSendResponse(m, myPid, custodyData1) ||
-                    findAndSendResponse(m, myPid, custodyData2) ||
-                    findAndSendResponse(m, myPid, dataReceivedFromBP)) {
-                return;
-            }
+        // We assume 'm.src' is the node that wants the data from us.
+        // 'm.ackId' might be the ID they want, or you can store it in 'm.id'.
 
+        // 1. Figure out which message ID they're requesting
+        long requestedId = (m.ackId > 0) ? m.ackId : m.id;
+
+        // 2. Check if we actually have that data in messageCache
+        Message stored = messageCache.get(requestedId);
+        if (stored == null) {
+            // We do NOT have the data => we can't respond
             if (isDEBUG) {
-                System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
-                        ". I have " + custody2 + " " + custody1 +
-                        ". Responding node: " + nodeId + " to " + m.src);
+                System.out.println("Node " + nodeId + " got IWANT for " + requestedId +
+                        " but we do NOT have the data.");
             }
-
-        } else if (distributionStrategy == 2) {
-            if (findAndSendResponse(m, myPid, custody1Parts) ||
-                    findAndSendResponse(m, myPid, custody2Parts) ||
-                    findAndSendResponse(m, myPid, messageCache.values())) {
-                return;
-            }
+            return;
         }
+
+        // If stored.body == null, that means we only had a placeholder. No data to send
+        if (stored.body == null) {
+            if (isDEBUG) {
+                System.out.println("Node " + nodeId + " got IWANT for " + requestedId +
+                        " but we only have a placeholder (no data).");
+            }
+            return;
+        }
+
+        // 3. We have the full data, so respond with MSG_DATA
+        Message dataMsg = createMessage(
+                requestedId,
+                Message.MSG_DATA,
+                this.nodeId,
+                m.src, // send data back to the node who asked
+                stored.messageTopicID,
+                stored.body, // full data
+                stored.isRow,
+                stored.rowOrColumnNumber,
+                stored.partNumber,
+                CommonState.getTime(),
+                -1);
+
+        publishMessage(dataMsg, dataMsg.dest, myPid);
+        storeInEphemeralCache(dataMsg);
+
     }
+
+    // public void handleIWANT(Message m, int myPid) {
+    // if (distributionStrategy == 3) {
+    // if (findAndSendResponse(m, myPid, custodyData1) ||
+    // findAndSendResponse(m, myPid, custodyData2) ||
+    // findAndSendResponse(m, myPid, dataReceivedFromBP)) {
+    // return;
+    // }
+
+    // if (isDEBUG) {
+    // System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
+    // ". I have " + custody2 + " " + custody1 +
+    // ". Responding node: " + nodeId + " to " + m.src);
+    // }
+
+    // } else if (distributionStrategy == 2) {
+    // if (findAndSendResponse(m, myPid, custody1Parts) ||
+    // findAndSendResponse(m, myPid, custody2Parts) ||
+    // findAndSendResponse(m, myPid, messageCache.values())) {
+    // return;
+    // }
+    // }
+    // }
 
     // Helper method to search for the requested message and send a response
     private boolean findAndSendResponse(Message m, int myPid, Collection<Message> messageCollection) {
@@ -726,19 +1097,47 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID, nodeId, nodeId);
     }
 
+    // public void handleData(Message m, int myPid) {
+    // if (messageCache.containsKey(m.id) && IWANTmessageCache.containsKey(m.id)) {
+    // IWANTmessageCache.remove(m.id);
+    // if (distributionStrategy == 3) {
+    // handleReceivedRowOrCol(m, myPid);
+    // } else if (distributionStrategy == 2) {
+    // handleReceivedPart(m, myPid);
+    // }
+    // samplingStarter();
+    // }
+    // incrementDelivered(m.src, m.messageTopicID);
+    // messageCache.put(m.id, m);
+    // // storeInEphemeralCache(m);
+    // }
+
     public void handleData(Message m, int myPid) {
-        if (messageCache.containsKey(m.id) && IWANTmessageCache.containsKey(m.id)) {
-            IWANTmessageCache.remove(m.id);
-            if (distributionStrategy == 3) {
-                handleReceivedRowOrCol(m, myPid);
-            } else if (distributionStrategy == 2) {
-                handleReceivedPart(m, myPid);
+        // If we already cached the data, no need to do anything
+        if (messageCache.containsKey(m.id)) {
+            // Maybe we only had an "IHAVE placeholder."
+            // Let's see if the placeholder's body is null:
+            Message placeholder = messageCache.get(m.id);
+            if (placeholder.body == null) {
+                // fill in the real body now
+                placeholder.body = m.body;
+                // You can do further logic like "markFirstDelivery" or "incrementDelivered"
             }
-            samplingStarter();
+            // else we had data already => do nothing
+        } else {
+            // If we never even had a placeholder, let's store it
+            messageCache.put(m.id, m);
         }
-        incrementDelivered(m.src, m.messageTopicID);
-        messageCache.put(m.id, m);
-        // storeInEphemeralCache(m);
+
+        // Then do your normal "apply block or row data" logic
+        // e.g. if (distributionStrategy == 3) handleReceivedRowOrCol(m, myPid); etc.
+        if (distributionStrategy == 3) {
+            handleReceivedRowOrCol(m, myPid);
+        } else if (distributionStrategy == 2) {
+            handleReceivedPart(m, myPid);
+        }
+
+        samplingStarter(); // if you want
     }
 
     public void markFirstDelivery(Message m) {
@@ -972,7 +1371,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-    @Override
+    // @Override
     public void processEvent(Node myNode, int myPid, Object event) {
         this.gossipSubId = myPid;
         Message m;
@@ -1043,6 +1442,16 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 // re-schedule
                 EDSimulator.add(HEARTBEAT_PERIOD,
                         new SimpleEvent(Message.MSG_HEARTBEAT), myNode, myPid);
+                break;
+
+            case Message.MSG_GRAFT:
+                Message graftMsg = (Message) event;
+                handleGraft(graftMsg, myPid);
+                break;
+
+            case Message.MSG_PRUNE:
+                Message pruneMsg = (Message) event;
+                handlePrune(pruneMsg, myPid);
                 break;
 
             case Message.MSG_EMPTY:

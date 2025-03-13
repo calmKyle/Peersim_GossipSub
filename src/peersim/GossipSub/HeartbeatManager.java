@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import peersim.config.Configuration;
 import peersim.core.CommonState;
@@ -67,14 +68,28 @@ public class HeartbeatManager {
         }
 
         // Example: prune peers with negative score
-        for (BigInteger peerID : new HashSet<>(peerScores.keySet())) {
+        // for (BigInteger peerID : new HashSet<>(peerScores.keySet())) {
+        // PeerScoreInfo psi = peerScores.get(peerID);
+        // if (psi.cachedScore < 0) {
+        // if (isDEBUG) {
+        // System.out.println("[DEBUG HEARTBEAT] removing peer " + peerID +
+        // " from mesh due to negative score on node " + protocol.getNodeId());
+        // }
+        // protocol.removePeerFromMesh(peerID);
+        // }
+        // }
+
+        for (BigInteger peerID : peerScores.keySet()) {
             PeerScoreInfo psi = peerScores.get(peerID);
-            if (psi.cachedScore < 0) {
-                if (isDEBUG) {
-                    System.out.println("[DEBUG HEARTBEAT] removing peer " + peerID +
-                            " from mesh due to negative score on node " + protocol.getNodeId());
+            double s = protocol.computeScore(psi);
+            if (s < 0) {
+                // for each topic where this peer is in your mesh, prune them
+                for (String topicID : protocol.localMesh.keySet()) {
+                    Set<BigInteger> set = protocol.localMesh.get(topicID);
+                    if (set != null && set.contains(peerID)) {
+                        protocol.prunePeer(peerID, topicID);
+                    }
                 }
-                protocol.removePeerFromMesh(peerID);
             }
         }
 

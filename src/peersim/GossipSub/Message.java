@@ -59,7 +59,10 @@ public class Message extends SimpleEvent {
 
     public static final int MSG_RESET_BANDWIDTH = 8;
 
-    public static final int MSG_HEARTBEAT = 9999;
+    // Gossip Message
+    public static final int MSG_HEARTBEAT = 9000;
+    public static final int MSG_GRAFT = 9001;
+    public static final int MSG_PRUNE = 9002;
 
     // ______________________________________________________________________________________________
     /**
@@ -193,6 +196,12 @@ public class Message extends SimpleEvent {
                 return "MSG_START_SAMPLING";
             case MSG_RESET_BANDWIDTH:
                 return "MSG_RESET_BANDWIDTH";
+            case MSG_HEARTBEAT:
+                return "MSG_HEARTBEAT";
+            case MSG_GRAFT:
+                return "MSG_GRAFT";
+            case MSG_PRUNE:
+                return "MSG_PRUNE";
             default:
                 return "UNKNOW:" + type;
         }

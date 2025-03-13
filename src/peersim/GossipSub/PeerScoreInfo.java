@@ -21,6 +21,9 @@ public class PeerScoreInfo {
     // for each topic. Key = topicID, value = container of counters for that topic.
     public Map<String, TopicScores> topicScoresMap;
 
+    public long pruneBackoffUntil = 0L;
+
+
     // We record the last time we updated the counters to handle time-based decays.
     public long lastUpdateTime;
 
