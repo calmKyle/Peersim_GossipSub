@@ -23,7 +23,6 @@ public class PeerScoreInfo {
 
     public long pruneBackoffUntil = 0L;
 
-
     // We record the last time we updated the counters to handle time-based decays.
     public long lastUpdateTime;
 
@@ -40,10 +39,10 @@ public class PeerScoreInfo {
      */
     public static class TopicScores {
         public int firstMessageDeliveries; // # times peer is first to deliver
-        public int invalidMessages;        // # invalid messages from peer
-        public int meshMsgDelivered;       // actual # of messages delivered
-        public int meshMsgExpected;        // how many we "expect" them to deliver
-        public int underDelivery;          // shortfall between expected vs. delivered
+        public int invalidMessages; // # invalid messages from peer
+        public int meshMsgDelivered; // actual # of messages delivered
+        public int meshMsgExpected; // how many we "expect" them to deliver
+        public int underDelivery; // shortfall between expected vs. delivered
 
         public TopicScores() {
             this.firstMessageDeliveries = 0;
