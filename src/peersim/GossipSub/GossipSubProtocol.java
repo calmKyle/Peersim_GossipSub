@@ -950,84 +950,85 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         publishMessage(request, m.src, myPid);
     }
 
-    public void handleIWANT(Message m, int myPid) {
-        // We assume 'm.src' is the node that wants the data from us.
-        // 'm.ackId' might be the ID they want, or you can store it in 'm.id'.
-
-        // 1. Figure out which message ID they're requesting
-        long requestedId = (m.ackId > 0) ? m.ackId : m.id;
-
-        // 2. Check if we actually have that data in messageCache
-        Message stored = messageCache.get(requestedId);
-        if (stored == null) {
-            // We do NOT have the data => we can't respond
-            if (isDEBUG) {
-                System.out.println("Node " + nodeId + " got IWANT for " + requestedId +
-                        " but we do NOT have the data.");
-            }
-            return;
-        }
-
-        // If stored.body == null, that means we only had a placeholder. No data to send
-        if (stored.body == null) {
-            if (isDEBUG) {
-                System.out.println("Node " + nodeId + " got IWANT for " + requestedId +
-                        " but we only have a placeholder (no data).");
-            }
-            return;
-        }
-
-        // 3. We have the full data, so respond with MSG_DATA
-        // Message dataMsg = createMessage(
-        // requestedId,
-        // Message.MSG_DATA,
-        // this.nodeId,
-        // m.src, // send data back to the node who asked
-        // stored.messageTopicID,
-        // stored.body, // full data
-        // stored.isRow,
-        // stored.rowOrColumnNumber,
-        // stored.partNumber,
-        // CommonState.getTime(),
-        // -1);
-
-        if (findAndSendResponse(m, myPid, custodyData1) ||
-                findAndSendResponse(m, myPid, custodyData2) ||
-                findAndSendResponse(m, myPid, dataReceivedFromBP)) {
-            return;
-        }
-
-        System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
-                ". I have " + custody2 + " " + custody1 +
-                ". Responding node: " + nodeId + " to " + m.src);
-
-        // publishMessage(dataMsg, dataMsg.dest, myPid);
-        // storeInEphemeralCache(dataMsg);
-
-    }
-
     // public void handleIWANT(Message m, int myPid) {
-    // if (distributionStrategy == 3) {
+    // // We assume 'm.src' is the node that wants the data from us.
+    // // 'm.ackId' might be the ID they want, or you can store it in 'm.id'.
+
+    // // 1. Figure out which message ID they're requesting
+    // long requestedId = (m.ackId > 0) ? m.ackId : m.id;
+
+    // // 2. Check if we actually have that data in messageCache
+    // Message stored = messageCache.get(requestedId);
+    // if (stored == null) {
+    // // We do NOT have the data => we can't respond
+    // if (isDEBUG) {
+    // System.out.println("Node " + nodeId + " got IWANT for " + requestedId +
+    // " but we do NOT have the data.");
+    // }
+    // return;
+    // }
+
+    // // If stored.body == null, that means we only had a placeholder. No data to
+    // send
+    // if (stored.body == null) {
+    // if (isDEBUG) {
+    // System.out.println("Node " + nodeId + " got IWANT for " + requestedId +
+    // " but we only have a placeholder (no data).");
+    // }
+    // return;
+    // }
+
+    // // 3. We have the full data, so respond with MSG_DATA
+    // // Message dataMsg = createMessage(
+    // // requestedId,
+    // // Message.MSG_DATA,
+    // // this.nodeId,
+    // // m.src, // send data back to the node who asked
+    // // stored.messageTopicID,
+    // // stored.body, // full data
+    // // stored.isRow,
+    // // stored.rowOrColumnNumber,
+    // // stored.partNumber,
+    // // CommonState.getTime(),
+    // // -1);
+
     // if (findAndSendResponse(m, myPid, custodyData1) ||
     // findAndSendResponse(m, myPid, custodyData2) ||
     // findAndSendResponse(m, myPid, dataReceivedFromBP)) {
     // return;
     // }
 
-    // if (isDEBUG) {
     // System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
     // ". I have " + custody2 + " " + custody1 +
     // ". Responding node: " + nodeId + " to " + m.src);
+
+    // // publishMessage(dataMsg, dataMsg.dest, myPid);
+    // // storeInEphemeralCache(dataMsg);
+
     // }
 
-    // } else if (distributionStrategy == 2) {
-    // if (findAndSendResponse(m, myPid, custody1Parts) ||
-    // findAndSendResponse(m, myPid, custody2Parts) ||
-    // findAndSendResponse(m, myPid, messageCache.values())) {
-    // return;
-    // }
-    // }
-    // }
+    public void handleIWANT(Message m, int myPid) {
+        if (distributionStrategy == 3) {
+            if (findAndSendResponse(m, myPid, custodyData1) ||
+                    findAndSendResponse(m, myPid, custodyData2) ||
+                    findAndSendResponse(m, myPid, dataReceivedFromBP)) {
+                return;
+            }
+
+            if (isDEBUG) {
+                System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
+                        ". I have " + custody2 + " " + custody1 +
+                        ". Responding node: " + nodeId + " to " + m.src);
+            }
+
+            // } else if (distributionStrategy == 2) {
+            // if (findAndSendResponse(m, myPid, custody1Parts) ||
+            // findAndSendResponse(m, myPid, custody2Parts) ||
+            // findAndSendResponse(m, myPid, messageCache.values())) {
+            // return;
+            // }
+        }
+    }
 
     // Helper method to search for the requested message and send a response
     private boolean findAndSendResponse(Message m, int myPid, Collection<Message> messageCollection) {
