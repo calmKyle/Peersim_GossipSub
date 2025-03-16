@@ -997,6 +997,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
 
+        System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
+                ". I have " + custody2 + " " + custody1 +
+                ". Responding node: " + nodeId + " to " + m.src);
+
         // publishMessage(dataMsg, dataMsg.dest, myPid);
         // storeInEphemeralCache(dataMsg);
 
