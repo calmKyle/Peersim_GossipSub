@@ -772,112 +772,113 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         IntStream.range(0, sampleAmount).forEach(i -> sampleDataRequest());
     }
 
-    // public void handleIHave(Message m, int myPid) {
-    // if (messageCache.containsKey(m.id)) {
-    // if (IWANTmessageCache.containsKey(m.id) && m.body != null) { // Late-arriving
-    // message
-    // processReceivedMessage(m, myPid);
-    // }
-    // return;
-    // }
-    // messageCache.put(m.id, m);
-
-    // if (m.ackId == -6) {
-    // handleAckMessage(m, myPid);
-    // }
-
-    // messageCache.put(m.id, m);
-
-    // storeInEphemeralCache(m);
-
-    // Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.src,
-    // m.dest, m.messageTopicID, null,
-    // m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
-
-    // Message responseWithData = createMessage(m.id, Message.MSG_IHAVE, m.src,
-    // m.dest, m.messageTopicID, m.body,
-    // m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
-
-    // responseWithData.src = m.src;
-
-    // advertiseMessageIHAVE(m, myPid);
-    // incrementDelivered(m.src, m.messageTopicID);
-    // sendMessageToPeers(responseWithData, myPid, m.messageTopicID, this.nodeId,
-    // m.src);
-    // gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID,
-    // this.nodeId, m.src);
-    // samplingStarter();
-    // }
-
     public void handleIHave(Message m, int myPid) {
-        // 1. If we have *already* seen (cached) this message ID, do nothing.
         if (messageCache.containsKey(m.id)) {
-            System.out.println(
-                    "[DEBUG handleIHave] Node " + nodeId + " already knows msgId=" + m.id + ", skipping IWANT.");
-            return;
-        }
-
-        // 2. Store just an "empty" reference for that ID in messageCache
-        // This indicates "We know about it but don't have the full data yet."
-        // We'll store the same Message object if you like, but it’s body can be null.
-        Message placeholder = createMessage(
-                m.id, // same ID
-                Message.MSG_IHAVE, // or just keep the same type
-                m.src, // who told us about it
-                this.nodeId, // me
-                m.messageTopicID,
-                null, // no body yet
-                m.isRow,
-                m.rowOrColumnNumber,
-                m.partNumber,
-                CommonState.getTime(),
-                m.ackId);
-        messageCache.put(m.id, placeholder);
-
-        storeInEphemeralCache(m);
-
-        // 3. Decide whether we actually want the message data:
-        boolean weAreSubscribed = isSubscribedToTopic(
-                new Topic(m.messageTopicID));
-
-        if (!weAreSubscribed) {
-            if (isDEBUG) {
-                System.out.println("[DEBUG handleIHave] Node " + nodeId
-                        + " not subscribed to " + m.messageTopicID
-                        + ", ignoring msgId=" + m.id);
+            if (IWANTmessageCache.containsKey(m.id) && m.body != null) { // Late-arrivingmessage
+                processReceivedMessage(m, myPid);
             }
             return;
         }
+        messageCache.put(m.id, m);
 
-        // If we want it, we *pull* via IWANT.
-        // if (weAreSubscribed) {
-
-        if (isDEBUG) {
-            System.out.println("[DEBUG handleIHave] Node " + nodeId
-                    + " => LAZY PULL for msgId=" + m.id
-                    + "; sending IWANT to " + m.src);
+        if (m.ackId == -6) {
+            handleAckMessage(m, myPid);
         }
 
-        // send IWANT to m.src
-        Message iwantMsg = createMessage(
-                -1,
-                Message.MSG_IWANT,
-                this.nodeId,
-                m.src,
-                m.messageTopicID,
-                /* body= */ null,
-                m.isRow,
-                m.rowOrColumnNumber,
-                m.partNumber,
-                CommonState.getTime(),
-                m.id // ackId can track which message we want
-        );
-        publishMessage(iwantMsg, m.src, myPid);
-        // }
+        messageCache.put(m.id, m);
 
-        // 4. DO NOT push data. Pure lazy means we only get it if we do IWANT.
-        // End of handleIHave
+        storeInEphemeralCache(m);
+
+        Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.src,
+                m.dest, m.messageTopicID, null,
+                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
+
+        Message responseWithData = createMessage(m.id, Message.MSG_IHAVE, m.src,
+                m.dest, m.messageTopicID, m.body,
+                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
+
+        responseWithData.src = m.src;
+
+        // advertiseMessageIHAVE(m, myPid);
+        incrementDelivered(m.src, m.messageTopicID);
+        sendMessageToPeers(responseWithData, myPid, m.messageTopicID, this.nodeId,
+                m.src);
+        gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID,
+                this.nodeId, m.src);
+        samplingStarter();
     }
+
+    // public void handleIHave(Message m, int myPid) {
+    // // 1. If we have *already* seen (cached) this message ID, do nothing.
+    // if (messageCache.containsKey(m.id)) {
+    // System.out.println(
+    // "[DEBUG handleIHave] Node " + nodeId + " already knows msgId=" + m.id + ",
+    // skipping IWANT.");
+    // return;
+    // }
+
+    // // 2. Store just an "empty" reference for that ID in messageCache
+    // // This indicates "We know about it but don't have the full data yet."
+    // // We'll store the same Message object if you like, but it’s body can be
+    // null.
+    // Message placeholder = createMessage(
+    // m.id, // same ID
+    // Message.MSG_IHAVE, // or just keep the same type
+    // m.src, // who told us about it
+    // this.nodeId, // me
+    // m.messageTopicID,
+    // null, // no body yet
+    // m.isRow,
+    // m.rowOrColumnNumber,
+    // m.partNumber,
+    // CommonState.getTime(),
+    // m.ackId);
+    // messageCache.put(m.id, placeholder);
+
+    // storeInEphemeralCache(m);
+
+    // // 3. Decide whether we actually want the message data:
+    // boolean weAreSubscribed = isSubscribedToTopic(
+    // new Topic(m.messageTopicID));
+
+    // if (!weAreSubscribed) {
+    // if (isDEBUG) {
+    // System.out.println("[DEBUG handleIHave] Node " + nodeId
+    // + " not subscribed to " + m.messageTopicID
+    // + ", ignoring msgId=" + m.id);
+    // }
+    // return;
+    // }
+
+    // // If we want it, we *pull* via IWANT.
+    // // if (weAreSubscribed) {
+
+    // if (isDEBUG) {
+    // System.out.println("[DEBUG handleIHave] Node " + nodeId
+    // + " => LAZY PULL for msgId=" + m.id
+    // + "; sending IWANT to " + m.src);
+    // }
+
+    // // send IWANT to m.src
+    // Message iwantMsg = createMessage(
+    // -1,
+    // Message.MSG_IWANT,
+    // this.nodeId,
+    // m.src,
+    // m.messageTopicID,
+    // /* body= */ null,
+    // m.isRow,
+    // m.rowOrColumnNumber,
+    // m.partNumber,
+    // CommonState.getTime(),
+    // m.id // ackId can track which message we want
+    // );
+    // publishMessage(iwantMsg, m.src, myPid);
+    // // }
+
+    // // 4. DO NOT push data. Pure lazy means we only get it if we do IWANT.
+    // // End of handleIHave
+    // }
 
     // Process a message that arrives late after sending IHAVE
     private void processReceivedMessage(Message m, int myPid) {
