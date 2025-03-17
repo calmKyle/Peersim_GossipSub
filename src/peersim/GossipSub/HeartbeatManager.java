@@ -22,6 +22,7 @@ public class HeartbeatManager {
     private Map<BigInteger, PeerScoreInfo> peerScores;
     private GossipSubProtocol protocol;
     private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
+    // private boolean isDEBUG = true;
 
     public HeartbeatManager(GossipSubProtocol protocol,
             Map<Long, EphemeralMsgInfo> ephemeralCache,
@@ -87,6 +88,9 @@ public class HeartbeatManager {
                 for (String topicID : protocol.localMesh.keySet()) {
                     Set<BigInteger> set = protocol.localMesh.get(topicID);
                     if (set != null && set.contains(peerID)) {
+                        System.out.println("[DEBUG HEARTBEAT] Node " + protocol.nodeId
+                                + " => Score of peer " + peerID + " is " + s
+                                + "; will prune from mesh.");
                         protocol.prunePeer(peerID, topicID);
                     }
                 }

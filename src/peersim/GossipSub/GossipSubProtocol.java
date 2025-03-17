@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static peersim.GossipSub.CustomDistribution.*;
+import static peersim.GossipSub.GossipScoringConfig.TOPIC_PARAMS;
 
 public class GossipSubProtocol implements Cloneable, EDProtocol {
 
@@ -133,40 +134,97 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public Map<BigInteger, PeerScoreInfo> peerScores = new HashMap<>();
 
     // Weighted sum approach
+    // public double computeScore(PeerScoreInfo psi) {
+    // long now = CommonState.getTime();
+    // double score = 0.0;
+
+    // // Some example weights
+    // double w_timeInMesh = 0.01;
+    // double w_firstMsg = 0.3;
+    // double w_invalid = -2.0;
+    // double w_underDelivery = -1.0;
+
+    // // (Optional) global "time in mesh" reward
+    // double timeInMesh = (now - psi.timeInMeshStart);
+    // double baseScore = w_timeInMesh * timeInMesh;
+    // score += baseScore;
+
+    // // Option: We'll just sum across each topic. If you prefer a "minimum"
+    // approach,
+    // // you'll do that instead. Let's do a sum for demonstration:
+    // double topicSum = 0.0;
+    // for (Map.Entry<String, PeerScoreInfo.TopicScores> entry :
+    // psi.topicScoresMap.entrySet()) {
+    // String topicId = entry.getKey();
+    // PeerScoreInfo.TopicScores tScores = entry.getValue();
+    // // Compute "underDelivery" as expected - delivered
+    // tScores.underDelivery = Math.max(0, tScores.meshMsgExpected -
+    // tScores.meshMsgDelivered);
+
+    // double topicContribution = (w_firstMsg * tScores.firstMessageDeliveries)
+    // + (w_invalid * tScores.invalidMessages)
+    // + (w_underDelivery * tScores.underDelivery);
+
+    // topicSum += topicContribution;
+    // }
+
+    // score += topicSum;
+
+    // return score;
+    // }
+
     public double computeScore(PeerScoreInfo psi) {
         long now = CommonState.getTime();
-        double score = 0.0;
+        double totalScore = 0.0;
 
-        // Some example weights
-        double w_timeInMesh = 0.01;
-        double w_firstMsg = 0.3;
-        double w_invalid = -2.0;
-        double w_underDelivery = -1.0;
-
-        // (Optional) global "time in mesh" reward
-        double timeInMesh = (now - psi.timeInMeshStart);
-        double baseScore = w_timeInMesh * timeInMesh;
-        score += baseScore;
-
-        // Option: We'll just sum across each topic. If you prefer a "minimum" approach,
-        // you'll do that instead. Let's do a sum for demonstration:
-        double topicSum = 0.0;
+        // For each topic this peer is associated with:
         for (Map.Entry<String, PeerScoreInfo.TopicScores> entry : psi.topicScoresMap.entrySet()) {
             String topicId = entry.getKey();
             PeerScoreInfo.TopicScores tScores = entry.getValue();
-            // Compute "underDelivery" as expected - delivered
-            tScores.underDelivery = Math.max(0, tScores.meshMsgExpected - tScores.meshMsgDelivered);
 
-            double topicContribution = (w_firstMsg * tScores.firstMessageDeliveries)
-                    + (w_invalid * tScores.invalidMessages)
-                    + (w_underDelivery * tScores.underDelivery);
+            // Get the scoring parameters for this topic
+            GossipScoringConfig.TopicParam param = TOPIC_PARAMS.get(topicId);
+            if (param == null) {
+                // If no known param for this topic, skip or apply a default
+                continue;
+            }
 
-            topicSum += topicContribution;
+            double topicScore = 0.0;
+
+            // 1) Time in mesh
+            double timeInMesh = now - psi.timeInMeshStart;
+            double cappedTime = Math.min(timeInMesh, param.timeInMeshCap);
+            double timeInMeshPart = param.timeInMeshWeight * cappedTime;
+            topicScore += timeInMeshPart;
+
+            // 2) First message deliveries
+            // Possibly your decays happen in HeartbeatManager; here we just sum
+            double firstDelivCount = tScores.firstMessageDeliveries;
+            double cappedFirstDeliv = Math.min(firstDelivCount, param.firstMessageDeliveriesCap);
+            double firstDelivScore = param.firstMessageDeliveriesWeight * cappedFirstDeliv;
+            topicScore += firstDelivScore;
+
+            // 3) Mesh deliveries
+            double meshDelivered = tScores.meshMsgDelivered;
+            double cappedMesh = Math.min(meshDelivered, param.meshMessageDeliveriesCap);
+            // Optionally compare with param.meshMessageDeliveriesThreshold if you want
+            double meshDelivScore = param.meshMessageDeliveriesWeight * cappedMesh;
+            topicScore += meshDelivScore;
+
+            // 4) Invalid messages
+            double invalidCount = tScores.invalidMessages;
+            double invalidScore = param.invalidMessageDeliveriesWeight * invalidCount;
+            topicScore += invalidScore;
+
+            // Multiply final by param.topicWeight (if desired).
+            topicScore *= param.topicWeight;
+
+            // Add to total
+            totalScore += topicScore;
         }
 
-        score += topicSum;
-
-        return score;
+        psi.cachedScore = totalScore; // store for quick reference
+        return totalScore;
     }
 
     public void advertiseMessageIHAVE(Message originalMsg, int myPid) {
@@ -772,6 +830,105 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         IntStream.range(0, sampleAmount).forEach(i -> sampleDataRequest());
     }
 
+    // public void handleIHave(Message m, int myPid) {
+    // // 1. If we’ve already seen this message ID, do nothing.
+    // if (messageCache.containsKey(m.id)) {
+    // if (isDEBUG) {
+    // System.out.println("[DEBUG handleIHave] Node " + nodeId
+    // + " already knows msgId=" + m.id + ", ignoring.");
+    // }
+    // return;
+    // }
+
+    // // 2. This is a NEW message ID. Store a placeholder so we won't re‐request it
+    // // from others.
+    // Message placeholder = createMessage(
+    // m.id,
+    // Message.MSG_IHAVE,
+    // m.src, // who told us
+    // nodeId, // us
+    // m.messageTopicID,
+    // null, // no body => just metadata
+    // m.isRow,
+    // m.rowOrColumnNumber,
+    // m.partNumber,
+    // CommonState.getTime(),
+    // m.ackId);
+    // messageCache.put(m.id, placeholder);
+
+    // // (Optional) store ephemeral data if your logic requires
+    // storeInEphemeralCache(m);
+
+    // // 3. GOSSIP the metadata (IHAVE) to *other* peers in your mesh.
+    // // This is crucial for ensuring that the next wave of nodes also learn about
+    // it.
+    // // If your protocol wants to send to "all neighbors," do that here.
+    // // Or, if you're using topic meshes, call your method that enumerates
+    // neighbors
+    // // in the mesh.
+    // if (isDEBUG) {
+    // System.out.println("[DEBUG handleIHave] Node " + nodeId
+    // + " => discovered new msgId=" + m.id
+    // + ", gossiping IHAVE to mesh neighbors.");
+    // }
+
+    // Message ihaveToOthers = createMessage(
+    // m.id,
+    // Message.MSG_IHAVE,
+    // nodeId, // from us now
+    // BigInteger.valueOf(-1), // will be filled in by sendMessageToPeers or loop
+    // m.messageTopicID,
+    // null, // still no body
+    // m.isRow,
+    // m.rowOrColumnNumber,
+    // m.partNumber,
+    // CommonState.getTime(),
+    // m.ackId);
+
+    // // For a full flood, you might do something like:
+    // gossipMessageToTopicNodes(ihaveToOthers, myPid, m.messageTopicID, nodeId,
+    // m.src);
+    // System.out.println(" -> Node: " + myPid + "Sending to: " + nodeId);
+    // // or if your code uses a loop over neighbors, do that here:
+    // // for (Node neighbor : getMeshNeighbors(m.messageTopicID)) {
+    // // ihaveToOthers.dest = neighbor.getIDAsBigInteger(); // or whatever type you
+    // // use
+    // // publishMessage(ihaveToOthers, neighbor.getID(), myPid);
+    // // }
+
+    // // 4. If we actually *want* the message data (e.g., we're subscribed to its
+    // // topic),
+    // // send an IWANT back to the node that told us about it.
+    // boolean weAreSubscribed = isSubscribedToTopic(new Topic(m.messageTopicID));
+    // if (weAreSubscribed) {
+    // if (isDEBUG) {
+    // System.out.println("[DEBUG handleIHave] Node " + nodeId
+    // + " => LAZY PULL for msgId=" + m.id
+    // + "; sending IWANT to " + m.src);
+    // }
+    // Message iwantMsg = createMessage(
+    // -1, // ephemeral ID for the request
+    // Message.MSG_IWANT,
+    // nodeId,
+    // m.src,
+    // m.messageTopicID,
+    // null,
+    // m.isRow,
+    // m.rowOrColumnNumber,
+    // m.partNumber,
+    // CommonState.getTime(),
+    // m.id // ackId => track which message ID we want
+    // );
+    // IWANTmessageCache.put(m.id, placeholder);
+    // publishMessage(iwantMsg, m.src, myPid);
+    // samplingStarter();
+    // }
+
+    // // Done. The node has now both:
+    // // 1) Let the rest of the mesh know about the new message (IHAVE).
+    // // 2) Pulled the data if it needs it (IWANT).
+    // }
+
     public void handleIHave(Message m, int myPid) {
         if (messageCache.containsKey(m.id)) {
             if (IWANTmessageCache.containsKey(m.id) && m.body != null) { // Late-arrivingmessage
@@ -807,78 +964,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 this.nodeId, m.src);
         samplingStarter();
     }
-
-    // public void handleIHave(Message m, int myPid) {
-    // // 1. If we have *already* seen (cached) this message ID, do nothing.
-    // if (messageCache.containsKey(m.id)) {
-    // System.out.println(
-    // "[DEBUG handleIHave] Node " + nodeId + " already knows msgId=" + m.id + ",
-    // skipping IWANT.");
-    // return;
-    // }
-
-    // // 2. Store just an "empty" reference for that ID in messageCache
-    // // This indicates "We know about it but don't have the full data yet."
-    // // We'll store the same Message object if you like, but it’s body can be
-    // null.
-    // Message placeholder = createMessage(
-    // m.id, // same ID
-    // Message.MSG_IHAVE, // or just keep the same type
-    // m.src, // who told us about it
-    // this.nodeId, // me
-    // m.messageTopicID,
-    // null, // no body yet
-    // m.isRow,
-    // m.rowOrColumnNumber,
-    // m.partNumber,
-    // CommonState.getTime(),
-    // m.ackId);
-    // messageCache.put(m.id, placeholder);
-
-    // storeInEphemeralCache(m);
-
-    // // 3. Decide whether we actually want the message data:
-    // boolean weAreSubscribed = isSubscribedToTopic(
-    // new Topic(m.messageTopicID));
-
-    // if (!weAreSubscribed) {
-    // if (isDEBUG) {
-    // System.out.println("[DEBUG handleIHave] Node " + nodeId
-    // + " not subscribed to " + m.messageTopicID
-    // + ", ignoring msgId=" + m.id);
-    // }
-    // return;
-    // }
-
-    // // If we want it, we *pull* via IWANT.
-    // // if (weAreSubscribed) {
-
-    // if (isDEBUG) {
-    // System.out.println("[DEBUG handleIHave] Node " + nodeId
-    // + " => LAZY PULL for msgId=" + m.id
-    // + "; sending IWANT to " + m.src);
-    // }
-
-    // // send IWANT to m.src
-    // Message iwantMsg = createMessage(
-    // -1,
-    // Message.MSG_IWANT,
-    // this.nodeId,
-    // m.src,
-    // m.messageTopicID,
-    // /* body= */ null,
-    // m.isRow,
-    // m.rowOrColumnNumber,
-    // m.partNumber,
-    // CommonState.getTime(),
-    // m.id // ackId can track which message we want
-    // );
-    // publishMessage(iwantMsg, m.src, myPid);
-    // // }
-
-    // // 4. DO NOT push data. Pure lazy means we only get it if we do IWANT.
-    // // End of handleIHave
-    // }
 
     // Process a message that arrives late after sending IHAVE
     private void processReceivedMessage(Message m, int myPid) {
@@ -950,105 +1035,100 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         publishMessage(request, m.src, myPid);
     }
 
+    public void handleIWANT(Message m, int myPid) {
+        if (isDEBUG) {
+            System.out.println("[DEBUG handleIWANT] Node " + nodeId
+                    + " received IWANT for msgId=" + m.id
+                    + " from node " + m.src);
+        }
+
+        // 1. Try to find the requested message among your local caches/collections.
+        // For example, if you store complete messages in 'messageCache', do:
+        Message storedMsg = messageCache.get(m.id);
+
+        // 2. If we don't have it, do nothing (or log).
+        // The requesting node may ask another peer.
+        if (storedMsg == null || storedMsg.body == null) {
+            if (isDEBUG) {
+                System.out.println("[DEBUG handleIWANT] Node " + nodeId
+                        + " => does NOT have msgId=" + m.id + ", ignoring request.");
+            }
+            return;
+        }
+
+        // 3. We do have it. Construct a MSG_DATA response with the full body.
+        // Note: we re-use m.id, plus 'nodeId' as our src, and 'm.src' as the dest.
+        // The body is the actual payload from 'storedMsg'.
+        Message response = createMessage(
+                m.id,
+                Message.MSG_DATA,
+                nodeId, // from me
+                m.src, // back to the requester
+                storedMsg.messageTopicID,
+                storedMsg.body, // the actual payload
+                storedMsg.isRow,
+                storedMsg.rowOrColumnNumber,
+                storedMsg.partNumber,
+                CommonState.getTime(), // timestamp
+                m.id // ackId can track which message we're responding to
+        );
+
+        // 4. (Optional) store it in ephemeral cache if your logic requires
+        storeInEphemeralCache(response);
+
+        // 5. Publish/forward the full data back to the requester
+        publishMessage(response, m.src, myPid);
+
+        if (isDEBUG) {
+            System.out.println("[DEBUG handleIWANT] Node " + nodeId
+                    + " => Sent MSG_DATA for msgId=" + m.id
+                    + " to node " + m.src);
+        }
+    }
+
     // public void handleIWANT(Message m, int myPid) {
-    // // We assume 'm.src' is the node that wants the data from us.
-    // // 'm.ackId' might be the ID they want, or you can store it in 'm.id'.
-
-    // // 1. Figure out which message ID they're requesting
-    // long requestedId = (m.ackId > 0) ? m.ackId : m.id;
-
-    // // 2. Check if we actually have that data in messageCache
-    // Message stored = messageCache.get(requestedId);
-    // if (stored == null) {
-    // // We do NOT have the data => we can't respond
-    // if (isDEBUG) {
-    // System.out.println("Node " + nodeId + " got IWANT for " + requestedId +
-    // " but we do NOT have the data.");
-    // }
-    // return;
-    // }
-
-    // // If stored.body == null, that means we only had a placeholder. No data to
-    // send
-    // if (stored.body == null) {
-    // if (isDEBUG) {
-    // System.out.println("Node " + nodeId + " got IWANT for " + requestedId +
-    // " but we only have a placeholder (no data).");
-    // }
-    // return;
-    // }
-
-    // // 3. We have the full data, so respond with MSG_DATA
-    // // Message dataMsg = createMessage(
-    // // requestedId,
-    // // Message.MSG_DATA,
-    // // this.nodeId,
-    // // m.src, // send data back to the node who asked
-    // // stored.messageTopicID,
-    // // stored.body, // full data
-    // // stored.isRow,
-    // // stored.rowOrColumnNumber,
-    // // stored.partNumber,
-    // // CommonState.getTime(),
-    // // -1);
-
+    // if (distributionStrategy == 3) {
     // if (findAndSendResponse(m, myPid, custodyData1) ||
     // findAndSendResponse(m, myPid, custodyData2) ||
     // findAndSendResponse(m, myPid, dataReceivedFromBP)) {
     // return;
     // }
 
+    // if (isDEBUG) {
     // System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
     // ". I have " + custody2 + " " + custody1 +
     // ". Responding node: " + nodeId + " to " + m.src);
-
-    // // publishMessage(dataMsg, dataMsg.dest, myPid);
-    // // storeInEphemeralCache(dataMsg);
-
     // }
 
-    public void handleIWANT(Message m, int myPid) {
-        if (distributionStrategy == 3) {
-            if (findAndSendResponse(m, myPid, custodyData1) ||
-                    findAndSendResponse(m, myPid, custodyData2) ||
-                    findAndSendResponse(m, myPid, dataReceivedFromBP)) {
-                return;
-            }
+    // // } else if (distributionStrategy == 2) {
+    // // if (findAndSendResponse(m, myPid, custody1Parts) ||
+    // // findAndSendResponse(m, myPid, custody2Parts) ||
+    // // findAndSendResponse(m, myPid, messageCache.values())) {
+    // // return;
+    // // }
+    // }
+    // }
 
-            if (isDEBUG) {
-                System.out.println("[HANDLE IWANT] I don't have " + m.rowOrColumnNumber +
-                        ". I have " + custody2 + " " + custody1 +
-                        ". Responding node: " + nodeId + " to " + m.src);
-            }
+    // // Helper method to search for the requested message and send a response
+    // private boolean findAndSendResponse(Message m, int myPid, Collection<Message>
+    // messageCollection) {
+    // for (Message msg : messageCollection) {
+    // if (m.id == msg.id && msg.isRow == m.isRow &&
+    // msg.rowOrColumnNumber == m.rowOrColumnNumber &&
+    // m.partNumber == msg.partNumber) {
 
-            // } else if (distributionStrategy == 2) {
-            // if (findAndSendResponse(m, myPid, custody1Parts) ||
-            // findAndSendResponse(m, myPid, custody2Parts) ||
-            // findAndSendResponse(m, myPid, messageCache.values())) {
-            // return;
-            // }
-        }
-    }
+    // Message response = createMessage(m.id, Message.MSG_DATA, nodeId, m.src,
+    // m.messageTopicID, (byte[][]) msg.body,
+    // m.isRow, m.rowOrColumnNumber, m.partNumber,
+    // m.timestamp, m.ackId);
 
-    // Helper method to search for the requested message and send a response
-    private boolean findAndSendResponse(Message m, int myPid, Collection<Message> messageCollection) {
-        for (Message msg : messageCollection) {
-            if (m.id == msg.id && msg.isRow == m.isRow &&
-                    msg.rowOrColumnNumber == m.rowOrColumnNumber &&
-                    m.partNumber == msg.partNumber) {
-
-                Message response = createMessage(m.id, Message.MSG_DATA, nodeId, m.src,
-                        m.messageTopicID, (byte[][]) msg.body,
-                        m.isRow, m.rowOrColumnNumber, m.partNumber,
-                        m.timestamp, m.ackId);
-
-                storeInEphemeralCache(response);
-                publishMessage(response, m.src, myPid);
-                return true;
-            }
-        }
-        return false;
-    }
+    // storeInEphemeralCache(response);
+    // publishMessage(response, m.src, myPid);
+    // return true;
+    // }
+    // }
+    // return false;
+    // }
 
     public void handleBlockProducerData(Message m, int myPid) {
         GossipSubProtocol proposerNode = (GossipSubProtocol) CustomDistribution.blockProposerNode
@@ -1449,7 +1529,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 break;
 
             case Message.MSG_HEARTBEAT:
-                // System.out.println("[HEARTBEAT TEST]");
+                System.out.println("[HEARTBEAT TEST]");
 
                 heartbeatManager.runHeartbeat(myPid);
                 // re-schedule
