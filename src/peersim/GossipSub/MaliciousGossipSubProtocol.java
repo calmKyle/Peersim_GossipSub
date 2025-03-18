@@ -22,15 +22,16 @@ public class MaliciousGossipSubProtocol extends GossipSubProtocol {
 
     private boolean isMalicious;
 
+    private final int gossipSubPid; // Protocol ID for the normal gossip protocol
+    private final int maliciousGossipSubPid; // Protocol ID for the malicious gossip protocol
+    private final int maliciousCount; // Number of nodes to turn malicious
+
     public MaliciousGossipSubProtocol(String prefix) {
         super(prefix);
         this.isMalicious = true; // Mark this node as malicious.
-        // System.out.println("Malicious is Running");
-
-        // If you want to load the rate from a config parameter, you could do:
-        // if(Configuration.contains("OMIT_RATE")) {
-        // this.omitRate = Configuration.getDouble("OMIT_RATE");
-        // }
+        gossipSubPid = Configuration.getPid(prefix + ".gossipSubPid");
+        maliciousGossipSubPid = Configuration.getPid(prefix + ".maliciousGossipSubPid");
+        maliciousCount = Configuration.getInt(prefix + ".maliciousCount", 0);
     }
 
     /**
@@ -40,7 +41,7 @@ public class MaliciousGossipSubProtocol extends GossipSubProtocol {
     public Object clone() {
         MaliciousGossipSubProtocol cln = new MaliciousGossipSubProtocol(GossipSubProtocol.prefix);
         cln.omitRate = this.omitRate;
-        System.out.println("This is Omit Node");
+//        System.out.println("This is Omit Node");
         return cln;
     }
 
@@ -83,7 +84,13 @@ public class MaliciousGossipSubProtocol extends GossipSubProtocol {
 
     @Override
     public void handleIHave(Message m, int myPid) {
-        logDrop("IHAVE", m.id);
+        System.out.println("Entered handleIHave in MaliciousGossipSubProtocol");
+        if (shouldOmit()) {
+            logDrop("IHAVE", m.id);
+        }else {
+            super.handleIHave(m, myPid);
+        }
+
     }
 
     @Override
@@ -129,6 +136,25 @@ public class MaliciousGossipSubProtocol extends GossipSubProtocol {
         } else {
             super.handleSampleResponse(m, myPid);
         }
+    }
+
+    @Override
+    public boolean execute() {
+        if (maliciousCount <= 0) {
+            return false; // No malicious nodes to create
+        }
+
+        int networkSize = Network.size();
+        if (maliciousCount > networkSize) {
+            throw new IllegalArgumentException("More malicious nodes configured than available in the network.");
+        }
+
+        for (int i = 0; i < maliciousCount; i++) {
+            Node node = Network.get(i); // Directly get each node to modify
+            node.setProtocol(maliciousGossipSubPid, new MaliciousGossipSubProtocol("maliciousGossipSub"));
+        }
+
+        return false;
     }
     
 

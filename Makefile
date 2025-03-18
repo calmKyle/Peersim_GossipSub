@@ -17,8 +17,7 @@ rungossip:
 	java -Xmx5000m -cp $(LIB_JARS):classes peersim.Simulator gossipConfig.cfg
 
 PANDAS_Gossip:
-# 	java -Xmx48000m -Xms2000m -cp  $(LIB_JARS):classes peersim.Simulator GossipConfig.cfg
-    java -agentpath:/home/calmk/.local/share/JetBrains/IntelliJIdea2024.3/JProfiler/libjprofilerti.so=port=8849,nowait -Xmx48000m -Xms2000m -cp $(LIB_JARS):classes peersim.Simulator GossipConfig.cfg
+	java -Xmx48000m -Xms2000m -cp  $(LIB_JARS):classes peersim.Simulator GossipConfig.cfg
 
 all: compile doc run
 

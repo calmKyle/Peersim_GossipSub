@@ -1529,7 +1529,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 break;
 
             case Message.MSG_HEARTBEAT:
-                System.out.println("[HEARTBEAT TEST]");
+//                System.out.println("[HEARTBEAT TEST]");
 
                 heartbeatManager.runHeartbeat(myPid);
                 // re-schedule

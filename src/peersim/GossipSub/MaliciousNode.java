@@ -18,7 +18,7 @@ public class MaliciousNode extends GossipSubProtocol {
     private static final double DROP_PROBABILITY = Configuration.getDouble("MALICIOUS_DROP_PROBABILITY", 0.3);
 
     // Example config param to decide whether to forge message content
-    private static final double FORGE_PROBABILITY = Configuration.getDouble("MALICIOUS_FORGE_PROBABILITY", 0.1);
+    private static final double FORGE_PROBABILITY = Configuration.getDouble("MALICIOUS_FORGE_PROBABILITY", 0);
 
     private Random random;
 
@@ -46,6 +46,7 @@ public class MaliciousNode extends GossipSubProtocol {
      */
     @Override
     public void handleIHave(Message m, int myPid) {
+        System.out.printf("HandleIHave in MaliciousGossipSubProtocol\n");
         if (shouldDrop()) {
             // Do nothing: malicious node discards this advertisement
             if (isDEBUG) {
