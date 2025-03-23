@@ -21,8 +21,8 @@ public class HeartbeatManager {
     private Map<Long, EphemeralMsgInfo> ephemeralCache;
     private Map<BigInteger, PeerScoreInfo> peerScores;
     private GossipSubProtocol protocol;
-    private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
-    // private boolean isDEBUG = true;
+//    private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
+     private boolean isDEBUG = true;
 
     public HeartbeatManager(GossipSubProtocol protocol,
             Map<Long, EphemeralMsgInfo> ephemeralCache,
