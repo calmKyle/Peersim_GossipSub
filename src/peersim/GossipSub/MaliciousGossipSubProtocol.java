@@ -1,161 +1,161 @@
 package peersim.GossipSub;
 
-import peersim.config.Configuration;
+import peersim.core.CommonState;
+import peersim.core.Network;
 import peersim.core.Node;
+import peersim.config.Configuration;
+import peersim.transport.UnreliableTransport;
+
 import java.math.BigInteger;
-import java.util.Random;
+import java.util.HashSet;
+import java.util.Set;
 
-/**
- * A partially malicious variant of GossipSubProtocol that omits (drops)
- * incoming messages at a configurable rate (e.g., 0.3) and otherwise
- * forwards them normally.
- */
 public class MaliciousGossipSubProtocol extends GossipSubProtocol {
+//    private static final String PAR_TRANSPORT = "transport";
 
-    /** Fraction of messages to be dropped (e.g. 0.3 for 30% omission). */
-    private double omitRate = 0.3;
+    private static final double MESSAGE_DROP_PROBABILITY = Configuration.getDouble("MESSAGE_DROP_PROBABILITY", 0.01);
+    private static final boolean ENABLE_SPAMMING = true;
 
-    /** Random number generator for deciding which messages to drop. */
-    private final Random rand = new Random();
+    // New malicious flags
+    private static final boolean ENABLE_FALSE_IHAVE = false;
+    private static final boolean IGNORE_IWANT_REQUESTS = false;
+    private static final boolean SEND_INVALID_DATA = false;
 
+    private static final int SPAM_INTERVAL = 1000; // spam interval in milliseconds
     private boolean isDEBUG = true;
-
-    private boolean isMalicious;
-
-    private final int gossipSubPid; // Protocol ID for the normal gossip protocol
-    private final int maliciousGossipSubPid; // Protocol ID for the malicious gossip protocol
-    private final int maliciousCount; // Number of nodes to turn malicious
 
     public MaliciousGossipSubProtocol(String prefix) {
         super(prefix);
-        this.isMalicious = true; // Mark this node as malicious.
-        gossipSubPid = Configuration.getPid(prefix + ".gossipSubPid");
-        maliciousGossipSubPid = Configuration.getPid(prefix + ".maliciousGossipSubPid");
-        maliciousCount = Configuration.getInt(prefix + ".maliciousCount", 0);
+//        this.tid = Configuration.getPid(prefix + "." + PAR_TRANSPORT);
     }
 
-    /**
-     * Clone method called by the simulator to create protocol instances.
-     */
+
     @Override
     public Object clone() {
-        MaliciousGossipSubProtocol cln = new MaliciousGossipSubProtocol(GossipSubProtocol.prefix);
-        cln.omitRate = this.omitRate;
-//        System.out.println("This is Omit Node");
-        return cln;
-    }
-
-    // -----------------------------------------------------------
-    // Utilities
-    // -----------------------------------------------------------
-
-    /**
-     * Returns true if we should drop (omit) a message, false if we should forward.
-     */
-    private boolean shouldOmit() {
-        // Draw from uniform distribution. If random < omitRate => omit.
-        return (rand.nextDouble() < omitRate);
-    }
-
-    /**
-     * Helper to log that a message was dropped, if debugging is enabled.
-     */
-    private void logDrop(String msgType, long msgId) {
-        // if (isDEBUG) {
-        System.out.println("[OMISSION ATTACK] Malicious node " + nodeId
-                + " DROPPED " + msgType + " message id=" + msgId);
-        // }
-    }
-
-    // -----------------------------------------------------------
-    // Overridden Handlers
-    // -----------------------------------------------------------
-
-    // @Override
-    // public void handleIHave(Message m, int myPid) {
-    // System.out.println("hanelIHAVE");
-    // if (shouldOmit()) {
-    // logDrop("IHAVE", m.id);
-    // } else {
-    // // Forward normally by calling the parent’s handler
-    // super.handleIHave(m, myPid);
-    // }
-    // }
-
-    @Override
-    public void handleIHave(Message m, int myPid) {
-        System.out.println("Entered handleIHave in MaliciousGossipSubProtocol");
-        if (shouldOmit()) {
-            logDrop("IHAVE", m.id);
-        }else {
-            super.handleIHave(m, myPid);
-        }
-
+        MaliciousGossipSubProtocol cloned = new MaliciousGossipSubProtocol(GossipSubProtocol.prefix);
+        return cloned;
     }
 
     @Override
-    public void handleIWANT(Message m, int myPid) {
-        if (shouldOmit()) {
-            logDrop("IWANT", m.id);
-        } else {
-            super.handleIWANT(m, myPid);
+    public void publishMessage(Message m, BigInteger destId, int myPid) {
+        // Introduce message dropping
+        if (CommonState.r.nextDouble() < MESSAGE_DROP_PROBABILITY) {
+            if (isDEBUG) {
+                System.out.println("[MALICIOUS] Dropping message id: " + m.id + " MSG_TYPE = " + m.getType() + " at node: " + nodeId);
+            }
+            return; // Drop message intentionally
         }
+        super.publishMessage(m, destId, myPid);
     }
 
     @Override
-    public void handleData(Message m, int myPid) {
-        if (shouldOmit()) {
-            logDrop("DATA", m.id);
-        } else {
-            super.handleData(m, myPid);
+    public void handleGraft(Message m, int myPid) {
+        // Malicious node ignores GRAFT requests to disrupt mesh
+        if (isDEBUG) {
+            System.out.println("[MALICIOUS] Ignoring GRAFT request from node: " + m.src + " at node: " + nodeId);
         }
+        // Optionally send fake PRUNE response
+        Message prune = createMessage(-1, Message.MSG_PRUNE, this.nodeId, m.src, m.messageTopicID, null, false, -1, -1, CommonState.getTime(), -1);
+        publishMessage(prune, m.src, myPid);
     }
 
     @Override
-    public void handleBlockProducerData(Message m, int myPid) {
-        if (shouldOmit()) {
-            logDrop("BLOCK_PRODUCER_DATA", m.id);
-        } else {
-            super.handleBlockProducerData(m, myPid);
+    public void handlePrune(Message m, int myPid) {
+        // Malicious node ignores PRUNE requests to stay in the mesh
+        if (isDEBUG) {
+            System.out.println("[MALICIOUS] Ignoring PRUNE request from node: " + m.src + " at node: " + nodeId);
         }
     }
+
+//    @Override
+//    public void handleIHave(Message m, int myPid) {
+//        if (ENABLE_FALSE_IHAVE) {
+//            // Advertise IHAVE messages for random non-existent message IDs
+//            Message fakeIHave = createMessage(
+//                    -9999, // deliberately fake ID
+//                    Message.MSG_IHAVE,
+//                    this.nodeId,
+//                    m.dest,
+//                    m.messageTopicID,
+//                    null,
+//                    m.isRow,
+//                    m.rowOrColumnNumber,
+//                    m.partNumber,
+//                    CommonState.getTime(),
+//                    -6
+//            );
+//            if (isDEBUG) {
+//                System.out.println("[MALICIOUS] Sending false IHAVE advertisement from node: " + nodeId);
+//            }
+//            sendMessageToPeers(fakeIHave, myPid, m.messageTopicID, this.nodeId, m.src);
+//            gossipMessageToTopicNodes(fakeIHave, myPid, m.messageTopicID, this.nodeId, m.src);
+//        } else {
+//            // Drop incoming IHAVE (don't propagate IHAVE)
+//            if (isDEBUG) {
+//                System.out.println("[MALICIOUS] Dropping IHAVE message at node: " + nodeId);
+//            }
+//        }
+//    }
+
+//    @Override
+//    public void handleIWANT(Message m, int myPid) {
+//        if (IGNORE_IWANT_REQUESTS) {
+//            if (isDEBUG) {
+//                System.out.println("[MALICIOUS] Ignoring IWANT request from node: " + m.src + " at node: " + nodeId);
+//            }
+//            return; // completely ignore IWANT request
+//        }
+//
+//        if (SEND_INVALID_DATA) {
+//            // Send corrupted data in response
+//            Message corruptedResponse = createMessage(
+//                    m.id,
+//                    Message.MSG_DATA,
+//                    nodeId,
+//                    m.src,
+//                    m.messageTopicID,
+//                    "CORRUPTED_DATA",
+//                    m.isRow,
+//                    m.rowOrColumnNumber,
+//                    m.partNumber,
+//                    CommonState.getTime(),
+//                    m.id
+//            );
+//            if (isDEBUG) {
+//                System.out.println("[MALICIOUS] Sending corrupted data to node: " + m.src + " from: " + nodeId);
+//            }
+//            publishMessage(corruptedResponse, m.src, myPid);
+//        } else {
+//            super.handleIWANT(m, myPid); // fallback to normal behavior
+//        }
+//    }
 
     @Override
-    public void handleSampleRequest(Message m, int myPid) {
-        if (shouldOmit()) {
-            logDrop("SAMPLE_DATA_REQUEST", m.id);
-        } else {
-            super.handleSampleRequest(m, myPid);
-        }
+    public void processEvent(Node myNode, int myPid, Object event) {
+        super.processEvent(myNode, myPid, event);
+
+        // Introduce spamming behavior
+//        if (ENABLE_SPAMMING && event instanceof SimpleEvent && ((SimpleEvent) event).getType() == Message.MSG_HEARTBEAT) {
+//            spamMessages(myPid);
+//        }
     }
 
-    @Override
-    public void handleSampleResponse(Message m, int myPid) {
-        if (shouldOmit()) {
-            logDrop("SAMPLE_DATA_RESPONSE", m.id);
-        } else {
-            super.handleSampleResponse(m, myPid);
+    private void spamMessages(int myPid) {
+        // Generate and send spam message to all peers
+        for (Topic topic : subscribedTopics) {
+            Set<BigInteger> peers = localMesh.getOrDefault(topic.topicID, new HashSet<>());
+            for (BigInteger peerId : peers) {
+                Message spamMessage = createMessage(
+                        -1, Message.MSG_DATA, this.nodeId, peerId,
+                        topic.topicID, "spam", true, -1, -1,
+                        CommonState.getTime(), -1
+                );
+                publishMessage(spamMessage, peerId, myPid);
+
+                if (isDEBUG) {
+                    System.out.println("[MALICIOUS] Spam message sent to: " + peerId + " from: " + nodeId);
+                }
+            }
         }
     }
-
-    @Override
-    public boolean execute() {
-        if (maliciousCount <= 0) {
-            return false; // No malicious nodes to create
-        }
-
-        int networkSize = Network.size();
-        if (maliciousCount > networkSize) {
-            throw new IllegalArgumentException("More malicious nodes configured than available in the network.");
-        }
-
-        for (int i = 0; i < maliciousCount; i++) {
-            Node node = Network.get(i); // Directly get each node to modify
-            node.setProtocol(maliciousGossipSubPid, new MaliciousGossipSubProtocol("maliciousGossipSub"));
-        }
-
-        return false;
-    }
-    
-
 }

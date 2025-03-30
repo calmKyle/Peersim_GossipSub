@@ -38,14 +38,14 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     // Instance Variables
     public BigInteger nodeId;
-    private UnreliableTransport transport;
-    private int tid;
+    public UnreliableTransport transport;
+    public int tid;
     private int gossipSubId;
     private int minDegree = Configuration.getInt("MIN_DEGREE", 4);
     private int maxDegree = Configuration.getInt("MAX_DEGREE", 16);
     protected int degree = Configuration.getInt("DEGREE", 8);;
 
-    private Set<Topic> subscribedTopics = new HashSet<>();
+    public Set<Topic> subscribedTopics = new HashSet<>();
     protected Map<String, Set<BigInteger>> localMesh = new HashMap<>();
     protected Map<String, Set<BigInteger>> gossipMesh = new HashMap<>();
     protected Map<String, Set<BigInteger>> topicNodes = new HashMap<>();
@@ -319,7 +319,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
             GossipSubProtocol peerNode = (GossipSubProtocol) newPeer.getProtocol(gossipSubId);
 
-            // If that peer already has us, skip
+            // If that peer already has that node, skip
             // (only if you want to reduce double-link creation)
             if (peerNode.localMesh.get(topicID).contains(this.nodeId)) {
                 continue;
@@ -361,7 +361,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         // For convenience, let's store the current time
         long now = CommonState.getTime();
 
-        // 1. Log that we got a GRAFT
+        // Log that got a GRAFT
         if (isDEBUG) {
             System.out.println("[DEBUG handleGraft] Node " + nodeId
                     + " received GRAFT from peer " + p
@@ -369,7 +369,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     + " at time=" + now);
         }
 
-        // 2. Ensure we have a PeerScoreInfo for this peer
+        // Ensure we have a PeerScoreInfo for this peer
         addPeerScoreIfAbsent(p);
         PeerScoreInfo psi = peerScores.get(p);
         if (psi == null) {
@@ -380,7 +380,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
 
-        // 3. Compute their score and do backoff checks
+        // Compute their score and do backoff checks
         double s = computeScore(psi);
         if (isDEBUG) {
             System.out.println("[DEBUG handleGraft] Peer " + p + " has score=" + s
@@ -407,7 +407,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return; // do not add them to my local mesh
         }
 
-        // 4. Otherwise, accept them in my local mesh for topicID
+        // Otherwise, accept them in my local mesh for topicID
         localMesh.putIfAbsent(topicID, new HashSet<>());
         localMesh.get(topicID).add(p);
 
@@ -421,7 +421,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     + ". Current mesh size=" + localMesh.get(topicID).size());
         }
 
-        // 5. If oversubscribed, remove some peers
+        // If oversubscribed, remove some peers
         if (localMesh.get(topicID).size() > maxDegree) {
             if (isDEBUG) {
                 System.out.println("[DEBUG handleGraft] Mesh oversubscribed: size="
@@ -440,7 +440,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         String topicID = m.messageTopicID;
         long now = CommonState.getTime();
 
-        // 1. Log that we received a PRUNE
+        //  Log that received a PRUNE
         if (isDEBUG) {
             System.out.println("[DEBUG handlePrune] Node " + nodeId
                     + " received PRUNE from " + pruner
@@ -448,7 +448,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     + " at time=" + now);
         }
 
-        // 2. Remove that node from my local mesh (if present).
+        //  Remove that node from local mesh (if present).
         Set<BigInteger> meshPeers = localMesh.getOrDefault(topicID, new HashSet<>());
         boolean wasPresent = meshPeers.remove(pruner);
 
@@ -463,7 +463,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
 
-        // 3. Now check if this removal dropped our mesh below minDegree
+        // Now check if this removal dropped our mesh below minDegree
         int sizeAfterRemoval = meshPeers.size();
         if (isDEBUG) {
             System.out.println("[DEBUG handlePrune] After removing " + pruner
@@ -483,7 +483,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             }
         }
 
-        // 4. If for some reason we end up bigger than maxDegree, removeExcessPeers
+        //  If for some reason end up bigger than maxDegree, removeExcessPeers
         if (sizeAfterRemoval > maxDegree) {
             int over = sizeAfterRemoval - degree;
             if (isDEBUG) {
@@ -494,7 +494,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             removeExcessPeers(topicID, over);
         }
 
-        // 5. OPTIONAL: record that pruner is refusing me until T
+        // OPTIONAL: record that pruner is refusing me until T
         // e.g., peerRefuseUntil.put(pruner, now + someBackoff);
     }
 
@@ -502,7 +502,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void prunePeer(BigInteger peerID, String topicID) {
         long now = CommonState.getTime();
 
-        // 1. Remove from my local mesh
+        //  Remove from local mesh
         Set<BigInteger> meshPeers = localMesh.getOrDefault(topicID, new HashSet<>());
         boolean wasPresent = meshPeers.remove(peerID);
 
@@ -525,7 +525,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
 
-        // 2. Send them a PRUNE message so they know we've removed them
+        // Send a PRUNE message so they know we've removed them
         Message prune = createMessage(
                 -1,
                 Message.MSG_PRUNE,
@@ -540,7 +540,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 -1);
         publishMessage(prune, peerID, gossipSubId);
 
-        // 3. Set backoff
+        // Set backoff
         PeerScoreInfo psi = peerScores.get(peerID);
         if (psi != null) {
             long backoff = 60000; // 1 minute
@@ -559,16 +559,16 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         if (peers == null)
             return;
 
-        // 1) Make sure each peer has a PeerScoreInfo
+        // Make sure each peer has a PeerScoreInfo
         for (BigInteger p : peers) {
             addPeerScoreIfAbsent(p);
         }
 
-        // 2) Then do the sorting:
+        // Then do the sorting:
         List<BigInteger> sorted = new ArrayList<>(peers);
         sorted.sort(Comparator.comparingDouble(p -> computeScore(peerScores.get(p))));
 
-        // 3) Prune the worst 'count' peers
+        // Prune the worst 'count' peers
         for (int i = 0; i < count; i++) {
             BigInteger toRemove = sorted.get(i);
             prunePeer(toRemove, topicID);
@@ -1042,11 +1042,11 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     + " from node " + m.src);
         }
 
-        // 1. Try to find the requested message among your local caches/collections.
+        // Try to find the requested message among your local caches/collections.
         // For example, if you store complete messages in 'messageCache', do:
         Message storedMsg = messageCache.get(m.id);
 
-        // 2. If we don't have it, do nothing (or log).
+        // If we don't have it, do nothing (or log).
         // The requesting node may ask another peer.
         if (storedMsg == null || storedMsg.body == null) {
             if (isDEBUG) {
@@ -1056,7 +1056,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
 
-        // 3. We do have it. Construct a MSG_DATA response with the full body.
+        // We do have it. Construct a MSG_DATA response with the full body.
         // Note: we re-use m.id, plus 'nodeId' as our src, and 'm.src' as the dest.
         // The body is the actual payload from 'storedMsg'.
         Message response = createMessage(
@@ -1073,10 +1073,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 m.id // ackId can track which message we're responding to
         );
 
-        // 4. (Optional) store it in ephemeral cache if your logic requires
+        // (Optional) store it in ephemeral cache if your logic requires
         storeInEphemeralCache(response);
 
-        // 5. Publish/forward the full data back to the requester
+        // Publish/forward the full data back to the requester
         publishMessage(response, m.src, myPid);
 
         if (isDEBUG) {
