@@ -227,6 +227,92 @@ except Exception:
 
 
 ######################################################
+# import matplotlib.pyplot as plt
+# import pandas as pd
+# import numpy as np
+# import matplotlib.cm as cm
+#
+# # Load the CSV file
+# df = pd.read_csv('output2.csv')  # Replace with your actual file path
+#
+# # Randomly select 200 rows
+# random_rows = df["Sample Arrival Times"].sample(n=200, random_state=42)
+#
+# # Generate a colormap with 200 unique colors
+# colormap = cm.get_cmap("tab20", 200)  # "tab20" provides diverse colors
+#
+# # Store CDFs for median calculation
+# all_cdfs = []
+# all_x_values = []
+#
+# # Create a figure for multiple CDF plots
+# plt.figure(figsize=(10, 5))
+#
+# # --- Plot Individual CDFs ---
+# for i, row in enumerate(random_rows):
+#     # Convert the semicolon-separated string into a list of integers
+#     arrival_times = list(map(int, row.split(';')))
+#
+#     # Sort data
+#     sorted_data = np.sort(arrival_times)
+#
+#     # Compute CDF
+#     cdf = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
+#
+#     # Store x-values and CDFs for median calculation
+#     all_x_values.append(sorted_data)
+#     all_cdfs.append(cdf)
+#
+#     # Plot individual CDF with dynamically generated colors
+#     plt.plot(sorted_data, cdf, linestyle='-', color=colormap(i), alpha=0.5)
+#
+# # --- Median CDF Calculation ---
+# # Define a common x-axis range (linear space of operation times)
+# common_x = np.linspace(min(map(np.min, all_x_values)), max(map(np.max, all_x_values)), 1000)
+#
+# # Interpolate each CDF to the common x-values
+# interpolated_cdfs = []
+# for i in range(len(all_cdfs)):
+#     x_values = np.clip(all_x_values[i], common_x[0], common_x[-1])
+#     interpolated_cdf = np.interp(common_x, x_values, all_cdfs[i])
+#     interpolated_cdfs.append(interpolated_cdf)
+#
+# # Convert to numpy array for easier calculations
+# interpolated_cdfs = np.array(interpolated_cdfs)
+#
+# # Compute the median across interpolated x-values
+# median_cdf = np.median(interpolated_cdfs, axis=0)
+#
+# # Draw the median only between CDF=0.1 to CDF=0.9
+# lower_bound = 0.004
+# upper_bound = 0.99999999
+# mask = (median_cdf >= lower_bound) & (median_cdf <= upper_bound)
+#
+# # Plot the median CDF only in the middle region
+# plt.plot(common_x[mask], median_cdf[mask], linestyle='-', color='red', linewidth=2, label='Median CDF (Middle)')
+#
+# # Formatting the plot
+# plt.xlabel("Operation completion time (ms)")
+# plt.ylabel("CDF")
+# plt.grid(True)
+#
+# # Set custom axis limits
+# plt.xlim(0, 5000)
+# plt.ylim(0, 1.1)
+#
+# # Highlighting a vertical threshold
+# threshold = 4000
+# plt.axvline(x=threshold, color='red', linestyle='--', label=f'Threshold {threshold} ms')
+#
+# # Show legend and title
+# plt.legend(title="CDFs of n Rows", loc="lower right")
+# plt.title("Random n Rows CDFs with Median Focused on Middle Region")
+#
+# # Show the plot
+# plt.show()
+
+
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -235,13 +321,13 @@ import matplotlib.cm as cm
 # Load the CSV file
 df = pd.read_csv('output2.csv')  # Replace with your actual file path
 
-# Randomly select 200 rows
+# Randomly select 200 rows from 'Sample Arrival Times'
 random_rows = df["Sample Arrival Times"].sample(n=200, random_state=42)
 
 # Generate a colormap with 200 unique colors
 colormap = cm.get_cmap("tab20", 200)  # "tab20" provides diverse colors
 
-# Store CDFs for median calculation
+# Lists to store data for median CDF calculation
 all_cdfs = []
 all_x_values = []
 
@@ -249,9 +335,26 @@ all_x_values = []
 plt.figure(figsize=(10, 5))
 
 # --- Plot Individual CDFs ---
+valid_count = 0
 for i, row in enumerate(random_rows):
-    # Convert the semicolon-separated string into a list of integers
-    arrival_times = list(map(int, row.split(';')))
+    # 1) Split on ';' and filter out any empty strings
+    tokens = [t.strip() for t in row.split(';') if t.strip() != '']
+    if not tokens:
+        # No valid tokens, skip
+        continue
+
+    # 2) Attempt to convert tokens to integers
+    try:
+        arrival_times = list(map(int, tokens))
+    except ValueError:
+        # If any token can't be converted to integer, skip this row
+        continue
+
+    # If we have at least one valid integer in arrival_times, proceed
+    if len(arrival_times) == 0:
+        continue
+
+    valid_count += 1  # We are successfully using one more row
 
     # Sort data
     sorted_data = np.sort(arrival_times)
@@ -266,50 +369,57 @@ for i, row in enumerate(random_rows):
     # Plot individual CDF with dynamically generated colors
     plt.plot(sorted_data, cdf, linestyle='-', color=colormap(i), alpha=0.5)
 
-# --- Median CDF Calculation ---
-# Define a common x-axis range (linear space of operation times)
-common_x = np.linspace(min(map(np.min, all_x_values)), max(map(np.max, all_x_values)), 1000)
+# --- Check if we have valid rows to compute median CDF ---
+if valid_count == 0:
+    print("No valid rows found to plot CDF.")
+    plt.close()  # Close the empty figure if desired
+else:
+    # --- Median CDF Calculation ---
+    # Define a common x-axis range (linear space of operation times)
+    common_x = np.linspace(min(map(np.min, all_x_values)),
+                           max(map(np.max, all_x_values)), 1000)
 
-# Interpolate each CDF to the common x-values
-interpolated_cdfs = []
-for i in range(len(all_cdfs)):
-    x_values = np.clip(all_x_values[i], common_x[0], common_x[-1])
-    interpolated_cdf = np.interp(common_x, x_values, all_cdfs[i])
-    interpolated_cdfs.append(interpolated_cdf)
+    # Interpolate each CDF to the common x-values
+    interpolated_cdfs = []
+    for i in range(len(all_cdfs)):
+        # Clip the row’s x-values to avoid interpolation errors outside range
+        x_values = np.clip(all_x_values[i], common_x[0], common_x[-1])
+        interpolated_cdf = np.interp(common_x, x_values, all_cdfs[i])
+        interpolated_cdfs.append(interpolated_cdf)
 
-# Convert to numpy array for easier calculations
-interpolated_cdfs = np.array(interpolated_cdfs)
+    # Convert list of interpolated arrays into a single array
+    interpolated_cdfs = np.array(interpolated_cdfs)
 
-# Compute the median across interpolated x-values
-median_cdf = np.median(interpolated_cdfs, axis=0)
+    # Compute the median across interpolated x-values
+    median_cdf = np.median(interpolated_cdfs, axis=0)
 
-# Draw the median only between CDF=0.1 to CDF=0.9
-lower_bound = 0.004
-upper_bound = 0.99999999
-mask = (median_cdf >= lower_bound) & (median_cdf <= upper_bound)
+    # Draw the median only between CDF = 0.004 to CDF = 0.99999999 (or as desired)
+    lower_bound = 0.004
+    upper_bound = 0.99999999
+    mask = (median_cdf >= lower_bound) & (median_cdf <= upper_bound)
 
-# Plot the median CDF only in the middle region
-plt.plot(common_x[mask], median_cdf[mask], linestyle='-', color='red', linewidth=2, label='Median CDF (Middle)')
+    # Plot the median CDF in the middle region
+    plt.plot(common_x[mask], median_cdf[mask], linestyle='-', color='red',
+             linewidth=2, label='Median CDF (Middle)')
 
-# Formatting the plot
-plt.xlabel("Operation completion time (ms)")
-plt.ylabel("CDF")
-plt.grid(True)
+    # Plot formatting
+    plt.xlabel("Operation completion time (ms)")
+    plt.ylabel("CDF")
+    plt.grid(True)
 
-# Set custom axis limits
-plt.xlim(0, 5000)   
-plt.ylim(0, 1.1)  
+    # Set custom axis limits
+    plt.xlim(0, 5000)
+    plt.ylim(0, 1.1)
 
-# Highlighting a vertical threshold
-threshold = 4000
-plt.axvline(x=threshold, color='red', linestyle='--', label=f'Threshold {threshold} ms')
+    # Highlighting a vertical threshold
+    threshold = 4000
+    plt.axvline(x=threshold, color='red', linestyle='--', label=f'Threshold {threshold} ms')
 
-# Show legend and title
-plt.legend(title="CDFs of n Rows", loc="lower right")
-plt.title("Random n Rows CDFs with Median Focused on Middle Region")
+    plt.legend(title=f"CDFs of {valid_count} Valid Rows", loc="lower right")
+    plt.title("Random n Rows CDFs with Median Focused on Middle Region")
 
-# Show the plot
-plt.show()
+    # Show the plot
+    plt.show()
 
 
 ###############################################################

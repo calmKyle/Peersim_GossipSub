@@ -104,6 +104,40 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     private HeartbeatManager heartbeatManager;
 
+    /****************************************************************/
+    // Normal nodes flag
+    private boolean isBlockProposerNode = false;
+    private boolean isValidatorNode = true;
+
+    // Malicious nodes flags
+    private boolean isMaliciousNode = false;  // Ommision
+
+    public boolean isBlockProposerNode() {
+        return isBlockProposerNode;
+    }
+
+    public void setBlockProposerNode(boolean isBlockProposerNode) {
+        this.isBlockProposerNode = isBlockProposerNode;
+    }
+
+    public boolean isValidatorNode() {
+        return isValidatorNode;
+    }
+
+    public void setValidatorNode(boolean validatorNode) {
+        isValidatorNode = validatorNode;
+    }
+
+    public boolean isMaliciousNode() {
+        return isMaliciousNode;
+    }
+
+    public void setMaliciousNode(boolean maliciousNode) {
+        isMaliciousNode = maliciousNode;
+    }
+    /****************************************************************/
+
+
     public GossipSubProtocol(String prefix) {
         GossipSubProtocol.prefix = prefix;
         this.nodeId = null;
@@ -124,6 +158,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     public Object clone() {
         GossipSubProtocol cln = new GossipSubProtocol(GossipSubProtocol.prefix);
+        cln.transport = (UnreliableTransport) Network.prototype.getProtocol(cln.tid);
+        cln.gossipSubId = this.gossipSubId;
         return cln;
     }
 
@@ -663,10 +699,23 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     public void publishMessage(Message m, BigInteger destId, int myPid) {
         // same code for scheduling
-        int bandwidth = (this.nodeId == ((GossipSubProtocol) (CustomDistribution.blockProposerNode
-                .getProtocol(gossipSubId))).nodeId)
-                        ? blockProducerBandwidth
-                        : interfaceBandwidth;
+//        int bandwidth = (this.nodeId == ((GossipSubProtocol) (CustomDistribution.blockProposerNode
+//                .getProtocol(gossipSubId))).nodeId)
+//                        ? blockProducerBandwidth
+//                        : interfaceBandwidth;
+
+        // Malicious
+        if (this.isMaliciousNode() ) {
+            if (isDEBUG) {
+                System.out.println("[MALICIOUS] Node " + this.nodeId
+                        + " is dropping message ID=" + m.id + " instead of forwarding.");
+            }
+            return;
+        }
+
+        int bandwidth = (this.isBlockProposerNode())
+                ? blockProducerBandwidth
+                : interfaceBandwidth;
 
         Node src = CustomDistribution.networkNodes.get(this.nodeId);
         Node dest = CustomDistribution.networkNodes.get(m.dest);

@@ -85,7 +85,7 @@ protocol.malicious.transport 2unreltr
 
 # 1) Assign unique node IDs, build topics, etc.
 init.1uniqueNodeID peersim.GossipSub.CustomDistribution
-#init.1uniqueNodeID.protocol 3GossipSub
+init.1uniqueNodeID.protocol 3GossipSub
 init.1uniqueNodeID.protocol malicious
 
 # network.node peersim.core.GeneralNode # this line ensures your nodes use the malicious protocol

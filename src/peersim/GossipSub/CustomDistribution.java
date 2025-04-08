@@ -11,7 +11,7 @@ import peersim.core.Node;
 
 /**
  * Initializes each node with a unique random NodeId.
- * The first node becomes the block proposer.
+ * The block proposer node is chosen at random.
  */
 public class CustomDistribution implements peersim.core.Control {
 
@@ -28,13 +28,18 @@ public class CustomDistribution implements peersim.core.Control {
     private static final int NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC = (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1)
             ? NUMBER_OF_VALIDATORS_PER_TOPIC
             : (int) Math.ceil(
-                    (NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) /
-                            Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
+            (NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) /
+                    Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
+
+    // Malicious Rate
+    private static final double MALICIOUS_RATE =
+            Configuration.getDouble("MALICIOUS_RATE", 0.05);
 
     private final int gossipProtocolID;
     private final UniformRandomGenerator urg;
     private static final Random random = new Random();
 
+    // blockProposerNode will be assigned at random now
     public static Node blockProposerNode;
 
     // Custody maps for row/column
@@ -50,7 +55,6 @@ public class CustomDistribution implements peersim.core.Control {
 
     public final String prefix;
     private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
-    // private boolean isDEBUG = true;
 
     public CustomDistribution(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
@@ -64,7 +68,11 @@ public class CustomDistribution implements peersim.core.Control {
         System.out.println("NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC: " + NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
         System.out.println("NUMBER_OF_VALIDATORS_PER_TOPIC: " + NUMBER_OF_VALIDATORS_PER_TOPIC);
 
-        // 1. Assign NodeIDs and pick the first node as block proposer
+        // [ADDED] Randomly pick one index to be block proposer
+        int randomIndex = CommonState.r.nextInt(Network.size());
+        System.out.println("[CustomDistribution] Choosing node index " + randomIndex + " as block proposer");
+
+        // 1. Assign NodeIDs and pick the random node as block proposer
         for (int i = 0; i < Network.size(); i++) {
             BigInteger nodeId = urg.generate();
             Node n = Network.get(i);
@@ -72,19 +80,33 @@ public class CustomDistribution implements peersim.core.Control {
             GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
             gsp.setNodeId(nodeId);
 
-            // Each node also needs a HeartbeatManager, which references ephemeralCache +
-            // peerScores
+            // Each node also needs a HeartbeatManager
             HeartbeatManager hm = new HeartbeatManager(
                     gsp,
-                    gsp.ephemeralCache, // make sure these are accessible
+                    gsp.ephemeralCache,
                     gsp.peerScores,
                     isDEBUG);
             gsp.setHeartbeatManager(hm);
 
             networkNodes.put(nodeId, n);
 
-            if (i == 0) {
+            // If it's our chosen random index, mark as block proposer
+            if (i == randomIndex) {
                 blockProposerNode = n;
+                gsp.setBlockProposerNode(true);
+                System.out.println("[CustomDistribution] Node " + i + " / NodeID=" + nodeId + " is BLOCK PROPOSER");
+            } else {
+                gsp.setBlockProposerNode(false);
+            }
+
+            // Mark for malicious
+            double randVal = CommonState.r.nextDouble();
+            if (randVal < MALICIOUS_RATE) {
+                gsp.setMaliciousNode(true);
+                System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId
+                        + " is MALICIOUS!");
+            } else {
+                gsp.setMaliciousNode(false);
             }
         }
 
@@ -116,16 +138,7 @@ public class CustomDistribution implements peersim.core.Control {
     }
 
     /**
-     * Assign row and column custody to validator nodes in chunks, using
-     * a shared helper method for the row-chunk and column-chunk.
-     * iterate through the validator list in "chunks":
-     * - First chunk of size NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC => row
-     * custody
-     * - Second chunk of size NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC => column
-     * custody
-     * -> Then move to the next set of nodes. Meanwhile, if hit the limit in a
-     * topic
-     * -> (NUMBER_OF_VALIDATORS_PER_TOPIC), move to the next topic.
+     * Assign row and column custody to validator nodes in chunks.
      */
     private void assignCustodyWithChunks() {
         System.out.println("Assigning row/column custody in chunks...");
@@ -151,11 +164,9 @@ public class CustomDistribution implements peersim.core.Control {
         int topicNumber = 1; // Start from topic 1
         int assignedInCurrentTopic = 0; // how many nodes assigned so far in the current topic
 
-        // 3. Iterate through validatorNodes in a loop,
-        // alternating between "row chunk" and "column chunk."
+        // 3. Iterate through validatorNodes in a loop
         int i = 0;
         while (i < validatorNodes.size()) {
-
             // If assigned enough for the current topic, move to next
             if (assignedInCurrentTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) {
                 topicNumber++;
@@ -175,12 +186,9 @@ public class CustomDistribution implements peersim.core.Control {
             assignedInCurrentTopic = rowResult.assignedInThisTopic;
             rowNumber = rowResult.nextLabelNumber;
 
-            // if are out of nodes, break
             if (i >= validatorNodes.size()) {
                 break;
             }
-
-            // or if the topic was just maxed out by the row chunk
             if (assignedInCurrentTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) {
                 topicNumber++;
                 assignedInCurrentTopic = 0;
@@ -204,7 +212,7 @@ public class CustomDistribution implements peersim.core.Control {
         TopicBasedMesh tbm = new TopicBasedMesh(this.prefix);
         tbm.createTopicMesh();
 
-        // 5. AFTER all custody assignments are done, verify and print
+        // 5. AFTER all custody assignments are done, verify
         for (Map.Entry<BigInteger, Node> entry : networkNodes.entrySet()) {
             GossipSubProtocol gsp = (GossipSubProtocol) entry.getValue().getProtocol(gossipProtocolID);
             String c1 = gsp.custody1;
@@ -217,16 +225,10 @@ public class CustomDistribution implements peersim.core.Control {
         }
     }
 
-    /**
-     * A helper class to store the updated counters after assigning one "chunk."
-     * This is returned from assignCustodyChunk() so the calling method knows
-     * the new index, how many were assigned in this topic, and the next row/col
-     * number.
-     */
     private static class ChunkResult {
-        int nextNodeIndex; // the updated i
-        int assignedInThisTopic; // how many assigned in the current topic so far
-        int nextLabelNumber; // the updated rowNumber or columnNumber
+        int nextNodeIndex;
+        int assignedInThisTopic;
+        int nextLabelNumber;
 
         ChunkResult(int nextNodeIndex, int assignedInThisTopic, int nextLabelNumber) {
             this.nextNodeIndex = nextNodeIndex;
@@ -235,20 +237,6 @@ public class CustomDistribution implements peersim.core.Control {
         }
     }
 
-    /**
-     * Assigns custody to a "chunk" of nodes (either ROW or COLUMN), updating
-     * the relevant counters. The loop stops if run out of nodes or fill the
-     * topic.
-     *
-     * @param validatorNodes All validator nodes
-     * @param startIndex     Where in validatorNodes to start
-     * @param chunkSize      How many nodes to assign in this chunk
-     * @param topicNumber    Current topic
-     * @param assignedSoFar  How many nodes assigned so far in the current topic
-     * @param labelNumber    rowNumber or columnNumber
-     * @param labelPrefix    "row" or "column"
-     * @return A ChunkResult with updated i, assignedSoFar, labelNumber
-     */
     private ChunkResult assignCustodyChunk(
             List<Node> validatorNodes,
             int startIndex,
@@ -261,11 +249,8 @@ public class CustomDistribution implements peersim.core.Control {
         int assignedInTopic = assignedSoFar;
 
         for (int count = 0; count < chunkSize; count++) {
-            // If have used all nodes, or filled the topic, exit early
-            if (i >= validatorNodes.size())
-                break;
-            if (assignedInTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC)
-                break;
+            if (i >= validatorNodes.size()) break;
+            if (assignedInTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) break;
 
             Node node = validatorNodes.get(i++);
             GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
@@ -279,8 +264,8 @@ public class CustomDistribution implements peersim.core.Control {
                 columnCustodyNodes.computeIfAbsent(labelNumber, k -> new ArrayList<>()).add(nodeId);
             }
 
-            // Assign secondary custody with a random different row or column
-            int dimension = Configuration.getInt("NUMBER_OF_ROWS"); // if columns use same dimension
+            // Secondary custody
+            int dimension = Configuration.getInt("NUMBER_OF_ROWS");
             int randomX;
             do {
                 randomX = random.nextInt(dimension);
@@ -304,8 +289,6 @@ public class CustomDistribution implements peersim.core.Control {
                 } else {
                     secondaryTopicNumber = (randomX * 2) + 2;
                 }
-
-                // Again, clamp or mod the result:
                 if (secondaryTopicNumber > NUMBER_OF_TOPICS) {
                     secondaryTopicNumber = secondaryTopicNumber % NUMBER_OF_TOPICS;
                     if (secondaryTopicNumber == 0) {
@@ -317,8 +300,7 @@ public class CustomDistribution implements peersim.core.Control {
 
             assignedInTopic++;
 
-            // If assigned chunkSize nodes in this row/col, move to the next
-            // labelNumber
+            // If assigned chunkSize nodes in this row/col, move to next labelNumber
             if (assignedInTopic % chunkSize == 0) {
                 labelNumber++;
                 if (labelPrefix.equals("row")) {
@@ -333,32 +315,16 @@ public class CustomDistribution implements peersim.core.Control {
                         "[CHUNK " + labelPrefix.toUpperCase() + "] Node=" + nodeId
                                 + ", T1=" + topicNumber + ", T2=" + secondaryTopicNumber
                                 + ", C1=" + gsp.custody1 + ", C2=" + gsp.custody2);
-
-                for (Map.Entry<BigInteger, Node> entry : networkNodes.entrySet()) {
-                    // GossipSubProtocol gsp = (GossipSubProtocol)
-                    // entry.getValue().getProtocol(gossipProtocolID);
-                    if (gsp.custody1 == null || gsp.custody2 == null
-                            || gsp.custody1.isEmpty() || gsp.custody2.isEmpty()) {
-                        System.out.println("[CUSTODY WARNING] Node "
-                                + gsp.getNodeId() + " only got one seed: "
-                                + "c1=" + gsp.custody1 + ", c2=" + gsp.custody2);
-                    }
-                }
-
             }
         }
 
-        // Return updated counters
         return new ChunkResult(i, assignedInTopic, labelNumber);
     }
 
-    /**
-     * Subscribes a node/gsp to a topic if not already subscribed.
-     */
     private void subscribeNodeToTopic(GossipSubProtocol gsp, Node node, int topicNumber) {
         Topic topic = topics.get("Topic-" + topicNumber);
         if (topic == null) {
-            return; // in case exceed or mismatch topic indexing
+            return;
         }
         if (!gsp.isSubscribedToTopic(topic)) {
             gsp.subscribeTopic(topic);
@@ -372,5 +338,4 @@ public class CustomDistribution implements peersim.core.Control {
             }
         }
     }
-
 }
