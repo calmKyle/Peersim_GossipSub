@@ -1,4 +1,4 @@
-# Get data from conf file 
+# Get data from conf file
 import re
 
 # Path to your configuration file
@@ -455,8 +455,8 @@ plt.title('CDF of Node Distribution Over Time')
 plt.xlabel('Time (ms)')
 plt.ylabel('Number of Nodes')
 
-plt.xlim(0, 5000)   
-# plt.ylim(0, 1.1)  
+plt.xlim(0, 5000)
+# plt.ylim(0, 1.1)
 max_seed_rtt = data_sorted_seed[-1]  # The last item in sorted array will be the max
 plt.axvline(x=max_seed_rtt, color='blue', linestyle='--', label=f'Max Seed RTT at {max_seed_rtt} ms')
 
@@ -469,3 +469,81 @@ plt.grid(True)
 
 # Show the plot
 plt.show()
+
+
+
+#################################################################################
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 1. Read the CSV file
+df = pd.read_csv("output2.csv")
+
+# 2. Strip leading/trailing spaces from column names (if needed)
+df.columns = df.columns.str.strip()
+
+# 3. Create a figure
+plt.figure(figsize=(8, 6))
+
+# 4. Plot two lines, each with a label for the legend
+plt.plot(df["Node ID"], df["Duplicated Message IHAVE"], marker="o", label="Duplicated IHAVE")
+plt.plot(df["Node ID"], df["Total Sample Req Sent"], marker="x", label="Total Sample Req Sent")
+
+# 5. Label axes and add a title
+plt.xlabel("Node ID")
+plt.ylabel("Value")
+plt.title("Duplicate IHAVE vs Total Sample Req Sent by Node")
+
+# 6. Show the legend so we know which line is which
+plt.legend()
+
+# 7. Display the chart
+plt.show()
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 1. Read the CSV
+df = pd.read_csv("output2.csv")
+
+# 2. Remove any leading/trailing spaces in column names
+df.columns = df.columns.str.strip()
+
+# 3. Sort by Node ID (so the rolling window corresponds to nearby node IDs).
+df = df.sort_values("Node ID")
+
+# 4. Create rolling-mean columns to smooth data over a window of, say, 100 nodes
+window_size = 100
+df["DuplicatedIHAVE_smooth"] = (
+    df["Duplicated Message IHAVE"]
+    .rolling(window=window_size, center=True, min_periods=1)
+    .mean()
+)
+df["TotalSampleReq_smooth"] = (
+    df["Total Sample Req Sent"]
+    .rolling(window=window_size, center=True, min_periods=1)
+    .mean()
+)
+df["TotalSampleReceived_smooth"] = (
+    df["Total Sample Received"]
+    .rolling(window=window_size, center=True, min_periods=1)
+    .mean()
+)
+
+
+
+# 5. Plot the smoothed lines
+plt.figure(figsize=(10,6))
+plt.plot(df["Node ID"], df["DuplicatedIHAVE_smooth"], label="Amount Duplicated IHAVE", color="blue")
+plt.plot(df["Node ID"], df["TotalSampleReq_smooth"], label="Amount Sample Requested", color="orange")
+plt.plot(df["Node ID"], df["TotalSampleReceived_smooth"], label="Amount Sample Received (512)", color="green")
+
+# 6. Axis labels and legends
+plt.xlabel("Node ID")
+plt.ylabel("Smoothed Value")
+plt.title("Smoothed Duplicate IHAVE vs. Total Sample Req Sent")
+plt.legend()
+plt.show()
+

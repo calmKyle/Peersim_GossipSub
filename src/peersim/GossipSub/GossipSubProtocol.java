@@ -22,6 +22,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // private static final int MSG_HEARTBEAT = 9999;
     private static final long HEARTBEAT_PERIOD = 2000; // 1 second
 
+    private Map<Long, Long> lastAdvertisedTime = new HashMap<>();
+    private static final long ADVERTISEMENT_TTL = 5000;
+
     private boolean heartbeatScheduled = false;
 
     // Configuration Constants
@@ -89,6 +92,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public int noOfSamplesReceived = 0;
     public int noOfSeedPartsReceived = 0;
     private int randomSampleCounter = 0;
+    public int duplicateIHaveMessage = 0 ;
 
     public String custody1;
     public String custody2;
@@ -705,13 +709,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //                        : interfaceBandwidth;
 
         // Malicious
-        if (this.isMaliciousNode() ) {
-            if (isDEBUG) {
-                System.out.println("[MALICIOUS] Node " + this.nodeId
-                        + " is dropping message ID=" + m.id + " instead of forwarding.");
-            }
-            return;
-        }
+//        if (this.isMaliciousNode() ) {
+//            if (isDEBUG) {
+//                System.out.println("[MALICIOUS] Node " + this.nodeId
+//                        + " is dropping message ID=" + m.id + " instead of forwarding.");
+//            }
+//            return;
+//        }
 
         int bandwidth = (this.isBlockProposerNode())
                 ? blockProducerBandwidth
@@ -757,9 +761,19 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         if (topicNodes == null)
             return;
 
+
+
         for (BigInteger peerId : topicNodes) {
             if (peerId.equals(messageSender) || peerId.equals(m.src)) {
                 continue;
+            }
+            // Malicious
+            if (this.isMaliciousNode() ) {
+                if (isDEBUG) {
+                    System.out.println("[MALICIOUS] Node " + this.nodeId
+                            + " is dropping message ID=" + m.id + " instead of sendMessageToTopicNodes.");
+                }
+                return;
             }
             Message newMessage = createMessage(
                     m.id, m.type, src, peerId, m.messageTopicID,
@@ -980,7 +994,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     public void handleIHave(Message m, int myPid) {
         if (messageCache.containsKey(m.id)) {
-            if (IWANTmessageCache.containsKey(m.id) && m.body != null) { // Late-arrivingmessage
+            //handle duplicate I have
+            duplicateIHaveMessage++;
+            if (IWANTmessageCache.containsKey(m.id) && m.body != null) { // Late-arriving message
                 processReceivedMessage(m, myPid);
             }
             return;
@@ -994,6 +1010,17 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         messageCache.put(m.id, m);
 
         storeInEphemeralCache(m);
+
+        long now = CommonState.getTime();
+        if (lastAdvertisedTime.containsKey(m.id)
+                && (now - lastAdvertisedTime.get(m.id) < ADVERTISEMENT_TTL)) {
+
+            // Node already gossiped this IHAVE not too long ago => skip re-gossip
+            return;
+        }
+
+        lastAdvertisedTime.put(m.id, now);
+
 
         Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.src,
                 m.dest, m.messageTopicID, null,
@@ -1225,7 +1252,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         samplingStarter();
     }
 
-    // Helper method to send IHAVE responses
+    // Helper method to send IHAVE responses whenever recieved the data coming in
     private void sendIHaveResponses(Message m, int myPid) {
         Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, nodeId, m.dest, m.messageTopicID,
                 null, m.isRow, m.rowOrColumnNumber, m.partNumber,

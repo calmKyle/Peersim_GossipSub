@@ -60,6 +60,7 @@ public class GossipSubObserver implements Control{
             file.delete();
         }
 
+
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, append))) {
             // Write the header only if it's the first time writing to the file
             if (!append) {
@@ -67,7 +68,7 @@ public class GossipSubObserver implements Control{
                         + "Total Sample Req Sent,Total Sample Received,Total Sample Req Timedout,"
                         + "Sample Arrival Times,Sample RTT Times,Min Sample RTT,Avg Sample RTT,Max Sample RTT,"
                         + "Total Seed Parts Received,Seed Part Arrival Times,Seed Part RTT Times,Min Seed Part RTT,"
-                        + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth");
+                        + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth, Duplicated Message IHAVE");
                 writer.newLine();
                 return false;
             }
@@ -176,7 +177,7 @@ public class GossipSubObserver implements Control{
                         : "[]";
 
                 String metrics = String.format(
-                        "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f",
+                        "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f,%f,%f",
                         CommonState.getTime(),
                         count,
                         protocol.custody1,
@@ -200,7 +201,8 @@ public class GossipSubObserver implements Control{
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMin() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getAverage() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMax() : 0.0,
-                        (double)protocol.totalDataTransmitted / (double)(protocol.totalTransmissionTime*1000)
+                        (double)protocol.totalDataTransmitted / (double)(protocol.totalTransmissionTime*1000),
+                        (double) protocol.duplicateIHaveMessage
                 );
 
                 writer.write(metrics);
