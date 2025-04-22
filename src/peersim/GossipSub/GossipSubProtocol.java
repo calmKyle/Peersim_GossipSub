@@ -11,6 +11,7 @@ import peersim.transport.UnreliableTransport;
 import peersim.util.IncrementalStats;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -93,6 +94,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public int noOfSeedPartsReceived = 0;
     private int randomSampleCounter = 0;
     public int duplicateIHaveMessage = 0 ;
+    public int duplicateData = 0;
+
 
     public String custody1;
     public String custody2;
@@ -212,6 +215,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     // return score;
     // }
+//
+//    public double computeScore(PeerScoreInfo psi) {
+//        return 0;
+//    }
 
     public double computeScore(PeerScoreInfo psi) {
         long now = CommonState.getTime();
@@ -709,13 +716,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //                        : interfaceBandwidth;
 
         // Malicious
-//        if (this.isMaliciousNode() ) {
-//            if (isDEBUG) {
-//                System.out.println("[MALICIOUS] Node " + this.nodeId
-//                        + " is dropping message ID=" + m.id + " instead of forwarding.");
-//            }
-//            return;
-//        }
+        if (isMaliciousNode() && !m.src.equals(this.nodeId) ) {
+            if (isDEBUG) {
+                System.out.println("[MALICIOUS‑DROP] node " + nodeId +
+                        " dropped fwd of msg " + m.id);
+            }
+            return;
+        }
 
         int bandwidth = (this.isBlockProposerNode())
                 ? blockProducerBandwidth
@@ -768,13 +775,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 continue;
             }
             // Malicious
-            if (this.isMaliciousNode() ) {
-                if (isDEBUG) {
-                    System.out.println("[MALICIOUS] Node " + this.nodeId
-                            + " is dropping message ID=" + m.id + " instead of sendMessageToTopicNodes.");
-                }
-                return;
-            }
+//            if (this.isMaliciousNode() ) {
+//                if (isDEBUG) {
+//                    System.out.println("[MALICIOUS] Node " + this.nodeId
+//                            + " is dropping message ID=" + m.id + " instead of sendMessageToTopicNodes.");
+//                }
+//                return;
+//            }
             Message newMessage = createMessage(
                     m.id, m.type, src, peerId, m.messageTopicID,
                     m.body, m.isRow, m.rowOrColumnNumber, m.partNumber,
@@ -834,36 +841,93 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     private void processCustody(Message m, List<Message> custodyParts, int threshold) {
+
+
+        if (custodyParts.contains(m)) {
+            duplicateData++;
+            return;
+        }
+
+
         if (custodyParts.size() < threshold) {
-            long currentTime = CommonState.getTime();
-            seedPartArrivalTimeFromPeer.add(currentTime);
-            seedPartDelayTimeFromPeer.add(currentTime - m.timestamp);
-            seedPartArrivalTimeStore.add(currentTime - m.timestamp);
+
+            long now = CommonState.getTime();
+            seedPartArrivalTimeFromPeer.add(now);
+            seedPartDelayTimeFromPeer.add(now - m.timestamp);
+            seedPartArrivalTimeStore.add(now);
+
             custodyParts.add(m);
 
             if (custodyParts.size() == threshold) {
                 createWholeRowOrColumnSeed(m, m.rowOrColumnNumber);
             }
+        } else {
+            // We already reached the threshold; treat any further
+            // piece as a duplicate of the finished set.
+            duplicateData++;
         }
     }
 
-    public void handleReceivedRowOrCol(Message m, int myPid) {
-        String s = m.isRow ? "row" : "column";
-        String key = s + m.rowOrColumnNumber;
 
-        if (custody1.equals(key)) {
-            custodyData1.add(m);
-        } else if (custody2.equals(key)) {
-            custodyData2.add(m);
-        } else {
+//    private void processCustody(Message m, List<Message> custodyParts, int threshold) {
+//        if (custodyParts.size() < threshold) {
+//            long currentTime = CommonState.getTime();
+//            seedPartArrivalTimeFromPeer.add(currentTime);
+//            seedPartDelayTimeFromPeer.add(currentTime - m.timestamp);
+//            seedPartArrivalTimeStore.add(currentTime - m.timestamp);
+//            custodyParts.add(m);
+//
+//            if (custodyParts.size() == threshold) {
+//                createWholeRowOrColumnSeed(m, m.rowOrColumnNumber);
+//            }
+//        }
+//    }
+
+//    public void handleReceivedRowOrCol(Message m, int myPid) {
+//        String s = m.isRow ? "row" : "column";
+//        String key = s + m.rowOrColumnNumber;
+//
+//        if (custody1.equals(key)) {
+//            custodyData1.add(m);
+//        } else if (custody2.equals(key)) {
+//            custodyData2.add(m);
+//        } else {
+//            return;
+//        }
+//
+//        long currentTime = CommonState.getTime();
+//        messageArrivalTimeFromBP.add(currentTime);
+//        messageDelayTimeFromBP.add(currentTime - m.timestamp);
+//        seedArrivalTimeStore.add(currentTime);
+//    }
+
+    public void handleReceivedRowOrCol(Message m, int myPid) {
+        String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
+
+        if (custody1.equals(key)) {                       // message belongs to custody‑1
+            if (custodyData1.contains(m)) {               // we already have this message
+                duplicateData++;                          // …so just count it
+            } else {
+                custodyData1.add(m);                      // first time we see it
+            }
+
+        } else if (custody2.equals(key)) {                // message belongs to custody‑2
+            if (custodyData2.contains(m)) {
+                duplicateData++;
+            } else {
+                custodyData2.add(m);
+            }
+
+        } else {                                          // not my custody – ignore
             return;
         }
 
-        long currentTime = CommonState.getTime();
-        messageArrivalTimeFromBP.add(currentTime);
-        messageDelayTimeFromBP.add(currentTime - m.timestamp);
-        seedArrivalTimeStore.add(currentTime);
+        long now = CommonState.getTime();
+        messageArrivalTimeFromBP.add(now);
+        messageDelayTimeFromBP.add(now - m.timestamp);
+        seedArrivalTimeStore.add(now);
     }
+
 
     // double check on this !
     public void samplingStarter() {
@@ -889,108 +953,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-    public void startSampling() {
-        IntStream.range(0, sampleAmount).forEach(i -> sampleDataRequest());
-    }
 
-    // public void handleIHave(Message m, int myPid) {
-    // // 1. If we’ve already seen this message ID, do nothing.
-    // if (messageCache.containsKey(m.id)) {
-    // if (isDEBUG) {
-    // System.out.println("[DEBUG handleIHave] Node " + nodeId
-    // + " already knows msgId=" + m.id + ", ignoring.");
-    // }
-    // return;
-    // }
-
-    // // 2. This is a NEW message ID. Store a placeholder so we won't re‐request it
-    // // from others.
-    // Message placeholder = createMessage(
-    // m.id,
-    // Message.MSG_IHAVE,
-    // m.src, // who told us
-    // nodeId, // us
-    // m.messageTopicID,
-    // null, // no body => just metadata
-    // m.isRow,
-    // m.rowOrColumnNumber,
-    // m.partNumber,
-    // CommonState.getTime(),
-    // m.ackId);
-    // messageCache.put(m.id, placeholder);
-
-    // // (Optional) store ephemeral data if your logic requires
-    // storeInEphemeralCache(m);
-
-    // // 3. GOSSIP the metadata (IHAVE) to *other* peers in your mesh.
-    // // This is crucial for ensuring that the next wave of nodes also learn about
-    // it.
-    // // If your protocol wants to send to "all neighbors," do that here.
-    // // Or, if you're using topic meshes, call your method that enumerates
-    // neighbors
-    // // in the mesh.
-    // if (isDEBUG) {
-    // System.out.println("[DEBUG handleIHave] Node " + nodeId
-    // + " => discovered new msgId=" + m.id
-    // + ", gossiping IHAVE to mesh neighbors.");
-    // }
-
-    // Message ihaveToOthers = createMessage(
-    // m.id,
-    // Message.MSG_IHAVE,
-    // nodeId, // from us now
-    // BigInteger.valueOf(-1), // will be filled in by sendMessageToPeers or loop
-    // m.messageTopicID,
-    // null, // still no body
-    // m.isRow,
-    // m.rowOrColumnNumber,
-    // m.partNumber,
-    // CommonState.getTime(),
-    // m.ackId);
-
-    // // For a full flood, you might do something like:
-    // gossipMessageToTopicNodes(ihaveToOthers, myPid, m.messageTopicID, nodeId,
-    // m.src);
-    // System.out.println(" -> Node: " + myPid + "Sending to: " + nodeId);
-    // // or if your code uses a loop over neighbors, do that here:
-    // // for (Node neighbor : getMeshNeighbors(m.messageTopicID)) {
-    // // ihaveToOthers.dest = neighbor.getIDAsBigInteger(); // or whatever type you
-    // // use
-    // // publishMessage(ihaveToOthers, neighbor.getID(), myPid);
-    // // }
-
-    // // 4. If we actually *want* the message data (e.g., we're subscribed to its
-    // // topic),
-    // // send an IWANT back to the node that told us about it.
-    // boolean weAreSubscribed = isSubscribedToTopic(new Topic(m.messageTopicID));
-    // if (weAreSubscribed) {
-    // if (isDEBUG) {
-    // System.out.println("[DEBUG handleIHave] Node " + nodeId
-    // + " => LAZY PULL for msgId=" + m.id
-    // + "; sending IWANT to " + m.src);
-    // }
-    // Message iwantMsg = createMessage(
-    // -1, // ephemeral ID for the request
-    // Message.MSG_IWANT,
-    // nodeId,
-    // m.src,
-    // m.messageTopicID,
-    // null,
-    // m.isRow,
-    // m.rowOrColumnNumber,
-    // m.partNumber,
-    // CommonState.getTime(),
-    // m.id // ackId => track which message ID we want
-    // );
-    // IWANTmessageCache.put(m.id, placeholder);
-    // publishMessage(iwantMsg, m.src, myPid);
-    // samplingStarter();
-    // }
-
-    // // Done. The node has now both:
-    // // 1) Let the rest of the mesh know about the new message (IHAVE).
-    // // 2) Pulled the data if it needs it (IWANT).
-    // }
 
     public void handleIHave(Message m, int myPid) {
         if (messageCache.containsKey(m.id)) {
@@ -1369,55 +1332,123 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return msg;
     }
 
-    public void sampleDataRequest() {
-        Random random = new Random();
+//    public void sampleDataRequest() {
+//        Random random = new Random();
+//
+//        // Randomly decide whether to sample a row or column
+//        boolean isRow = random.nextBoolean();
+//        int randomSampleIndex = random.nextInt(Configuration.getInt("NUMBER_OF_COLUMNS", 512));
+//
+//        int rowOrColNo = randomSampleIndex;
+//        int noOfRowsAndColsInTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 16);
+//
+//        // Determine topic number based on configuration
+//        int topicNo = (noOfRowsAndColsInTopic == 1)
+//                ? (rowOrColNo * 2) + (isRow ? 1 : 2)
+//                : rowOrColNo / (noOfRowsAndColsInTopic / 2);
+//
+//        // Subscribe to the topic
+//        Topic topicToSubscribe = CustomDistribution.topics.get("Topic-" + (topicNo));
+//        if (topicToSubscribe == null) {
+//            if (isDEBUG) {
+//                System.out.println("Topic not found: Topic-" + (topicNo));
+//            }
+//
+//            return;
+//        }
+//        this.subscribeTopic(topicToSubscribe);
+//
+//        // Select a random node holding the row or column
+//        BigInteger destId = selectRandomHolder(isRow, rowOrColNo, random);
+//        if (destId == null || destId.equals(this.nodeId)) {
+//            if (isDEBUG) {
+//                System.out.println("Invalid or self-selection, retrying sample request...");
+//            }
+//            return; // Avoids recursion, preventing potential stack overflow
+//        }
+//
+//        // Create the sampling request message
+//        Message sampleReqMsg = createMessage(
+//                -1, Message.MSG_SAMPLE_DATA_REQUEST, this.nodeId, destId,
+//                topicToSubscribe.topicID, Integer.toString(randomSampleIndex),
+//                isRow, rowOrColNo, -1, 0, -1);
+//
+//        // Store and send the request
+//        this.sentMsg.put(sampleReqMsg.id, sampleReqMsg);
+//        noOfSampleRequestsSent++;
+//        this.publishMessage(sampleReqMsg, destId, gossipSubId);
+//
+//        // Schedule timeout for the request
+//        scheduleRequestTimeout(sampleReqMsg, destId);
+//    }
+//    public void startSampling() {
+//        IntStream.range(0, sampleAmount).forEach(i -> sampleDataRequest());
+//    }
 
-        // Randomly decide whether to sample a row or column
-        boolean isRow = random.nextBoolean();
-        int randomSampleIndex = random.nextInt(Configuration.getInt("NUMBER_OF_COLUMNS", 512));
+    /* return true when a request is really queued */
+    /**
+     * Builds and queues *one* sampling request.
+     * @return true  if a request was scheduled, false otherwise.
+     */
+    private boolean sampleDataRequest() {
 
-        int rowOrColNo = randomSampleIndex;
-        int noOfRowsAndColsInTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 16);
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
 
-        // Determine topic number based on configuration
-        int topicNo = (noOfRowsAndColsInTopic == 1)
-                ? (rowOrColNo * 2) + (isRow ? 1 : 2)
-                : rowOrColNo / (noOfRowsAndColsInTopic / 2);
+        /* ---------- choose what to sample ---------- */
+        boolean isRow      = rng.nextBoolean();
+        int     shardIndex = rng.nextInt(Configuration.getInt("NUMBER_OF_COLUMNS", 512));
 
-        // Subscribe to the topic
-        Topic topicToSubscribe = CustomDistribution.topics.get("Topic-" + (topicNo));
-        if (topicToSubscribe == null) {
-            if (isDEBUG) {
-                System.out.println("Topic not found: Topic-" + (topicNo));
-            }
+        /* ---------- map shard → topic (same formula you already use) ---------- */
+        int rowsColsPerTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 16);
 
-            return;
-        }
-        this.subscribeTopic(topicToSubscribe);
+        int topicNo = (rowsColsPerTopic == 1)
+                ? (shardIndex * 2) + (isRow ? 1 : 2)
+                : shardIndex / (rowsColsPerTopic / 2);
 
-        // Select a random node holding the row or column
-        BigInteger destId = selectRandomHolder(isRow, rowOrColNo, random);
-        if (destId == null || destId.equals(this.nodeId)) {
-            if (isDEBUG) {
-                System.out.println("Invalid or self-selection, retrying sample request...");
-            }
-            return; // Avoids recursion, preventing potential stack overflow
-        }
+        Topic topic = CustomDistribution.topics.get("Topic-" + topicNo);
+        if (topic == null) return false;                // nothing holds that shard
+        this.subscribeTopic(topic);
 
-        // Create the sampling request message
-        Message sampleReqMsg = createMessage(
-                -1, Message.MSG_SAMPLE_DATA_REQUEST, this.nodeId, destId,
-                topicToSubscribe.topicID, Integer.toString(randomSampleIndex),
-                isRow, rowOrColNo, -1, 0, -1);
+        /* ---------- pick a holder that isn’t *me* ---------- */
+        BigInteger dest;
+        final int MAX_TRIES = 8;                        // avoids endless loop in degenerate cases
+        int tries = 0;
+        do {
+            dest = selectRandomHolder(isRow, shardIndex, rng);
+        } while (++tries < MAX_TRIES && (dest == null || dest.equals(this.nodeId)));
 
-        // Store and send the request
-        this.sentMsg.put(sampleReqMsg.id, sampleReqMsg);
+        if (dest == null || dest.equals(this.nodeId)) return false;   // give up this round
+
+        /* ---------- build and send the request ---------- */
+        Message req = createMessage(
+                -1,
+                Message.MSG_SAMPLE_DATA_REQUEST,
+                nodeId,                    // src
+                dest,                      // dest
+                topic.topicID,
+                Integer.toString(shardIndex),   // body = cell index we want
+                isRow,
+                shardIndex,
+                -1,
+                0,
+                -1);
+
+        sentMsg.put(req.id, req);
         noOfSampleRequestsSent++;
-        this.publishMessage(sampleReqMsg, destId, gossipSubId);
+        publishMessage(req, dest, gossipSubId);
+        scheduleRequestTimeout(req, dest);
 
-        // Schedule timeout for the request
-        scheduleRequestTimeout(sampleReqMsg, destId);
+        return true;                                     // success!
     }
+
+
+    public void startSampling() {
+        int sent = 0;
+        while (sent < sampleAmount) {
+            if (sampleDataRequest()) sent++;   // only count real requests
+        }
+    }
+
 
     // Helper method to select a random row or column holder
     private BigInteger selectRandomHolder(boolean isRow, int rowOrColNo, Random random) {
@@ -1660,8 +1691,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             boolean isRow) {
         // Only build a new 'baseMessage' if this is the first copy
         if (copiesSent == 0) {
-            int halfRows = Configuration.getInt("NUMBER_OF_ROWS") / 2;
-
+//            int halfRows = Configuration.getInt("NUMBER_OF_ROWS") / 2;
+            int halfRows = Configuration.getInt("NUMBER_OF_ROWS");
             // Determine which data need to send (row or column).
             // For example, if rows are large, you're only sending half of it here.
             byte[][] dataToSend = isRow

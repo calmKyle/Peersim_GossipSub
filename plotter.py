@@ -2,7 +2,7 @@
 import re
 
 # Path to your configuration file
-config_file_path = "GossipConfig.cfg"  # Replace with your actual file path
+config_file_path = "GossipConfig.cfg"  
 
 # Dictionary to hold extracted key-value pairs
 config_values = {}
@@ -36,7 +36,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Load the CSV file
-data = pd.read_csv("output2.csv")
+data = pd.read_csv("output_results.csv")
 
 # Check if necessary columns exist
 if 'Max Sample RTT' not in data.columns or 'Avg Sample RTT' not in data.columns:
@@ -68,7 +68,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # Load data from CSV file (Replace 'your_file.csv' with the actual filename)
-data = pd.read_csv('output2.csv')
+data = pd.read_csv('output_results.csv')
 
 # Ensure 'Total Sample Received' exists before computing 'Percent Received'
 if 'Total Sample Received' not in data.columns:
@@ -119,7 +119,7 @@ import pandas as pd
 import numpy as np
 
 # Load data
-data = pd.read_csv('output2.csv')
+data = pd.read_csv('output_results.csv')
 
 # Ensure valid numerical computations
 data['Total Sample Req Sent'].replace(0, np.nan, inplace=True)  # Avoid divide-by-zero errors
@@ -184,7 +184,7 @@ except Exception:
 # import matplotlib.cm as cm
 
 # # Load the CSV file
-# df = pd.read_csv('output2.csv')  # Replace with your actual file path
+# df = pd.read_csv('output_results.csv')  # Replace with your actual file path
 
 # # Randomly select 200 rows
 # random_rows = df["Sample Arrival Times"].sample(n=200, random_state=42)
@@ -233,7 +233,7 @@ except Exception:
 # import matplotlib.cm as cm
 #
 # # Load the CSV file
-# df = pd.read_csv('output2.csv')  # Replace with your actual file path
+# df = pd.read_csv('output_results.csv')  # Replace with your actual file path
 #
 # # Randomly select 200 rows
 # random_rows = df["Sample Arrival Times"].sample(n=200, random_state=42)
@@ -319,7 +319,7 @@ import numpy as np
 import matplotlib.cm as cm
 
 # Load the CSV file
-df = pd.read_csv('output2.csv')  # Replace with your actual file path
+df = pd.read_csv('output_results.csv')  # Replace with your actual file path
 
 # Randomly select 200 rows from 'Sample Arrival Times'
 random_rows = df["Sample Arrival Times"].sample(n=200, random_state=42)
@@ -422,13 +422,13 @@ else:
     plt.show()
 
 
-###############################################################
+ ###############################################################
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 # Load data from CSV
-df = pd.read_csv('output2.csv')
+df = pd.read_csv('output_results.csv')
 
 # Assume 'Max Seed RTT' and 'Max Sample RTT' contain the time data
 # times_Seed = df['Seed Arrival Times'].str.split('; ')
@@ -478,7 +478,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # 1. Read the CSV file
-df = pd.read_csv("output2.csv")
+df = pd.read_csv("output_results.csv")
 
 # 2. Strip leading/trailing spaces from column names (if needed)
 df.columns = df.columns.str.strip()
@@ -506,7 +506,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # 1. Read the CSV
-df = pd.read_csv("output2.csv")
+df = pd.read_csv("output_results.csv")
 
 # 2. Remove any leading/trailing spaces in column names
 df.columns = df.columns.str.strip()
@@ -547,3 +547,5 @@ plt.title("Smoothed Duplicate IHAVE vs. Total Sample Req Sent")
 plt.legend()
 plt.show()
 
+
+########################################################################################

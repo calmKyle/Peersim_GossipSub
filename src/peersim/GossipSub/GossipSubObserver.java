@@ -13,6 +13,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.math.BigInteger;
 
 public class GossipSubObserver implements Control{
     /**
@@ -51,7 +54,17 @@ public class GossipSubObserver implements Control{
      * @return boolean always false
      */
     public boolean execute() {
-        String filePath = "output2.csv";
+
+
+        printResult();
+        printMesh();
+
+
+        return false;
+    }
+
+    private void printResult(){
+        String filePath = "output_results.csv";
         boolean append = CommonState.getTime() > 0; // Always append for times > 0
 
         File file = new File(filePath);
@@ -70,7 +83,7 @@ public class GossipSubObserver implements Control{
                         + "Total Seed Parts Received,Seed Part Arrival Times,Seed Part RTT Times,Min Seed Part RTT,"
                         + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth, Duplicated Message IHAVE");
                 writer.newLine();
-                return false;
+                return;
             }
 
             int count = 0;
@@ -202,7 +215,7 @@ public class GossipSubObserver implements Control{
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getAverage() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMax() : 0.0,
                         (double)protocol.totalDataTransmitted / (double)(protocol.totalTransmissionTime*1000),
-                        (double) protocol.duplicateIHaveMessage
+                        (double) protocol.duplicateData
                 );
 
                 writer.write(metrics);
@@ -213,8 +226,47 @@ public class GossipSubObserver implements Control{
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
 
-        return false;
+    private void printMesh(){
+        String meshFilePath = "mesh_connections.csv";
+        long time = CommonState.getTime();
+        boolean appendMesh = (time > 0);
+
+        File meshFile = new File(meshFilePath);
+        if (meshFile.exists() && time == 0) {
+            meshFile.delete();
+        }
+
+        try (BufferedWriter meshWriter = new BufferedWriter(new FileWriter(meshFile, appendMesh))) {
+            // Write header on first iteration
+            if (!appendMesh) {
+                meshWriter.write("Time,Topic,SourceNode,TargetNode");
+                meshWriter.newLine();
+            }
+
+            // For each topic, gather local mesh edges
+            for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
+                String topicID = topicEntry.getKey();
+                for (Node node : topicEntry.getValue().topicMembers) {
+                    GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(pid);
+                    // The set of peers in this node's local mesh for topicID
+                    Set<BigInteger> peers = gsp.localMesh.getOrDefault(topicID, Collections.emptySet());
+
+                    // For each peer in localMesh, write out an edge
+                    for (BigInteger peerId : peers) {
+                        meshWriter.write(time + ","
+                                + topicID + ","
+                                + gsp.getNodeId() + ","
+                                + peerId);
+                        meshWriter.newLine();
+                    }
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }
