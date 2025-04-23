@@ -1,3 +1,20 @@
+import os
+import matplotlib.pyplot as plt  # make sure this is imported before the function
+
+# Ask the user where to save figures
+output_dir = input("Enter the folder path where you want to save all the figures: ").strip()
+os.makedirs(output_dir, exist_ok=True)
+
+plot_index = 1
+
+def save_figure(name):
+    global plot_index
+    file_path = os.path.join(output_dir, f"{plot_index:02d}_{name}.png")
+    plt.savefig(file_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"✅ Saved: {file_path}")
+    plot_index += 1
+#################################################
 # Get data from conf file
 import re
 
@@ -59,7 +76,7 @@ plt.ylabel('RTT (ms)')
 plt.title('Distribution of Max and Avg Sample RTT Across Samples')
 
 # Show the plot
-plt.show()
+save_figure("Figure_1")
 
 
 # #####################################
@@ -109,7 +126,7 @@ plt.xticks(rotation=90)
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 
 # 🔹 Show the plot
-plt.show()
+save_figure("Figure_2")
 
 
 
@@ -171,7 +188,7 @@ plt.tight_layout()
 
 # **Show plot only if running in an interactive environment**
 try:
-    plt.show()
+    save_figure("Figure_3")
 except Exception:
     print("Matplotlib is running in a headless environment; use plt.savefig() instead.")
 
@@ -223,7 +240,7 @@ except Exception:
 # plt.title("Random 200 Rows CDFs")
 
 # # Show the plot
-# plt.show()
+# save_figure()
 
 
 ######################################################
@@ -309,7 +326,7 @@ except Exception:
 # plt.title("Random n Rows CDFs with Median Focused on Middle Region")
 #
 # # Show the plot
-# plt.show()
+# save_figure()
 
 
 
@@ -419,7 +436,7 @@ else:
     plt.title("Random n Rows CDFs with Median Focused on Middle Region")
 
     # Show the plot
-    plt.show()
+    save_figure("Figure_4")
 
 
  ###############################################################
@@ -468,7 +485,7 @@ plt.legend()
 plt.grid(True)
 
 # Show the plot
-plt.show()
+save_figure("Figure_5")
 
 
 
@@ -499,7 +516,7 @@ plt.title("Duplicate IHAVE vs Total Sample Req Sent by Node")
 plt.legend()
 
 # 7. Display the chart
-plt.show()
+save_figure("Figure_6")
 
 
 import pandas as pd
@@ -545,7 +562,7 @@ plt.xlabel("Node ID")
 plt.ylabel("Smoothed Value")
 plt.title("Smoothed Duplicate IHAVE vs. Total Sample Req Sent")
 plt.legend()
-plt.show()
+save_figure("Figure_7")
 
 
 ########################################################################################
