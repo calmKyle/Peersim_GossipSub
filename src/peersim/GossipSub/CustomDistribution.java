@@ -37,8 +37,9 @@ public class CustomDistribution implements peersim.core.Control {
 
     private final int gossipProtocolID;
     private final UniformRandomGenerator urg;
-    private static final Random random = new Random();
+//    private static final Random random = new Random();
 
+    private static final Random random = CommonState.r;
     // blockProposerNode will be assigned at random now
     public static Node blockProposerNode;
 

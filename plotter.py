@@ -1,3 +1,6 @@
+# [time=3999] Node 16382: [Seed Arrival Times=[481, 548]] [Seed RTT times=[164, 86]] [481.000000 min ] [514.500000 msec average ] [548.000000 max ]
+
+
 import os
 import matplotlib.pyplot as plt  # make sure this is imported before the function
 

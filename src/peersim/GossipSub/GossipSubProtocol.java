@@ -11,7 +11,6 @@ import peersim.transport.UnreliableTransport;
 import peersim.util.IncrementalStats;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -382,7 +381,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
 
         List<Node> potentialPeers = new ArrayList<>(topic.topicMembers);
-        Collections.shuffle(potentialPeers);
+        Collections.shuffle(potentialPeers, CommonState.r);
 
         for (Node newPeer : potentialPeers) {
             // If we've already reached our local 'degree', stop adding more
@@ -1416,7 +1415,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private boolean sampleDataRequest() {
 
         final int PARALLEL_ASK = 1;                               //  how many custodians we query at once
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
+//        ThreadLocalRandom rng = ThreadLocalRandom.current();
+
+        Random rng = CommonState.r;
+
 
         boolean isRow      = rng.nextBoolean();
         int     shardIndex = rng.nextInt(Configuration.getInt("NUMBER_OF_COLUMNS", 512));
@@ -1560,8 +1562,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             sentMsg.remove(timeoutEvent.msgID);
 
             BigInteger destId;
-            Random random = new Random();
-
+//            Random random = new Random();
+            Random random = CommonState.r;
             if (sampleMsgSent.isRow) {
                 ArrayList<BigInteger> rowHolders = rowCustodyNodes.get(sampleMsgSent.rowOrColumnNumber);
                 int sampleHolderNodeIdx = random.nextInt(rowHolders.size());

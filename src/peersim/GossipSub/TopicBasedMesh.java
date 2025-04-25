@@ -1,6 +1,7 @@
 package peersim.GossipSub;
 
 import peersim.config.Configuration;
+import peersim.core.CommonState;
 import peersim.core.Node;
 import java.math.BigInteger;
 import java.util.*;
@@ -27,7 +28,7 @@ public class TopicBasedMesh {
 
             Set<BigInteger> topicMemberSet = new HashSet<>();
             List<Node> topicNodes = new ArrayList<>(curTopic.topicMembers);
-            Collections.shuffle(topicNodes); // Randomize peer selection
+            Collections.shuffle(topicNodes, CommonState.r); // Randomize peer selection
 
             // Assign members to the topic
             for (Node node : curTopic.topicMembers) {
@@ -52,7 +53,7 @@ public class TopicBasedMesh {
      */
     private void connectPeers(GossipSubProtocol node, List<Node> topicNodes, String topicID) {
         List<Node> shuffledPeers = new ArrayList<>(topicNodes);
-        Collections.shuffle(shuffledPeers); // Ensure random connections
+        Collections.shuffle(shuffledPeers,CommonState.r); // Ensure random connections
 
         for (Node peerNode : shuffledPeers) {
             if (node.localMesh.get(topicID).size() >= node.degree) {

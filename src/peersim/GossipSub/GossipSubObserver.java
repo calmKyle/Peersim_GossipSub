@@ -228,7 +228,7 @@ public class GossipSubObserver implements Control{
         }
     }
 
-    private void printMesh(){
+    private void printMesh() {
         String meshFilePath = "mesh_connections.csv";
         long time = CommonState.getTime();
         boolean appendMesh = (time > 0);
@@ -239,9 +239,9 @@ public class GossipSubObserver implements Control{
         }
 
         try (BufferedWriter meshWriter = new BufferedWriter(new FileWriter(meshFile, appendMesh))) {
-            // Write header on first iteration
+            // Write Gephi-compatible header on first iteration
             if (!appendMesh) {
-                meshWriter.write("Time,Topic,SourceNode,TargetNode");
+                meshWriter.write("Source,Target,Type,Weight,Topic");
                 meshWriter.newLine();
             }
 
@@ -250,15 +250,15 @@ public class GossipSubObserver implements Control{
                 String topicID = topicEntry.getKey();
                 for (Node node : topicEntry.getValue().topicMembers) {
                     GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(pid);
-                    // The set of peers in this node's local mesh for topicID
                     Set<BigInteger> peers = gsp.localMesh.getOrDefault(topicID, Collections.emptySet());
 
-                    // For each peer in localMesh, write out an edge
+                    // Write one edge per mesh connection
                     for (BigInteger peerId : peers) {
-                        meshWriter.write(time + ","
-                                + topicID + ","
-                                + gsp.getNodeId() + ","
-                                + peerId);
+                        meshWriter.write(gsp.getNodeId() + ","  // Source
+                                + peerId + ","                 // Target
+                                + "Directed,"                  // Type
+                                + "1,"                         // Weight
+                                + topicID);                    // Topic
                         meshWriter.newLine();
                     }
                 }
@@ -268,5 +268,6 @@ public class GossipSubObserver implements Control{
             e.printStackTrace();
         }
     }
+
 
 }
