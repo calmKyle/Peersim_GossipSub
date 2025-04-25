@@ -79,7 +79,7 @@ public class Message extends SimpleEvent {
     /**
      * ACK number of the message. This is in the response message.
      */
-    public long ackId;
+    public long typeID;
 
     /**
      * Recipient address of the message
@@ -117,12 +117,12 @@ public class Message extends SimpleEvent {
      * @param messageType
      *                    int type of the message
      */
-    public Message(int messageType, boolean isRow, int RoworColNum, int partNo, long ackId) {
-        this(messageType, "", isRow, RoworColNum, partNo, ackId);
+    public Message(int messageType, boolean isRow, int RoworColNum, int partNo, long typeID) {
+        this(messageType, "", isRow, RoworColNum, partNo, typeID);
     }
 
     // Used to create the metadata messages
-    public Message(long id, int messageType, boolean isRow, int rowOrColumnNumber, int partNo, long ackId) {
+    public Message(long id, int messageType, boolean isRow, int rowOrColumnNumber, int partNo, long typeID) {
         super(messageType);
         this.id = id; // Set the id manually
         this.body = "";
@@ -131,7 +131,7 @@ public class Message extends SimpleEvent {
         this.partNumber = partNo;
         // this.type = messageType;
         this.messageSendingTime = 0;
-        this.ackId = ackId;
+        this.typeID = typeID;
 
     }
 
@@ -143,14 +143,14 @@ public class Message extends SimpleEvent {
      * @param body
      *                    Object body to assign (shallow copy)
      */
-    public Message(int messageType, Object body, boolean isRow, int rowOrColumnNumber, int partNo, long ackId) {
+    public Message(int messageType, Object body, boolean isRow, int rowOrColumnNumber, int partNo, long typeID) {
         super(messageType);
         this.id = (ID_GENERATOR++);
         this.body = body;
         this.isRow = isRow;
         this.rowOrColumnNumber = rowOrColumnNumber;
         this.partNumber = partNo;
-        this.ackId = ackId;
+        this.typeID = typeID;
     }
 
     // ______________________________________________________________________________________________
@@ -162,7 +162,7 @@ public class Message extends SimpleEvent {
     // ______________________________________________________________________________________________
     public Message copy() {
         Message dolly = new Message(this.id, this.type, this.isRow, this.rowOrColumnNumber, this.partNumber,
-                this.ackId);
+                this.typeID);
         dolly.type = this.type;
         dolly.src = this.src;
         dolly.dest = this.dest;

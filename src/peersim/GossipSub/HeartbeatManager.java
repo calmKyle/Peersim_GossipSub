@@ -68,30 +68,20 @@ public class HeartbeatManager {
             }
         }
 
-        // Example: prune peers with negative score
-        // for (BigInteger peerID : new HashSet<>(peerScores.keySet())) {
-        // PeerScoreInfo psi = peerScores.get(peerID);
-        // if (psi.cachedScore < 0) {
-        // if (isDEBUG) {
-        // System.out.println("[DEBUG HEARTBEAT] removing peer " + peerID +
-        // " from mesh due to negative score on node " + protocol.getNodeId());
-        // }
-        // protocol.removePeerFromMesh(peerID);
-        // }
-        // }
-
         for (BigInteger peerID : peerScores.keySet()) {
             PeerScoreInfo psi = peerScores.get(peerID);
             double s = protocol.computeScore(psi);
             if (s < 0) {
                 // for each topic where this peer is in your mesh, prune them
                 for (String topicID : protocol.localMesh.keySet()) {
-                    Set<BigInteger> set = protocol.localMesh.get(topicID);
-                    if (set != null && set.contains(peerID)) {
-                        System.out.println("[DEBUG HEARTBEAT] Node " + protocol.nodeId
-                                + " => Score of peer " + peerID + " is " + s
-                                + "; will prune from mesh.");
-                        protocol.prunePeer(peerID, topicID);
+                    int size = protocol.localMesh.get(topicID).size();
+                    if (size < protocol.minDegree) {
+                        int needed = protocol.degree - size;
+                        if (isDEBUG) {
+                            System.out.printf("[HB] node %s topic %s below min (%d); grafting %d%n",
+                                    protocol.nodeId, topicID, size, needed);
+                        }
+                        protocol.addMorePeers(topicID, needed);
                     }
                 }
             }

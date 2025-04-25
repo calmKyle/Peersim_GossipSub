@@ -229,41 +229,32 @@ public class GossipSubObserver implements Control{
     }
 
     private void printMesh() {
-        String meshFilePath = "mesh_connections.csv";
-        long time = CommonState.getTime();
-        boolean appendMesh = (time > 0);
+        final String meshFilePath = "mesh_connections.csv";
+        long   t          = CommonState.getTime();
+        boolean append    = t > 0;
 
-        File meshFile = new File(meshFilePath);
-        if (meshFile.exists() && time == 0) {
-            meshFile.delete();
-        }
+        File f = new File(meshFilePath);
+        if (!append && f.exists()) f.delete(); // fresh file at t=0
 
-        try (BufferedWriter meshWriter = new BufferedWriter(new FileWriter(meshFile, appendMesh))) {
-            // Write Gephi-compatible header on first iteration
-            if (!appendMesh) {
-                meshWriter.write("Source,Target,Type,Weight,Topic");
-                meshWriter.newLine();
+        try (BufferedWriter w = new BufferedWriter(new FileWriter(f, append))) {
+            if (!append) {
+                w.write("Source,Target,Type,Weight,Topic");
+                w.newLine();
             }
 
-            // For each topic, gather local mesh edges
-            for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
-                String topicID = topicEntry.getKey();
-                for (Node node : topicEntry.getValue().topicMembers) {
-                    GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(pid);
-                    Set<BigInteger> peers = gsp.localMesh.getOrDefault(topicID, Collections.emptySet());
+            for (Node node : CustomDistribution.networkNodes.values()) {
+                GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(pid);
+                BigInteger srcId = gsp.getNodeId();
 
-                    // Write one edge per mesh connection
-                    for (BigInteger peerId : peers) {
-                        meshWriter.write(gsp.getNodeId() + ","  // Source
-                                + peerId + ","                 // Target
-                                + "Directed,"                  // Type
-                                + "1,"                         // Weight
-                                + topicID);                    // Topic
-                        meshWriter.newLine();
+                // walk this node's *localMesh* (active peers)
+                for (Map.Entry<String, Set<BigInteger>> entry : gsp.localMesh.entrySet()) {
+                    String topic   = entry.getKey();
+                    for (BigInteger dstId : entry.getValue()) {
+                        w.write(srcId + "," + dstId + ",Directed,1," + topic);
+                        w.newLine();
                     }
                 }
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }

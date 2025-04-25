@@ -47,8 +47,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public UnreliableTransport transport;
     public int tid;
     private int gossipSubId;
-    private int minDegree = Configuration.getInt("MIN_DEGREE", 4);
-    private int maxDegree = Configuration.getInt("MAX_DEGREE", 16);
+    public int minDegree = Configuration.getInt("MIN_DEGREE", 4);
+    public int maxDegree = Configuration.getInt("MAX_DEGREE", 8);
     protected int degree = Configuration.getInt("DEGREE", 8);;
 
     public Set<Topic> subscribedTopics = new HashSet<>();
@@ -330,26 +330,26 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //            publishMessage(copy, peer, myPid);
 //        }
 //    }
-
-    public void removePeerFromMesh(BigInteger peerID) {
-        // remove from all topics in localMesh
-        for (String topicID : localMesh.keySet()) {
-            localMesh.get(topicID).remove(peerID);
-        }
-        // remove from scoring as well, or optionally keep as "disconnected" data
-        peerScores.remove(peerID);
-    }
-
-    public void setMeshDegree(int newDegree) {
-        if (newDegree >= minDegree && newDegree <= maxDegree) {
-            this.degree = newDegree;
-            updateMeshConnections();
-        } else {
-            if (isDEBUG) {
-                System.out.println("[DEGREE ISSUE:]Degree must be between " + minDegree + " and " + maxDegree);
-            }
-        }
-    }
+//
+//    public void removePeerFromMesh(BigInteger peerID) {
+//        // remove from all topics in localMesh
+//        for (String topicID : localMesh.keySet()) {
+//            localMesh.get(topicID).remove(peerID);
+//        }
+//        // remove from scoring as well, or optionally keep as "disconnected" data
+//        peerScores.remove(peerID);
+//    }
+//
+//    public void setMeshDegree(int newDegree) {
+//        if (newDegree >= minDegree && newDegree <= maxDegree) {
+//            this.degree = newDegree;
+//            updateMeshConnections();
+//        } else {
+//            if (isDEBUG) {
+//                System.out.println("[DEGREE ISSUE:]Degree must be between " + minDegree + " and " + maxDegree);
+//            }
+//        }
+//    }
 
     public void updateMeshConnections() {
         if (subscribedTopics.isEmpty())
@@ -375,7 +375,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     // Function to add new peers when the mesh is too small
-    private void addMorePeers(String topicID, int needed) {
+    public void addMorePeers(String topicID, int needed) {
         Topic topic = CustomDistribution.topics.get(topicID);
         if (topic == null)
             return;
@@ -498,15 +498,12 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         // If oversubscribed, remove some peers
         if (localMesh.get(topicID).size() > maxDegree) {
+            int over = localMesh.get(topicID).size() - degree;   // trim back to “degree”
             if (isDEBUG) {
-                System.out.println("[DEBUG handleGraft] Mesh oversubscribed: size="
-                        + localMesh.get(topicID).size()
-                        + " > maxDegree=" + maxDegree
-                        + ". Will removeExcessPeers(...)");
+                System.out.printf("[DEBUG handleGraft] mesh %s oversized (%d>%d); pruning %d peers%n",
+                        topicID, localMesh.get(topicID).size(), maxDegree, over);
             }
-            return;
-
-            // removeExcessPeers(topicID, localMesh.get(topicID).size() - degree);
+            removeExcessPeers(topicID, over);
         }
     }
 
@@ -634,6 +631,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         if (peers == null)
             return;
 
+        int maxAllowed = peers.size() - minDegree;
+        count = Math.min(count, maxAllowed);
+        if (count <= 0) return;
+
         // Make sure each peer has a PeerScoreInfo
         for (BigInteger p : peers) {
             addPeerScoreIfAbsent(p);
@@ -650,21 +651,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-    // // Function to remove excess peers when the mesh is too large
-    // private void removeExcessPeers(String topicID, int count) {
-    // if (!localMesh.containsKey(topicID))
-    // return;
-    // Iterator<BigInteger> it = localMesh.get(topicID).iterator();
-    // while (it.hasNext() && count > 0) {
-    // BigInteger peerID = it.next();
-    // it.remove();
-    // count--;
-    // GossipSubProtocol peerNode = (GossipSubProtocol)
-    // CustomDistribution.networkNodes.get(peerID)
-    // .getProtocol(gossipSubId);
-    // peerNode.localMesh.get(topicID).remove(this.nodeId);
-    // }
-    // }
 
     private void addPeerScoreIfAbsent(BigInteger peerID) {
         if (!peerScores.containsKey(peerID)) {
@@ -808,7 +794,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             Message newMessage = createMessage(
                     m.id, m.type, src, peerId, m.messageTopicID,
                     m.body, m.isRow, m.rowOrColumnNumber, m.partNumber,
-                    CommonState.getTime(), (m.ackId == -6) ? m.ackId : m.id);
+                    CommonState.getTime(), (m.typeID == -6) ? m.typeID : m.id);
             publishMessage(newMessage, peerId, myPid);
         }
     }
@@ -989,9 +975,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
         messageCache.put(m.id, m);
 
-        if (m.ackId == -6) {
-            handleAckMessage(m, myPid);
+        if (m.typeID == -6) {
+            handleTypeMessage(m, myPid);
         }
+
 
         messageCache.put(m.id, m);
 
@@ -1039,8 +1026,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         samplingStarter();
     }
 
-    // Handle messages with ackId = -6 based on the distribution strategy
-    private void handleAckMessage(Message m, int myPid) {
+    private void handleTypeMessage(Message m, int myPid) {
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
 
         if (distributionStrategy == 3) {
@@ -1069,7 +1055,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // Send IWANT message if data is missing
     private void requestMissingData(Message m, int myPid, String custody) {
         Message request = createMessage(m.id, Message.MSG_IWANT, nodeId, m.src, m.messageTopicID, "",
-                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), m.ackId);
+                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), m.typeID);
 
         IWANTmessageCache.put(m.id, m);
         publishMessage(request, m.src, myPid);
@@ -1091,7 +1077,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // Helper method to create and send IWANT messages
     private void sendIWantMessage(Message m, int myPid) {
         Message request = createMessage(m.id, Message.MSG_IWANT, nodeId, m.src, m.messageTopicID, "",
-                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), m.ackId);
+                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), m.typeID);
 
         IWANTmessageCache.put(m.id, m);
         publishMessage(request, m.src, myPid);
@@ -1524,7 +1510,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     byte sampleDataResp = data[0][idx];
                     Message sampleResponse = createMessage(m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
                             m.messageTopicID, Integer.toString(sampleDataResp), m.isRow, m.rowOrColumnNumber,
-                            m.partNumber, m.timestamp, m.ackId);
+                            m.partNumber, m.timestamp, m.typeID);
                     this.publishMessage(sampleResponse, m.src, gossipSubId);
                     return;
                 }
@@ -1538,7 +1524,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     byte sampleDataResp = data[0][idx];
                     Message sampleResponse = createMessage(m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
                             m.messageTopicID, Integer.toString(sampleDataResp), m.isRow, m.rowOrColumnNumber,
-                            m.partNumber, m.timestamp, m.ackId);
+                            m.partNumber, m.timestamp, m.typeID);
                     this.publishMessage(sampleResponse, m.src, gossipSubId);
                     return;
                 }
@@ -1585,7 +1571,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     sampleMsgSent.rowOrColumnNumber,
                     sampleMsgSent.partNumber,
                     0,
-                    sampleMsgSent.ackId);
+                    sampleMsgSent.typeID);
 
             sentMsg.put(msgToResend.id, msgToResend);
             publishMessage(msgToResend, msgToResend.dest, myPid);
