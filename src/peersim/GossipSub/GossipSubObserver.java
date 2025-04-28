@@ -64,11 +64,12 @@ public class GossipSubObserver implements Control{
     }
 
     private void printResult(){
-        String filePath = "output_results.csv";
+        double currentMaliciousRateID = Configuration.getDouble("MALICIOUS_RATE", 0.0);
+        String filePath = "CSVOut/output_results_malicious_rate_" + currentMaliciousRateID + ".csv";
+
         boolean append = CommonState.getTime() > 0; // Always append for times > 0
 
         File file = new File(filePath);
-//        System.out.println("Trying to delete the file: " + file.getAbsolutePath());
         if (file.exists() && CommonState.getTime() == 0) {
             file.delete();
         }

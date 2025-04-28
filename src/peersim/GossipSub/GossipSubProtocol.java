@@ -1729,10 +1729,12 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 -1,
                 -1);
 
-        System.out.println("I am holding "
-                + (isRow ? "row" : "column")
-                + " " + rowOrColumnIndex
-                + " for " + destinationId);
+        if (isDEBUG){
+            System.out.println("I am holding "
+                    + (isRow ? "row" : "column")
+                    + " " + rowOrColumnIndex
+                    + " for " + destinationId);
+        }
 
         // Publish/send the message
         publishMessage(messageToSend, destinationId, gossipSubId);
@@ -1761,10 +1763,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         // Iterate over each topic in the distribution
         for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
-            System.out.println();
-            System.out.println();
-            System.out.println("****");
-            System.out.println(topicEntry.getKey());
+            if (isDEBUG){
+                System.out.println();
+                System.out.println();
+                System.out.println("****");
+                System.out.println(topicEntry.getKey());
+
+            }
 
             Topic currentTopic = topicEntry.getValue();
 

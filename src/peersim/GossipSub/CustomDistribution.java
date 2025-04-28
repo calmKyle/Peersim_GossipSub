@@ -71,7 +71,9 @@ public class CustomDistribution implements peersim.core.Control {
 
         // [ADDED] Randomly pick one index to be block proposer
         int randomIndex = CommonState.r.nextInt(Network.size());
-        System.out.println("[CustomDistribution] Choosing node index " + randomIndex + " as block proposer");
+        if (isDEBUG){
+            System.out.println("[CustomDistribution] Choosing node index " + randomIndex + " as block proposer");
+        }
 
         // 1. Assign NodeIDs and pick the random node as block proposer
         for (int i = 0; i < Network.size(); i++) {
@@ -95,7 +97,7 @@ public class CustomDistribution implements peersim.core.Control {
             if (i == randomIndex) {
                 blockProposerNode = n;
                 gsp.setBlockProposerNode(true);
-                System.out.println("[CustomDistribution] Node " + i + " / NodeID=" + nodeId + " is BLOCK PROPOSER");
+                    System.out.println("[CustomDistribution] Node " + i + " / NodeID=" + nodeId + " is BLOCK PROPOSER");
             } else {
                 gsp.setBlockProposerNode(false);
             }
@@ -104,8 +106,10 @@ public class CustomDistribution implements peersim.core.Control {
             double randVal = CommonState.r.nextDouble();
             if (randVal < MALICIOUS_RATE) {
                 gsp.setMaliciousNode(true);
-                System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId
-                        + " is MALICIOUS!");
+                if (isDEBUG){
+                    System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId
+                            + " is MALICIOUS!");
+                }
             } else {
                 gsp.setMaliciousNode(false);
             }
@@ -220,8 +224,11 @@ public class CustomDistribution implements peersim.core.Control {
             String c2 = gsp.custody2;
 
             if (c1 == null || c2 == null || c1.isEmpty() || c2.isEmpty()) {
-                System.out.println("[CUSTODY WARNING] Node " + gsp.getNodeId()
-                        + " has incomplete custody: c1=" + c1 + ", c2=" + c2);
+                if(isDEBUG){
+                    System.out.println("[CUSTODY WARNING] Node " + gsp.getNodeId()
+                            + " has incomplete custody: c1=" + c1 + ", c2=" + c2);
+                }
+
             }
         }
     }
