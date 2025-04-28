@@ -1,4 +1,5 @@
 package peersim.GossipSub;
+
 //*************************Same Class as Kademlia******
 import peersim.config.Configuration;
 import peersim.core.CommonState;
@@ -17,9 +18,10 @@ import java.util.Map;
 import java.util.Set;
 import java.math.BigInteger;
 
-public class GossipSubObserver implements Control{
+public class GossipSubObserver implements Control {
     /**
-     * This class implements a simple observer of search time and hop average in finding a node in the network
+     * This class implements a simple observer of search time and hop average in
+     * finding a node in the network
      *
      * @author Daniele Furlan, Maurizio Bonani
      * @version 1.0
@@ -55,15 +57,17 @@ public class GossipSubObserver implements Control{
      */
     public boolean execute() {
 
-
         printResult();
         printMesh();
-
 
         return false;
     }
 
-    private void printResult(){
+    private void printResult() {
+        File directory = new File("CSVOut");
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
         double currentMaliciousRateID = Configuration.getDouble("MALICIOUS_RATE", 0.0);
         String filePath = "CSVOut/output_results_malicious_rate_" + currentMaliciousRateID + ".csv";
 
@@ -74,15 +78,15 @@ public class GossipSubObserver implements Control{
             file.delete();
         }
 
-
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, append))) {
             // Write the header only if it's the first time writing to the file
             if (!append) {
-                writer.write("Time,Node ID,Custody 1,Custody 2,Seed Arrival Times,Seed RTT Times,Min Seed RTT,Avg Seed RTT,Max Seed RTT,"
-                        + "Total Sample Req Sent,Total Sample Received,Total Sample Req Timedout,"
-                        + "Sample Arrival Times,Sample RTT Times,Min Sample RTT,Avg Sample RTT,Max Sample RTT,"
-                        + "Total Seed Parts Received,Seed Part Arrival Times,Seed Part RTT Times,Min Seed Part RTT,"
-                        + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth, Duplicated Message IHAVE");
+                writer.write(
+                        "Time,Node ID,Custody 1,Custody 2,Seed Arrival Times,Seed RTT Times,Min Seed RTT,Avg Seed RTT,Max Seed RTT,"
+                                + "Total Sample Req Sent,Total Sample Received,Total Sample Req Timedout,"
+                                + "Sample Arrival Times,Sample RTT Times,Min Sample RTT,Avg Sample RTT,Max Sample RTT,"
+                                + "Total Seed Parts Received,Seed Part Arrival Times,Seed Part RTT Times,Min Seed Part RTT,"
+                                + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth, Duplicated Message IHAVE");
                 writer.newLine();
                 return;
             }
@@ -97,13 +101,19 @@ public class GossipSubObserver implements Control{
                 }
                 GossipSubProtocol protocol = (GossipSubProtocol) (nd.getProtocol(pid));
 
-                double minSeedRTT = protocol.seedArrivalTimeStore == null ? 0.0 : protocol.seedArrivalTimeStore.getMin();
-                double avgSeedRTT = protocol.seedArrivalTimeStore == null ? 0.0 : protocol.seedArrivalTimeStore.getAverage();
-                double maxSeedRTT = protocol.seedArrivalTimeStore == null ? 0.0 : protocol.seedArrivalTimeStore.getMax();
+                double minSeedRTT = protocol.seedArrivalTimeStore == null ? 0.0
+                        : protocol.seedArrivalTimeStore.getMin();
+                double avgSeedRTT = protocol.seedArrivalTimeStore == null ? 0.0
+                        : protocol.seedArrivalTimeStore.getAverage();
+                double maxSeedRTT = protocol.seedArrivalTimeStore == null ? 0.0
+                        : protocol.seedArrivalTimeStore.getMax();
 
-                double minSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0 : protocol.samplingRTTTimeStore.getMin();
-                double avgSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0 : protocol.samplingRTTTimeStore.getAverage();
-                double maxSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0 : protocol.samplingRTTTimeStore.getMax();
+                double minSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0
+                        : protocol.samplingRTTTimeStore.getMin();
+                double avgSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0
+                        : protocol.samplingRTTTimeStore.getAverage();
+                double maxSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0
+                        : protocol.samplingRTTTimeStore.getMax();
                 String metrics1 = String.format(
                         "[time=%d] Node %d: [Seed Arrival Times=%s] [Seed RTT times=%s] [%f min ] [%f msec average ] [%f max ]",
                         CommonState.getTime(),
@@ -112,11 +122,9 @@ public class GossipSubObserver implements Control{
                         protocol.messageDelayTimeFromBP,
                         protocol.seedArrivalTimeStore.getMin(),
                         protocol.seedArrivalTimeStore.getAverage(),
-                        protocol.seedArrivalTimeStore.getMax()
-                );
+                        protocol.seedArrivalTimeStore.getMax());
                 System.out.println(metrics1);
-                if(proposerStratergy==2)
-                {
+                if (proposerStratergy == 2) {
                     String metrics2 = String.format(
                             "[time=%d] Node %d: [Total Seed Parts Recieved=%d] [Seed Part Arrival Times=%s] [Seed Part RTT times=%s] [%f min ] [%f msec average ] [%f max ]",
                             CommonState.getTime(),
@@ -126,15 +134,15 @@ public class GossipSubObserver implements Control{
                             protocol.seedPartDelayTimeFromPeer,
                             protocol.seedPartArrivalTimeStore.getMin(),
                             protocol.seedPartArrivalTimeStore.getAverage(),
-                            protocol.seedPartArrivalTimeStore.getMax()
-                    );
+                            protocol.seedPartArrivalTimeStore.getMax());
                     System.out.println(metrics2);
                 }
 
                 String metrics3 = String.format(
                         "[time=%d] Node Idx No %d: [Total Sample Req Sent=%d] [Total Sample Recieved=%d] [Total Sample Req Timedout=%d]\n[Sample Arrival Times=%s]\n[Sample RTT times=%s] [%f min ] [%f msec average ] [%f max ]",
                         CommonState.getTime(),
-                        count, //This is the index number at which this node if present in the CustomDistribution.networkNodes
+                        count, // This is the index number at which this node if present in the
+                               // CustomDistribution.networkNodes
                         protocol.noOfSampleRequestsSent,
                         protocol.noOfSamplesReceived,
                         protocol.sampleRequestUnsuccessful,
@@ -142,13 +150,11 @@ public class GossipSubObserver implements Control{
                         protocol.sampleDelayTime,
                         protocol.samplingRTTTimeStore.getMin(),
                         protocol.samplingRTTTimeStore.getAverage(),
-                        protocol.samplingRTTTimeStore.getMax()
-                );
+                        protocol.samplingRTTTimeStore.getMax());
                 System.out.println(metrics3);
                 String metrics4 = String.format(
                         "[average bandwidth=%f]",
-                        ((double)protocol.totalDataTransmitted /(double) (protocol.totalTransmissionTime)*1000)
-                );
+                        ((double) protocol.totalDataTransmitted / (double) (protocol.totalTransmissionTime) * 1000));
                 System.out.println(metrics4);
                 System.out.println();
                 System.out.println();
@@ -160,34 +166,39 @@ public class GossipSubObserver implements Control{
                 Collections.sort(protocol.seedPartArrivalTimeFromPeer);
                 Collections.sort(protocol.seedPartDelayTimeFromPeer);
 
-                String seedArrivalTimes = protocol.messageArrivalTimeFromBP.isEmpty() ? "[]" : Arrays.toString(protocol.messageArrivalTimeFromBP.toArray())
-                        .replace("[", "")
-                        .replace("]", "")
-                        .replace(",", ";");
+                String seedArrivalTimes = protocol.messageArrivalTimeFromBP.isEmpty() ? "[]"
+                        : Arrays.toString(protocol.messageArrivalTimeFromBP.toArray())
+                                .replace("[", "")
+                                .replace("]", "")
+                                .replace(",", ";");
 
-                String seedMessageDelayTimes = protocol.messageDelayTimeFromBP.isEmpty() ? "[]" : Arrays.toString(protocol.messageDelayTimeFromBP.toArray())
-                        .replace("[", "")
-                        .replace("]", "")
-                        .replace(",", ";");
+                String seedMessageDelayTimes = protocol.messageDelayTimeFromBP.isEmpty() ? "[]"
+                        : Arrays.toString(protocol.messageDelayTimeFromBP.toArray())
+                                .replace("[", "")
+                                .replace("]", "")
+                                .replace(",", ";");
 
                 // Process sample arrival times and delay times
-                String sampleArrivalTimes = protocol.sampleArrivalTime.isEmpty() ? "[]" : Arrays.toString(protocol.sampleArrivalTime.toArray())
-                        .replace("[", "")
-                        .replace("]", "")
-                        .replace(",", ";");
+                String sampleArrivalTimes = protocol.sampleArrivalTime.isEmpty() ? "[]"
+                        : Arrays.toString(protocol.sampleArrivalTime.toArray())
+                                .replace("[", "")
+                                .replace("]", "")
+                                .replace(",", ";");
 
-                String sampleMessageDelayTimes = protocol.sampleDelayTime.isEmpty() ? "[]" : Arrays.toString(protocol.sampleDelayTime.toArray())
-                        .replace("[", "")
-                        .replace("]", "")
-                        .replace(",", ";");
-
+                String sampleMessageDelayTimes = protocol.sampleDelayTime.isEmpty() ? "[]"
+                        : Arrays.toString(protocol.sampleDelayTime.toArray())
+                                .replace("[", "")
+                                .replace("]", "")
+                                .replace(",", ";");
 
                 String seedPartArrivalTimes = proposerStratergy == 2 && !protocol.seedPartArrivalTimeFromPeer.isEmpty()
-                        ? Arrays.toString(protocol.seedPartArrivalTimeFromPeer.toArray()).replace("[", "").replace("]", "").replace(",", ";")
+                        ? Arrays.toString(protocol.seedPartArrivalTimeFromPeer.toArray()).replace("[", "")
+                                .replace("]", "").replace(",", ";")
                         : "[]";
 
                 String seedPartDelayTimes = proposerStratergy == 2 && !protocol.seedPartDelayTimeFromPeer.isEmpty()
-                        ? Arrays.toString(protocol.seedPartDelayTimeFromPeer.toArray()).replace("[", "").replace("]", "").replace(",", ";")
+                        ? Arrays.toString(protocol.seedPartDelayTimeFromPeer.toArray()).replace("[", "")
+                                .replace("]", "").replace(",", ";")
                         : "[]";
 
                 String metrics = String.format(
@@ -215,9 +226,8 @@ public class GossipSubObserver implements Control{
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMin() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getAverage() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMax() : 0.0,
-                        (double)protocol.totalDataTransmitted / (double)(protocol.totalTransmissionTime*1000),
-                        (double) protocol.duplicateData
-                );
+                        (double) protocol.totalDataTransmitted / (double) (protocol.totalTransmissionTime * 1000),
+                        (double) protocol.duplicateData);
 
                 writer.write(metrics);
                 writer.newLine();
@@ -231,11 +241,12 @@ public class GossipSubObserver implements Control{
 
     private void printMesh() {
         final String meshFilePath = "mesh_connections.csv";
-        long   t          = CommonState.getTime();
-        boolean append    = t > 0;
+        long t = CommonState.getTime();
+        boolean append = t > 0;
 
         File f = new File(meshFilePath);
-        if (!append && f.exists()) f.delete(); // fresh file at t=0
+        if (!append && f.exists())
+            f.delete(); // fresh file at t=0
 
         try (BufferedWriter w = new BufferedWriter(new FileWriter(f, append))) {
             if (!append) {
@@ -249,7 +260,7 @@ public class GossipSubObserver implements Control{
 
                 // walk this node's *localMesh* (active peers)
                 for (Map.Entry<String, Set<BigInteger>> entry : gsp.localMesh.entrySet()) {
-                    String topic   = entry.getKey();
+                    String topic = entry.getKey();
                     for (BigInteger dstId : entry.getValue()) {
                         w.write(srcId + "," + dstId + ",Directed,1," + topic);
                         w.newLine();
@@ -260,6 +271,5 @@ public class GossipSubObserver implements Control{
             e.printStackTrace();
         }
     }
-
 
 }
