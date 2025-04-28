@@ -11,48 +11,68 @@ import java.util.Map;
 public class GossipScoringConfig {
 
     public static class TopicParam {
-        public double topicWeight;
-        public double timeInMeshWeight;
-        public double timeInMeshCap;
-
-        public double firstMessageDeliveriesWeight;
-        public double firstMessageDeliveriesDecay;
-        public double firstMessageDeliveriesCap;
-
-        public double meshMessageDeliveriesWeight;
-        public double meshMessageDeliveriesDecay;
-        public double meshMessageDeliveriesCap;
-        public double meshMessageDeliveriesThreshold;
-
-        public double invalidMessageDeliveriesWeight;
-        public double invalidMessageDeliveriesDecay;
+//        public double topicWeight;
+//        public double timeInMeshWeight;
+//        public double timeInMeshCap;
+//
+//        public double firstMessageDeliveriesWeight;
+//        public double firstMessageDeliveriesDecay;
+//        public double firstMessageDeliveriesCap;
+//
+//        public double meshMessageDeliveriesWeight;
+//        public double meshMessageDeliveriesDecay;
+//        public double meshMessageDeliveriesCap;
+//        public double meshMessageDeliveriesThreshold;
+//
+//        public double invalidMessageDeliveriesWeight;
+//        public double invalidMessageDeliveriesDecay;
 
         // (e.g. penalty weights, etc.)
+
+        public double topicWeight            = 1.0;
+
+        public double timeInMeshWeight       = 0.0001;
+        public double timeInMeshCapSeconds   = 3600;
+
+        public double firstMsgWeight         = 1.0;
+        public double firstMsgDecay          = 0.5;
+        public double firstMsgCap            = 40;
+
+        public double meshDeliveriesWeightUnder = -0.25;
+        public double meshDeliveriesWeightOver  = 0.25;
+        public double meshDeliveriesDecay       = 0.9;
+        public double meshDeliveriesCap         = 200;
+        public double meshDeliveriesThreshold   = 10;
+
+        public double invalidMsgWeight      = -2.0;
+        public double invalidMsgDecay       = 0.3;
     }
 
     public static final Map<String, TopicParam> TOPIC_PARAMS = new HashMap<>();
+    public static final TopicParam DEFAULT_TOPIC_PARAM = new TopicParam();
+
 
     static {
         // Example: "Beacon block" topic (mirroring defaultBlockTopicParams)
         {
-            TopicParam blockParam = new TopicParam();
-            blockParam.topicWeight = 0.8; // from beaconBlockWeight
-            blockParam.timeInMeshWeight = 0.05; // example, pick your own
-            blockParam.timeInMeshCap = 60000; // e.g. cap on time in mesh
-
-            blockParam.firstMessageDeliveriesWeight = 1.0;
-            blockParam.firstMessageDeliveriesDecay = 0.9; // approximate
-            blockParam.firstMessageDeliveriesCap = 23; // from go code
-
-            blockParam.meshMessageDeliveriesWeight = -0.717; // from go code
-            blockParam.meshMessageDeliveriesDecay = 0.9;
-            blockParam.meshMessageDeliveriesCap = 64; // e.g. some limit
-            blockParam.meshMessageDeliveriesThreshold = 6.4; // e.g. 1/10 of cap
-
-            blockParam.invalidMessageDeliveriesWeight = -140.4475;
-            blockParam.invalidMessageDeliveriesDecay = 0.99;
-
-            TOPIC_PARAMS.put("beacon_block_topic", blockParam);
+//            TopicParam blockParam = new TopicParam();
+//            blockParam.topicWeight = 0.8; // from beaconBlockWeight
+//            blockParam.timeInMeshWeight = 0.05; // example, pick your own
+//            blockParam.timeInMeshCap = 60000; // e.g. cap on time in mesh
+//
+//            blockParam.firstMessageDeliveriesWeight = 1.0;
+//            blockParam.firstMessageDeliveriesDecay = 0.9; // approximate
+//            blockParam.firstMessageDeliveriesCap = 23; // from go code
+//
+//            blockParam.meshMessageDeliveriesWeight = -0.717; // from go code
+//            blockParam.meshMessageDeliveriesDecay = 0.9;
+//            blockParam.meshMessageDeliveriesCap = 64; // e.g. some limit
+//            blockParam.meshMessageDeliveriesThreshold = 6.4; // e.g. 1/10 of cap
+//
+//            blockParam.invalidMessageDeliveriesWeight = -140.4475;
+//            blockParam.invalidMessageDeliveriesDecay = 0.99;
+//
+//            TOPIC_PARAMS.put("beacon_block_topic", blockParam);
         }
 
         // Example: "Aggregate" topic

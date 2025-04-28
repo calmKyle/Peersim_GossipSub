@@ -488,6 +488,7 @@ plt.legend()
 plt.grid(True)
 
 # Show the plot
+plt.show()
 save_figure("Figure_5")
 
 

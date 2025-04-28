@@ -38,18 +38,18 @@ public class PeerScoreInfo {
      * Helper class to hold all the counters relevant to scoring for a single topic.
      */
     public static class TopicScores {
-        public int firstMessageDeliveries; // # times peer is first to deliver
-        public int invalidMessages; // # invalid messages from peer
-        public int meshMsgDelivered; // actual # of messages delivered
-        public int meshMsgExpected; // how many we "expect" them to deliver
-        public int underDelivery; // shortfall between expected vs. delivered
+        public double firstMessageDeliveries;
+        public double invalidMessages;
+        public double meshMsgDelivered;
+        public double meshMsgExpected;
+        public double underDelivery;
 
         public TopicScores() {
-            this.firstMessageDeliveries = 0;
-            this.invalidMessages = 0;
-            this.meshMsgDelivered = 0;
-            this.meshMsgExpected = 10; // Example default
-            this.underDelivery = 0;
+            firstMessageDeliveries = 0;
+            invalidMessages = 0;
+            meshMsgDelivered = 0;
+            meshMsgExpected = 10;
+            underDelivery = 0;
         }
     }
 }

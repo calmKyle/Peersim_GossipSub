@@ -1,11 +1,8 @@
 package peersim.GossipSub;
 
 import java.math.BigInteger;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.HashSet;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import peersim.config.Configuration;
 import peersim.core.CommonState;
@@ -54,38 +51,62 @@ public class HeartbeatManager {
             System.out.println("[DEBUG HEARTBEAT] Computing peer scores on node " + protocol.getNodeId());
         }
 
-        for (Map.Entry<BigInteger, PeerScoreInfo> entry : peerScores.entrySet()) {
-            PeerScoreInfo psi = entry.getValue();
-            decayPeerTopicCounters(psi); // <-- new
+//        for (Map.Entry<BigInteger, PeerScoreInfo> entry : peerScores.entrySet()) {
+//            PeerScoreInfo psi = entry.getValue();
+//            decayPeerTopicCounters(psi); // <-- new
+//            double oldScore = psi.cachedScore;
+//            double newScore = protocol.computeScore(psi);
+//            psi.cachedScore = newScore;
+//
+//            if (isDEBUG) {
+//                System.out.println("[DEBUG SCORE] Peer=" + entry.getKey() +
+//                        " oldScore=" + oldScore +
+//                        " newScore=" + newScore);
+//            }
+//        }
+
+        for (Map.Entry<BigInteger, PeerScoreInfo> entry
+                : new ArrayList<>(peerScores.entrySet())) {
+            BigInteger      peerID = entry.getKey();
+            PeerScoreInfo   psi    = entry.getValue();
+
+            decayPeerTopicCounters(psi);
             double oldScore = psi.cachedScore;
             double newScore = protocol.computeScore(psi);
             psi.cachedScore = newScore;
 
             if (isDEBUG) {
-                System.out.println("[DEBUG SCORE] Peer=" + entry.getKey() +
-                        " oldScore=" + oldScore +
-                        " newScore=" + newScore);
+                System.out.printf("[SCORE] peer=%s  old=%.2f  new=%.2f%n",
+                        peerID, oldScore, newScore);
             }
-        }
 
-        for (BigInteger peerID : peerScores.keySet()) {
-            PeerScoreInfo psi = peerScores.get(peerID);
-            double s = protocol.computeScore(psi);
-            if (s < 0) {
-                // for each topic where this peer is in your mesh, prune them
+            /* ---------- apply threshold gates ---------- */
+            if (newScore < GossipScoringConfig.GRAYLIST_THRESHOLD) {
+                /* hard gray-list: drop all RPC from this peer */
+//                protocol.graylistPeer(peerID);
+                continue;  // nothing else to do with a gray-listed peer
+            }
+
+            if (newScore < GossipScoringConfig.PUBLISH_THRESHOLD) {
+                /* below publishThreshold → prune from every mesh */
                 for (String topicID : protocol.localMesh.keySet()) {
-                    int size = protocol.localMesh.get(topicID).size();
-                    if (size < protocol.minDegree) {
-                        int needed = protocol.degree - size;
-                        if (isDEBUG) {
-                            System.out.printf("[HB] node %s topic %s below min (%d); grafting %d%n",
-                                    protocol.nodeId, topicID, size, needed);
-                        }
-                        protocol.addMorePeers(topicID, needed);
+                    if (protocol.inMyMesh(topicID, peerID)) {
+                        protocol.prunePeer(peerID, topicID);
                     }
                 }
             }
+
+            if (newScore < GossipScoringConfig.GOSSIP_THRESHOLD) {
+                /*  gossipThreshold → ignore IHAVE/IWANT from this peer */
+//                protocol.blackholeGossip(peerID);
+            }
+
+            if (newScore > GossipScoringConfig.ACCEPTPX_THRESHOLD) {
+                /* high score → send Peer-Exchange */
+//                protocol.maybeSharePeerExchange(peerID);
+            }
         }
+
 
         // Update mesh connections if needed
         protocol.updateMeshConnections();
@@ -124,13 +145,24 @@ public class HeartbeatManager {
      * Decays each peer’s counters on each topic by DECAY_FACTOR.
      */
     private void decayPeerTopicCounters(PeerScoreInfo psi) {
-        for (PeerScoreInfo.TopicScores tsc : psi.topicScoresMap.values()) {
-            tsc.firstMessageDeliveries = (int) Math.floor(tsc.firstMessageDeliveries * DECAY_FACTOR);
-            tsc.invalidMessages = (int) Math.floor(tsc.invalidMessages * DECAY_FACTOR);
-            tsc.meshMsgDelivered = (int) Math.floor(tsc.meshMsgDelivered * DECAY_FACTOR);
-            // tsc.meshMsgExpected could be left alone or decayed if you prefer
-            // tsc.underDelivery is recalculated each computeScore
+        for (Map.Entry<String, PeerScoreInfo.TopicScores> e : psi.topicScoresMap.entrySet()) {
+            String t = e.getKey();
+            PeerScoreInfo.TopicScores ts = e.getValue();
+            GossipScoringConfig.TopicParam p =
+                    GossipScoringConfig.TOPIC_PARAMS.getOrDefault(
+                            t, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
+
+            ts.firstMessageDeliveries = ts.firstMessageDeliveries * p.firstMsgDecay;
+            ts.invalidMessages        = ts.invalidMessages  * p.invalidMsgDecay;
+            ts.meshMsgDelivered       = ts.meshMsgDelivered * p.meshDeliveriesDecay;
+
+            /* expected messages grows each heartbeat by the threshold */
+            ts.meshMsgExpected = ts.meshMsgExpected * p.meshDeliveriesDecay
+                    + p.meshDeliveriesThreshold;
+            ts.underDelivery   = Math.max(0,
+                    ts.meshMsgExpected - ts.meshMsgDelivered);
         }
     }
+
 
 }

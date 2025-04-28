@@ -20,7 +20,7 @@ import static peersim.GossipSub.GossipScoringConfig.TOPIC_PARAMS;
 public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     // private static final int MSG_HEARTBEAT = 9999;
-    private static final long HEARTBEAT_PERIOD = 2000; // 1 second
+    private static final long HEARTBEAT_PERIOD = 1000; // 1 second
 
     private Map<Long, Long> lastAdvertisedTime = new HashMap<>();
     private static final long ADVERTISEMENT_TTL = 5000;
@@ -37,6 +37,11 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             : (int) Math.ceil(
                     (NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
     private static final double GOSSIP_FACTOR    = Configuration.getDouble("GOSSIP_FACTOR", 0.33);
+    private static final long SAMPLE_REQ_TIMEOUT =
+            Configuration.getLong("SAMPLE_REQ_TIMEOUT", 4000);  // 4 s fallback
+
+    private static final long SLOT_DURATION =
+            Configuration.getLong("SLOT_DURATION", 12000);      // 12 s fallback
 
 
 
@@ -222,59 +227,95 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //        return 0;
 //    }
 
+//    public double computeScore(PeerScoreInfo psi) {
+//        long now = CommonState.getTime();
+//        double totalScore = 0.0;
+//
+//        // For each topic this peer is associated with:
+//        for (Map.Entry<String, PeerScoreInfo.TopicScores> entry : psi.topicScoresMap.entrySet()) {
+//            String topicId = entry.getKey();
+//            PeerScoreInfo.TopicScores tScores = entry.getValue();
+//
+//            // Get the scoring parameters for this topic
+//            GossipScoringConfig.TopicParam param = TOPIC_PARAMS.get(topicId);
+//            if (param == null) {
+//                // If no known param for this topic, skip or apply a default
+//                continue;
+//            }
+//
+//            double topicScore = 0.0;
+//
+//            // 1) Time in mesh
+//            double timeInMesh = now - psi.timeInMeshStart;
+//            double cappedTime = Math.min(timeInMesh, param.timeInMeshCap);
+//            double timeInMeshPart = param.timeInMeshWeight * cappedTime;
+//            topicScore += timeInMeshPart;
+//
+//            // 2) First message deliveries
+//            // Possibly your decays happen in HeartbeatManager; here we just sum
+//            double firstDelivCount = tScores.firstMessageDeliveries;
+//            double cappedFirstDeliv = Math.min(firstDelivCount, param.firstMessageDeliveriesCap);
+//            double firstDelivScore = param.firstMessageDeliveriesWeight * cappedFirstDeliv;
+//            topicScore += firstDelivScore;
+//
+//            // 3) Mesh deliveries
+//            double meshDelivered = tScores.meshMsgDelivered;
+//            double cappedMesh = Math.min(meshDelivered, param.meshMessageDeliveriesCap);
+//            // Optionally compare with param.meshMessageDeliveriesThreshold if you want
+//            double meshDelivScore = param.meshMessageDeliveriesWeight * cappedMesh;
+//            topicScore += meshDelivScore;
+//
+//            // 4) Invalid messages
+//            double invalidCount = tScores.invalidMessages;
+//            double invalidScore = param.invalidMessageDeliveriesWeight * invalidCount;
+//            topicScore += invalidScore;
+//
+//            // Multiply final by param.topicWeight (if desired).
+//            topicScore *= param.topicWeight;
+//
+//            // Add to total
+//            totalScore += topicScore;
+//        }
+//
+//        psi.cachedScore = totalScore; // store for quick reference
+//        return totalScore;
+//    }
+
     public double computeScore(PeerScoreInfo psi) {
-        long now = CommonState.getTime();
-        double totalScore = 0.0;
+        long nowMs = CommonState.getTime();
+        double total = 0.0;
 
-        // For each topic this peer is associated with:
-        for (Map.Entry<String, PeerScoreInfo.TopicScores> entry : psi.topicScoresMap.entrySet()) {
-            String topicId = entry.getKey();
-            PeerScoreInfo.TopicScores tScores = entry.getValue();
+        for (Map.Entry<String, PeerScoreInfo.TopicScores> e : psi.topicScoresMap.entrySet()) {
+            String t = e.getKey();
+            PeerScoreInfo.TopicScores ts = e.getValue();
+            GossipScoringConfig.TopicParam p =
+                    TOPIC_PARAMS.getOrDefault(t, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
 
-            // Get the scoring parameters for this topic
-            GossipScoringConfig.TopicParam param = TOPIC_PARAMS.get(topicId);
-            if (param == null) {
-                // If no known param for this topic, skip or apply a default
-                continue;
-            }
+            /* a) time-in-mesh in **seconds** */
+            double secs  = (nowMs - psi.timeInMeshStart) / 1000.0;
+            double timeScore = p.timeInMeshWeight * Math.min(secs, p.timeInMeshCapSeconds);
 
-            double topicScore = 0.0;
+            /* first deliveries */
+            double first = p.firstMsgWeight *
+                    Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
 
-            // 1) Time in mesh
-            double timeInMesh = now - psi.timeInMeshStart;
-            double cappedTime = Math.min(timeInMesh, param.timeInMeshCap);
-            double timeInMeshPart = param.timeInMeshWeight * cappedTime;
-            topicScore += timeInMeshPart;
+            /* b) mesh deliveries reward / penalty around threshold */
+            double meshDelivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
+            double meshScore = (meshDelivered < p.meshDeliveriesThreshold)
+                    ? p.meshDeliveriesWeightUnder *
+                    (p.meshDeliveriesThreshold - meshDelivered)
+                    : p.meshDeliveriesWeightOver  *
+                    (meshDelivered - p.meshDeliveriesThreshold);
 
-            // 2) First message deliveries
-            // Possibly your decays happen in HeartbeatManager; here we just sum
-            double firstDelivCount = tScores.firstMessageDeliveries;
-            double cappedFirstDeliv = Math.min(firstDelivCount, param.firstMessageDeliveriesCap);
-            double firstDelivScore = param.firstMessageDeliveriesWeight * cappedFirstDeliv;
-            topicScore += firstDelivScore;
+            /* invalid msgs */
+            double invalid = p.invalidMsgWeight * ts.invalidMessages;
 
-            // 3) Mesh deliveries
-            double meshDelivered = tScores.meshMsgDelivered;
-            double cappedMesh = Math.min(meshDelivered, param.meshMessageDeliveriesCap);
-            // Optionally compare with param.meshMessageDeliveriesThreshold if you want
-            double meshDelivScore = param.meshMessageDeliveriesWeight * cappedMesh;
-            topicScore += meshDelivScore;
-
-            // 4) Invalid messages
-            double invalidCount = tScores.invalidMessages;
-            double invalidScore = param.invalidMessageDeliveriesWeight * invalidCount;
-            topicScore += invalidScore;
-
-            // Multiply final by param.topicWeight (if desired).
-            topicScore *= param.topicWeight;
-
-            // Add to total
-            totalScore += topicScore;
+            total += p.topicWeight * (timeScore + first + meshScore + invalid);
         }
-
-        psi.cachedScore = totalScore; // store for quick reference
-        return totalScore;
+        psi.cachedScore = total;
+        return total;
     }
+
 
     public void advertiseMessageIHAVE(Message originalMsg, int myPid) {
         Set<BigInteger> peers = localMesh.getOrDefault(originalMsg.messageTopicID, Collections.emptySet());
@@ -298,58 +339,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-//    public void advertiseMessageIHAVE(Message originalMsg, int myPid) {
-//        if (isDEBUG) {
-//            System.out.println("[DEBUG] Node " + nodeId +
-//                    " advertiseMessageIHAVE for msgID=" + originalMsg.id);
-//        }
-//
-//        Message ihave = createMessage(
-//                originalMsg.id,
-//                Message.MSG_IHAVE,
-//                this.nodeId,
-//                null,
-//                originalMsg.messageTopicID,
-//                null,
-//                originalMsg.isRow,
-//                originalMsg.rowOrColumnNumber,
-//                originalMsg.partNumber,
-//                CommonState.getTime(),
-//                -6);
-//
-//        Set<BigInteger> peers = localMesh.getOrDefault(originalMsg.messageTopicID, new HashSet<>());
-//        for (BigInteger peer : peers) {
-//            if (peer.equals(this.nodeId))
-//                continue;
-//            if (isDEBUG) {
-//                System.out.println("[DEBUG] -> Sending IHAVE(msgID=" + originalMsg.id +
-//                        ") to peer=" + peer + " from node=" + nodeId);
-//            }
-//            Message copy = (Message) ihave.copy();
-//            copy.dest = peer;
-//            publishMessage(copy, peer, myPid);
-//        }
-//    }
-//
-//    public void removePeerFromMesh(BigInteger peerID) {
-//        // remove from all topics in localMesh
-//        for (String topicID : localMesh.keySet()) {
-//            localMesh.get(topicID).remove(peerID);
-//        }
-//        // remove from scoring as well, or optionally keep as "disconnected" data
-//        peerScores.remove(peerID);
-//    }
-//
-//    public void setMeshDegree(int newDegree) {
-//        if (newDegree >= minDegree && newDegree <= maxDegree) {
-//            this.degree = newDegree;
-//            updateMeshConnections();
-//        } else {
-//            if (isDEBUG) {
-//                System.out.println("[DEGREE ISSUE:]Degree must be between " + minDegree + " and " + maxDegree);
-//            }
-//        }
-//    }
 
     public void updateMeshConnections() {
         if (subscribedTopics.isEmpty())
@@ -369,7 +358,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             }
         }
     }
-    private boolean inMyMesh(String topicID, BigInteger peer) {
+    public boolean inMyMesh(String topicID, BigInteger peer) {
         Set<BigInteger> mesh = localMesh.get(topicID);
         return mesh != null && mesh.contains(peer);
     }
@@ -725,7 +714,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void publishMessage(Message m, BigInteger destId, int myPid) {
 
         // Malicious
-        if (isMaliciousNode() && !m.src.equals(this.nodeId) ) {
+        //
+        if (isMaliciousNode() && !m.src.equals(this.nodeId)) {
             if (isDEBUG) {
                 System.out.println("[MALICIOUS‑DROP] node " + nodeId +
                         " dropped fwd of msg " + m.id);
@@ -783,14 +773,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             if (peerId.equals(messageSender) || peerId.equals(m.src)) {
                 continue;
             }
-            // Malicious
-//            if (this.isMaliciousNode() ) {
-//                if (isDEBUG) {
-//                    System.out.println("[MALICIOUS] Node " + this.nodeId
-//                            + " is dropping message ID=" + m.id + " instead of sendMessageToTopicNodes.");
-//                }
-//                return;
-//            }
             Message newMessage = createMessage(
                     m.id, m.type, src, peerId, m.messageTopicID,
                     m.body, m.isRow, m.rowOrColumnNumber, m.partNumber,
@@ -1089,6 +1071,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     + " received IWANT for msgId=" + m.id
                     + " from node " + m.src);
         }
+//        if (isMaliciousNode()) return;
 
         // Try to find the requested message among your local caches/collections.
         // For example, if you store complete messages in 'messageCache', do:
@@ -1492,9 +1475,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         long latency = transport.getLatency(src, dest);
         EDSimulator.add(4 * latency, timeout, src, gossipSubId);
+//        EDSimulator.add(SAMPLE_REQ_TIMEOUT, timeout, src, gossipSubId);
+
     }
 
     public void handleSampleRequest(Message m, int myPid) {
+//        if (isMaliciousNode()) return;
+
         boolean requestedRow = m.isRow;
         int rowOrColNumb = m.rowOrColumnNumber;
         int idx = Integer.parseInt((String) m.body);
@@ -1581,8 +1568,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             Node src = CustomDistribution.networkNodes.get(this.nodeId);
             Node dest = CustomDistribution.networkNodes.get(destId);
             long latency = transport.getLatency(src, dest);
-
             EDSimulator.add(4 * latency, newTimeout, src, gossipSubId);
+//            EDSimulator.add(SAMPLE_REQ_TIMEOUT, newTimeout, src, gossipSubId);
+
         }
     }
 
