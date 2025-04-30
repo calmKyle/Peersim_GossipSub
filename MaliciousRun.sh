@@ -15,7 +15,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Step 2: Run simulations
-JAVA_OPTS="-Xmx48000m -Xms2000m"
+JAVA_OPTS="-Xmx32000m -Xms2000m"
 CLASSPATH="${LIB_JARS}:classes"
 CONFIG_DIR="MaliciousConfig"
 

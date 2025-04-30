@@ -714,8 +714,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void publishMessage(Message m, BigInteger destId, int myPid) {
 
         // Malicious
-        //
-        if (isMaliciousNode() && !m.src.equals(this.nodeId)) {
+        //&& !m.src.equals(this.nodeId)
+        if (isMaliciousNode() ) {
             if (isDEBUG) {
                 System.out.println("[MALICIOUS‑DROP] node " + nodeId +
                         " dropped fwd of msg " + m.id);
