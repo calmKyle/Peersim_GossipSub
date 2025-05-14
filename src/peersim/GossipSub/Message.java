@@ -175,6 +175,25 @@ public class Message extends SimpleEvent {
         return dolly;
     }
 
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Message)) return false;
+
+        Message other = (Message) o;
+        return  id == other.id &&
+                isRow == other.isRow &&
+                rowOrColumnNumber == other.rowOrColumnNumber &&
+                partNumber == other.partNumber;
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(id, isRow, rowOrColumnNumber, partNumber);
+    }
+
+
     // ______________________________________________________________________________________________
     public String messageTypetoString() {
         switch (type) {

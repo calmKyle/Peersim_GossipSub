@@ -58,7 +58,7 @@ public class GossipSubObserver implements Control {
     public boolean execute() {
 
         printResult();
-        printMesh();
+//        printMesh();
 
         return false;
     }
@@ -69,7 +69,8 @@ public class GossipSubObserver implements Control {
             directory.mkdirs();
         }
         double currentMaliciousRateID = Configuration.getDouble("MALICIOUS_RATE", 0.0);
-        String filePath = "CSVOut/output_results_malicious_rate_" + currentMaliciousRateID + ".csv";
+        double seedID = Configuration.getDouble("random.seed", 0.0);
+        String filePath = "CSVOut/output_results_malicious_rate_" + currentMaliciousRateID + "_seed_" + seedID +".csv";
 
         boolean append = CommonState.getTime() > 0; // Always append for times > 0
 
@@ -152,9 +153,9 @@ public class GossipSubObserver implements Control {
                         protocol.samplingRTTTimeStore.getAverage(),
                         protocol.samplingRTTTimeStore.getMax());
                 System.out.println(metrics3);
+                double bw = protocol.getAverageBandwidthKBps();
                 String metrics4 = String.format(
-                        "[average bandwidth=%f]",
-                        ((double) protocol.totalDataTransmitted / (double) (protocol.totalTransmissionTime) * 1000));
+                        "[average bandwidth=%f]", bw);
                 System.out.println(metrics4);
                 System.out.println();
                 System.out.println();
@@ -226,7 +227,7 @@ public class GossipSubObserver implements Control {
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMin() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getAverage() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMax() : 0.0,
-                        (double) protocol.totalDataTransmitted / (double) (protocol.totalTransmissionTime * 1000),
+                        bw,
                         (double) protocol.duplicateData);
 
                 writer.write(metrics);

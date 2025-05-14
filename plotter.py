@@ -454,7 +454,7 @@ df = pd.read_csv('output_results.csv')
 # times_Seed = df['Seed Arrival Times'].str.split('; ')
 # times_Seed = [int(time) for sublist in times_Seed for time in sublist]
 
-times_Seed = df['Max Seed RTT']
+times_Seed = df['Max Seed Part RTT']
 times_Sample = df['Max Sample RTT']
 
 # Ensure all times are within the desired range of 0 to 4000ms
@@ -469,7 +469,7 @@ cumulative_node_count_sample = np.arange(1, len(data_sorted_sample) + 1)
 
 # Plotting the CDF
 plt.figure(figsize=(8, 6))
-plt.step(data_sorted_seed, cumulative_node_count_seed, where='post', label='Seed Arrival Times')
+plt.step(data_sorted_seed, cumulative_node_count_seed, where='post', label='Seed Part Arrival Times')
 plt.step(data_sorted_sample, cumulative_node_count_sample, where='post', label='Max Sample RTT')
 plt.title('CDF of Node Distribution Over Time')
 plt.xlabel('Time (ms)')
@@ -508,13 +508,13 @@ df.columns = df.columns.str.strip()
 plt.figure(figsize=(8, 6))
 
 # 4. Plot two lines, each with a label for the legend
-plt.plot(df["Node ID"], df["Duplicated Message IHAVE"], marker="o", label="Duplicated IHAVE")
-plt.plot(df["Node ID"], df["Total Sample Req Sent"], marker="x", label="Total Sample Req Sent")
+plt.plot(df["Node ID"], df["Duplicated Message IHAVE"], marker="o", label="Duplicated Data")
+# plt.plot(df["Node ID"], df["Total Sample Req Sent"], marker="x", label="Total Sample Req Sent")
 
 # 5. Label axes and add a title
 plt.xlabel("Node ID")
 plt.ylabel("Value")
-plt.title("Duplicate IHAVE vs Total Sample Req Sent by Node")
+plt.title("Duplicate Data with Sharding Distribution")
 
 # 6. Show the legend so we know which line is which
 plt.legend()
