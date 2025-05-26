@@ -1761,8 +1761,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             boolean isRow) {
         // Only build a new 'baseMessage' if this is the first copy
         if (copiesSent == 0) {
-//            int halfRows = Configuration.getInt("NUMBER_OF_ROWS") / 2;
-            int halfRows = Configuration.getInt("NUMBER_OF_ROWS");
+            int halfRows = Configuration.getInt("NUMBER_OF_ROWS") / 2;
+//            int halfRows = Configuration.getInt("NUMBER_OF_ROWS");
             // Determine which data need to send (row or column).
             // For example, if rows are large, you're only sending half of it here.
             byte[][] dataToSend = isRow
@@ -2101,6 +2101,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         System.out.println("*********Block proposer has sent the messages ********");
         System.out.printf("Data sent size       : %d%n", totalDataTransmitted);
         System.out.printf("Data transmission time: %d ms%n", totalTransmissionTime);
+        System.out.printf("Malicious Rate: " + Configuration.getInt("MALICIOUS_RATE"));
+        System.out.println("Seed Number: " + Configuration.getInt("random.seed"));
     }
 
 

@@ -21,7 +21,7 @@ CLASSPATH="${LIB_JARS}:classes"
 CONFIG_DIR="MaliciousConfig"
 
 # Loop through each .cfg file
-for cfg_path in "$CONFIG_DIR"/SeedCompletionMalicious1_0/**/*.cfg; do
+for cfg_path in "$CONFIG_DIR"/SeedCompletionMalicious*/**/*.cfg; do
     # Extract just the file name (e.g., MaliciousGossipConfig_10.cfg)
     cfg_file=$(basename "$cfg_path")
 
