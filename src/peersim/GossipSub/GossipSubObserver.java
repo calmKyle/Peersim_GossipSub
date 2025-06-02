@@ -298,8 +298,85 @@ public class GossipSubObserver implements Control {
      * @param t   current tick (CommonState.getTime())
      * @param pid protocol id that holds GossipSubProtocol
      */
+//    private void dumpIHAVE_IWANT(int t, int pid) {
+//
+//        long netRecvIWANT = 0, netSendIHAVE = 0;
+//
+//        for (int i = 0; i < Network.size(); i++) {
+//            Node n = Network.get(i);
+//            GossipSubProtocol p = (GossipSubProtocol) n.getProtocol(pid);
+//
+//            long curRecvIWANT = p.iWantRecv;
+//            long curSendIHAVE = p.iHaveSent;
+//
+//            long[] last = lastTotals.computeIfAbsent(p.nodeId, k -> new long[2]);
+//            long dRecvIWANT = curRecvIWANT - last[0];
+//            long dSendIHAVE = curSendIHAVE - last[1];
+//            last[0] = curRecvIWANT;
+//            last[1] = curSendIHAVE;
+//
+//            netRecvIWANT += dRecvIWANT;
+//            netSendIHAVE += dSendIHAVE;
+//
+//            BufferedWriter bw = nodeWriters.get(p.nodeId);
+//            try {
+//                if (bw == null) {
+//                    Path f = Paths.get("Node_Message", "node_" + p.nodeId + ".csv");
+//                    bw = Files.newBufferedWriter(f,
+//                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+//                    bw.write("t,RECV_IWANT,SENT_IHAVE\n");
+//                    nodeWriters.put(p.nodeId, bw);
+//                }
+//                bw.write(t + "," + dRecvIWANT + "," + dSendIHAVE + '\n');
+//                bw.flush();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//
+//        try {
+//            if (totalWriter == null) {
+//                Path f = Paths.get("Total_message", "total_messages.csv");
+//                totalWriter = Files.newBufferedWriter(f,
+//                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+//                totalWriter.write("t,TOT_RECV_IWANT,TOT_SENT_IHAVE\n");
+//            }
+//            totalWriter.write(t + "," + netRecvIWANT + "," + netSendIHAVE + '\n');
+//            totalWriter.flush();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+    private long activeSeed = Long.MIN_VALUE;
     private void dumpIHAVE_IWANT(int t, int pid) {
 
+        /* ---------- 1. Resolve the current seed & folders ---------- */
+        long seed = (long) Configuration.getDouble("random.seed", 0.0);   // strip “.0”
+        Path baseDir        = Paths.get("CSV_MESSAGE_TYPE_OUT");
+        Path nodeSeedDir    = baseDir.resolve("Node_Message_Seed_"  + seed);
+        Path totalSeedDir   = baseDir.resolve("Total_Message_Seed_" + seed);
+
+        try {
+            Files.createDirectories(nodeSeedDir);
+            Files.createDirectories(totalSeedDir);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;                        // bail out for this tick
+        }
+
+        /* ---------- 2. If the seed changed, close & reset writers ---------- */
+        if (seed != activeSeed) {
+            nodeWriters.values().forEach(bw -> { try { bw.close(); } catch (IOException ignored) {} });
+            nodeWriters.clear();
+            if (totalWriter != null) {
+                try { totalWriter.close(); } catch (IOException ignored) {}
+                totalWriter = null;
+            }
+            activeSeed = seed;             // remember the new seed
+        }
+
+        /* ---------- 3. Collect per-node deltas and write CSVs ---------- */
         long netRecvIWANT = 0, netSendIHAVE = 0;
 
         for (int i = 0; i < Network.size(); i++) {
@@ -318,34 +395,37 @@ public class GossipSubObserver implements Control {
             netRecvIWANT += dRecvIWANT;
             netSendIHAVE += dSendIHAVE;
 
-            BufferedWriter bw = nodeWriters.get(p.nodeId);
+            /* ----- per-node file ----- */
             try {
+                BufferedWriter bw = nodeWriters.get(p.nodeId);
                 if (bw == null) {
-                    Path f = Paths.get("Node_Message", "node_" + p.nodeId + ".csv");
+                    Path f = nodeSeedDir.resolve("node_" + p.nodeId + ".csv");
                     bw = Files.newBufferedWriter(f,
-                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.TRUNCATE_EXISTING,
+                            StandardOpenOption.WRITE);
                     bw.write("t,RECV_IWANT,SENT_IHAVE\n");
                     nodeWriters.put(p.nodeId, bw);
                 }
                 bw.write(t + "," + dRecvIWANT + "," + dSendIHAVE + '\n');
                 bw.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            } catch (IOException e) { e.printStackTrace(); }
         }
 
+        /* ---------- 4. Aggregated “total” file ---------- */
         try {
             if (totalWriter == null) {
-                Path f = Paths.get("Total_message", "total_messages.csv");
+                Path f = totalSeedDir.resolve("total_messages.csv");
                 totalWriter = Files.newBufferedWriter(f,
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING,
+                        StandardOpenOption.WRITE);
                 totalWriter.write("t,TOT_RECV_IWANT,TOT_SENT_IHAVE\n");
             }
             totalWriter.write(t + "," + netRecvIWANT + "," + netSendIHAVE + '\n');
             totalWriter.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        } catch (IOException e) { e.printStackTrace(); }
     }
+
 
 }
