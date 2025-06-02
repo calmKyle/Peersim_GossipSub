@@ -75,7 +75,7 @@ public class GossipSubObserver implements Control {
 
         int t = (int) CommonState.getTime();
         printResult();
-//        dumpIHAVE_IWANT(t, pid);
+        dumpIHAVE_IWANT(t, pid);
         // printMesh();
 
         return false;
