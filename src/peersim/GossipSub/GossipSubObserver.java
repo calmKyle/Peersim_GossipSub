@@ -14,9 +14,16 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 public class GossipSubObserver implements Control {
     /**
@@ -39,6 +46,15 @@ public class GossipSubObserver implements Control {
     /** Protocol id */
     private int pid;
 
+    /** nodeId → { lastComeIHAVE , lastComeIWANT } */
+    private final Map<BigInteger, long[]> lastTotals = new HashMap<>();
+
+    /** nodeId → Writer for Node_Message/node_<id>.csv */
+    private final Map<BigInteger, BufferedWriter> nodeWriters = new HashMap<>();
+
+    /** Writer for Total_message/total_messages.csv */
+    private BufferedWriter totalWriter;
+
     /** Prefix to be printed in output */
     private String prefix;
 
@@ -57,8 +73,10 @@ public class GossipSubObserver implements Control {
      */
     public boolean execute() {
 
+        int t = (int) CommonState.getTime();
         printResult();
-//        printMesh();
+//        dumpIHAVE_IWANT(t, pid);
+        // printMesh();
 
         return false;
     }
@@ -70,7 +88,7 @@ public class GossipSubObserver implements Control {
         }
         double currentMaliciousRateID = Configuration.getDouble("MALICIOUS_RATE", 0.0);
         double seedID = Configuration.getDouble("random.seed", 0.0);
-        String filePath = "CSVOut/output_results_malicious_rate_" + currentMaliciousRateID + "_seed_" + seedID +".csv";
+        String filePath = "CSVOut/output_results_malicious_rate_" + currentMaliciousRateID + "_seed_" + seedID + ".csv";
 
         boolean append = CommonState.getTime() > 0; // Always append for times > 0
 
@@ -124,7 +142,7 @@ public class GossipSubObserver implements Control {
                         protocol.seedArrivalTimeStore.getMin(),
                         protocol.seedArrivalTimeStore.getAverage(),
                         protocol.seedArrivalTimeStore.getMax());
-                System.out.println(metrics1);
+                // System.out.println(metrics1);
                 if (proposerStratergy == 2) {
                     String metrics2 = String.format(
                             "[time=%d] Node %d: [Total Seed Parts Recieved=%d] [Seed Part Arrival Times=%s] [Seed Part RTT times=%s] [%f min ] [%f msec average ] [%f max ]",
@@ -136,7 +154,7 @@ public class GossipSubObserver implements Control {
                             protocol.seedPartArrivalTimeStore.getMin(),
                             protocol.seedPartArrivalTimeStore.getAverage(),
                             protocol.seedPartArrivalTimeStore.getMax());
-                    System.out.println(metrics2);
+                    // System.out.println(metrics2);
                 }
 
                 String metrics3 = String.format(
@@ -152,13 +170,13 @@ public class GossipSubObserver implements Control {
                         protocol.samplingRTTTimeStore.getMin(),
                         protocol.samplingRTTTimeStore.getAverage(),
                         protocol.samplingRTTTimeStore.getMax());
-                System.out.println(metrics3);
+                // System.out.println(metrics3);
                 double bw = protocol.getAverageBandwidthKBps();
                 String metrics4 = String.format(
                         "[average bandwidth=%f]", bw);
-                System.out.println(metrics4);
-                System.out.println();
-                System.out.println();
+                // System.out.println(metrics4);
+                // System.out.println();
+                // System.out.println();
 
                 Collections.sort(protocol.messageArrivalTimeFromBP);
                 Collections.sort(protocol.messageDelayTimeFromBP);
@@ -268,6 +286,63 @@ public class GossipSubObserver implements Control {
                     }
                 }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Dump one CSV row per node *and* one aggregated row for the whole
+     * network for the current simulation tick.
+     *
+     * @param t   current tick (CommonState.getTime())
+     * @param pid protocol id that holds GossipSubProtocol
+     */
+    private void dumpIHAVE_IWANT(int t, int pid) {
+
+        long netRecvIWANT = 0, netSendIHAVE = 0;
+
+        for (int i = 0; i < Network.size(); i++) {
+            Node n = Network.get(i);
+            GossipSubProtocol p = (GossipSubProtocol) n.getProtocol(pid);
+
+            long curRecvIWANT = p.iWantRecv;
+            long curSendIHAVE = p.iHaveSent;
+
+            long[] last = lastTotals.computeIfAbsent(p.nodeId, k -> new long[2]);
+            long dRecvIWANT = curRecvIWANT - last[0];
+            long dSendIHAVE = curSendIHAVE - last[1];
+            last[0] = curRecvIWANT;
+            last[1] = curSendIHAVE;
+
+            netRecvIWANT += dRecvIWANT;
+            netSendIHAVE += dSendIHAVE;
+
+            BufferedWriter bw = nodeWriters.get(p.nodeId);
+            try {
+                if (bw == null) {
+                    Path f = Paths.get("Node_Message", "node_" + p.nodeId + ".csv");
+                    bw = Files.newBufferedWriter(f,
+                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+                    bw.write("t,RECV_IWANT,SENT_IHAVE\n");
+                    nodeWriters.put(p.nodeId, bw);
+                }
+                bw.write(t + "," + dRecvIWANT + "," + dSendIHAVE + '\n');
+                bw.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        try {
+            if (totalWriter == null) {
+                Path f = Paths.get("Total_message", "total_messages.csv");
+                totalWriter = Files.newBufferedWriter(f,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+                totalWriter.write("t,TOT_RECV_IWANT,TOT_SENT_IHAVE\n");
+            }
+            totalWriter.write(t + "," + netRecvIWANT + "," + netSendIHAVE + '\n');
+            totalWriter.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
