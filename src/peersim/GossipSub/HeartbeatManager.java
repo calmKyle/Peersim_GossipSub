@@ -107,6 +107,11 @@ public class HeartbeatManager {
             }
         }
 
+        if (GossipSubProtocol.USE_ADAPTIVE_GOSSIP) {
+            for (GossipSubProtocol.GossipTracer gt : protocol.gossipTracer.values())
+                gt.decay(GossipSubProtocol.TRACER_DECAY);
+        }
+
 
         // Update mesh connections if needed
         protocol.updateMeshConnections();

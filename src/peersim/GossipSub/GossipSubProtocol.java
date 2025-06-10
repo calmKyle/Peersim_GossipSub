@@ -22,6 +22,36 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     private static final long HEARTBEAT_PERIOD = 1000; // 1 second
 
+    // --- Adaptive Gossip tracer (v1.1) ---
+    public static final boolean USE_ADAPTIVE_GOSSIP =
+            Configuration.getBoolean("USE_ADAPTIVE_GOSSIP", false);
+
+    private static final int D_LAZY = Configuration.getInt("D_LAZY", 6);
+    public final Map<BigInteger,GossipTracer> gossipTracer = new HashMap<>();
+    public static final double TRACER_DECAY =
+            Configuration.getDouble("ADAPTIVE_GOSSIP_DECAY", 0.5);
+    public static final double TRACER_TH   =
+            Configuration.getDouble("ADAPTIVE_GOSSIP_THRESHOLD", 0.3);
+
+
+    static class GossipTracer {
+        int ihaveSeen  = 0;     // adverts received from that peer
+        int iwantSent  = 0;     // IWANTs we had to send to that peer
+        void decay(double f) {               // exponential decay every heartbeat
+            ihaveSeen = (int) (ihaveSeen * f);
+            iwantSent = (int) (iwantSent * f);
+        }
+    }
+
+    // Counter per tick
+    public long iHaveSent = 0;
+    public long iWantRecv = 0;
+    public ArrayList<Long> iHaveSentAtT = new ArrayList<>();
+    public ArrayList<Long> iWantRecvAtT = new ArrayList<>();
+    private long _lastIHaveSent = 0, _lastIWantRecv = 0;
+
+
+
     private Map<Long, Long> lastAdvertisedTime = new HashMap<>();
     private static final long ADVERTISEMENT_TTL = 5000;
 
@@ -117,12 +147,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     private Set<Long> seenMessageIDs = new HashSet<>();
 
-    // Counter per tick
-    public long iHaveSent = 0;
-    public long iWantRecv = 0;
-    public ArrayList<Long> iHaveSentAtT = new ArrayList<>();
-    public ArrayList<Long> iWantRecvAtT = new ArrayList<>();
-    private long _lastIHaveSent = 0, _lastIWantRecv = 0;
+
 
     private HeartbeatManager heartbeatManager;
 
@@ -239,14 +264,34 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return total;
     }
 
+    private double score(BigInteger p) {
+        GossipTracer gt = gossipTracer.get(p);
+        if (gt == null || gt.ihaveSeen == 0) return 1.0;   // no history → be fair
+        return (double) gt.iwantSent / gt.ihaveSeen;       // 0 … 1
+    }
+
+
     public void advertiseMessageIHAVE(Message originalMsg, int myPid) {
         Set<BigInteger> peers = localMesh.getOrDefault(originalMsg.messageTopicID, Collections.emptySet());
         if (peers.isEmpty())
             return;
 
-        int advertiseCnt = Math.max(1, (int) Math.ceil(GOSSIP_FACTOR * peers.size()));
-        List<BigInteger> shuffled = new ArrayList<>(peers);
-        Collections.shuffle(shuffled, CommonState.r);
+//        int advertiseCnt = Math.max(1, (int) Math.ceil(GOSSIP_FACTOR * peers.size()));
+        int advertiseCnt = USE_ADAPTIVE_GOSSIP        // ← the flag you added before
+                ? Math.min(D_LAZY, peers.size())      // fixed fan-out in adaptive mode
+                : Math.max(1, (int) Math.ceil(GOSSIP_FACTOR * peers.size()));
+//        List<BigInteger> shuffled = new ArrayList<>(peers);
+        List<BigInteger> picks = new ArrayList<>(peers);
+
+        if (USE_ADAPTIVE_GOSSIP) {
+            picks.sort((p,q) ->          /* descending by “usefulness” ratio */
+                    Double.compare(score(q), score(p)));
+        }
+
+        Collections.shuffle(picks.subList(
+                        USE_ADAPTIVE_GOSSIP ? Math.min(peers.size(), 4) : 0, picks.size()),
+                CommonState.r);
+//        Collections.shuffle(shuffled, CommonState.r);
 
         Message ihave = createMessage(originalMsg.id, Message.MSG_IHAVE, nodeId, null,
                 originalMsg.messageTopicID, null,
@@ -254,7 +299,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 originalMsg.partNumber, CommonState.getTime(), -6);
 
         for (int i = 0; i < advertiseCnt; i++) {
-            BigInteger peer = shuffled.get(i);
+            BigInteger peer = picks.get(i);
             if (peer.equals(nodeId))
                 continue;
             Message copy = (Message) ihave.copy();
@@ -759,8 +804,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void handleReceivedPart(Message m, int myPid) {
         String s = m.isRow ? "row" : "column";
         String key = s + m.rowOrColumnNumber;
-        // int threshold = (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2;
-        int threshold = 1;
+         int threshold = (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2;
+//        int threshold = 1;
 
         if (custody1.equals(key)) {
             processCustody(m, custody1Parts, threshold);
@@ -916,7 +961,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
         messageCache.put(m.id, m);
-
+        if (USE_ADAPTIVE_GOSSIP) {
+            gossipTracer.computeIfAbsent(m.src, k -> new GossipTracer()).ihaveSeen++;
+        }
         if (m.typeID == -6) {
             handleTypeMessage(m, myPid);
         }
@@ -935,31 +982,22 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         lastAdvertisedTime.put(m.id, now);
 
-//        Message responseWithMetaData = createMessage(m.id, Message.MSG_IHAVE, m.src,
-//                m.dest, m.messageTopicID, null,
-//                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
-//
-//        Message responseWithData = createMessage(m.id, Message.MSG_IHAVE, m.src,
-//                m.dest, m.messageTopicID, m.body,
-//                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
-//
-//        responseWithData.src = m.src;
-//
-//        // advertiseMessageIHAVE(m, myPid);
-//        incrementDelivered(m.src, m.messageTopicID);
-//        sendMessageToPeers(responseWithData, myPid, m.messageTopicID, this.nodeId,
-//                m.src);
-//        gossipMessageToTopicNodes(responseWithMetaData, myPid, m.messageTopicID,
-//                this.nodeId, m.src);
-
-
+        // Metadata
         Message advert = createMessage(m.id, Message.MSG_IHAVE, m.src,
                 m.dest, m.messageTopicID, /* body */ null,
                 m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
 
+        // Full Message
+        Message full = createMessage(m.id, Message.MSG_IHAVE, m.src,
+                m.dest, m.messageTopicID, m.body,
+                m.isRow, m.rowOrColumnNumber,m.partNumber, CommonState.getTime(), -6);
+
+
         incrementDelivered(m.src, m.messageTopicID);
-        /* mesh-peers + gossip peers both get **only** the advert */
-        sendMessageToPeers(advert, myPid, m.messageTopicID, this.nodeId, m.src);
+        // edger push
+        sendMessageToPeers(full, myPid, m.messageTopicID, this.nodeId, m.src);
+
+        // Lazy gossip
         gossipMessageToTopicNodes(advert, myPid, m.messageTopicID, this.nodeId, m.src);
         samplingStarter();
     }
@@ -1026,6 +1064,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     // Helper method to create and send IWANT messages
     private void sendIWantMessage(Message m, int myPid) {
+        if (USE_ADAPTIVE_GOSSIP)
+            gossipTracer.computeIfAbsent(m.dest,k->new GossipTracer()).iwantSent++;
+
         Message request = createMessage(m.id, Message.MSG_IWANT, nodeId, m.src, m.messageTopicID, "",
                 m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), m.typeID);
 
@@ -1123,7 +1164,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         /* Optional: down-score ourselves for “broken promise”
            or penalise the requester if the msgId was never advertised */
             // markInvalidMessage(m.src, m.messageTopicID);
-            return;                                    // give up
+            return;                                    // give up for now
         }
 
         /* ---------- prepare MSG_DATA reply ---------- */
