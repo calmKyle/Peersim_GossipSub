@@ -12,6 +12,8 @@ public class HeartbeatManager {
     // These constants come from the original GossipSubProtocol
     private static final long MESSAGE_EXPIRATION_MS = 4001;
     private static final int GOSSIP_ADVERTISE_ROUNDS = 2;
+    private static final int HISTORY_GOSSIP = Configuration.getInt(
+            "HISTORY_GOSSIP", 3);
 
     private static final double DECAY_FACTOR = 0.9;
 
@@ -50,6 +52,7 @@ public class HeartbeatManager {
         if (isDEBUG) {
             System.out.println("[DEBUG HEARTBEAT] Computing peer scores on node " + protocol.getNodeId());
         }
+
 
 //        for (Map.Entry<BigInteger, PeerScoreInfo> entry : peerScores.entrySet()) {
 //            PeerScoreInfo psi = entry.getValue();
@@ -133,18 +136,39 @@ public class HeartbeatManager {
     }
 
     private void reAdvertiseEphemeral(int myPid) {
-        for (EphemeralMsgInfo info : ephemeralCache.values()) {
-            if (info.advertiseCount < GOSSIP_ADVERTISE_ROUNDS) {
-                if (isDEBUG) {
-                    System.out.println("[DEBUG HEARTBEAT] Re-advertising msgID=" + info.message.id +
-                            " node=" + protocol.getNodeId() +
-                            " advCount=" + info.advertiseCount);
-                }
-                protocol.advertiseMessageIHAVE(info.message, myPid);
-                info.advertiseCount++;
+
+        /* Send at most HISTORY_GOSSIP adverts this heartbeat */
+        int sentThisRound = 0;
+
+        for (EphemeralMsgInfo info : new ArrayList<>(ephemeralCache.values())) {
+            if (sentThisRound >= HISTORY_GOSSIP) break;          // done for this beat
+            if (info.advertiseCount >= GOSSIP_ADVERTISE_ROUNDS) continue;
+
+            if (isDEBUG) {
+                System.out.printf("[HB-IHAVE] t=%d  node=%s  adv ID=%d  cnt=%d%n",
+                        CommonState.getTime(), protocol.getNodeId(),
+                        info.message.id, info.advertiseCount);
             }
+
+            protocol.advertiseMessageIHAVE(info.message, myPid);
+            info.advertiseCount++;
+            sentThisRound++;
         }
     }
+
+//    private void reAdvertiseEphemeral(int myPid) {
+//        for (EphemeralMsgInfo info : ephemeralCache.values()) {
+//            if (info.advertiseCount < GOSSIP_ADVERTISE_ROUNDS) {
+//                if (isDEBUG) {
+//                    System.out.println("[DEBUG HEARTBEAT] Re-advertising msgID=" + info.message.id +
+//                            " node=" + protocol.getNodeId() +
+//                            " advCount=" + info.advertiseCount);
+//                }
+//                protocol.advertiseMessageIHAVE(info.message, myPid);
+//                info.advertiseCount++;
+//            }
+//        }
+//    }
 
     /**
      * Decays each peer’s counters on each topic by DECAY_FACTOR.

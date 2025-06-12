@@ -56,12 +56,12 @@ public class TopicBasedMesh {
         Collections.shuffle(shuffledPeers,CommonState.r); // Ensure random connections
 
         for (Node peerNode : shuffledPeers) {
-            if (node.localMesh.get(topicID).size() >= node.degree) {
+            if (node.localMesh.get(topicID).size() >= node.D) {
                 break; // Stop if we've reached the desired number of peers
             }
 
             GossipSubProtocol peerProtocol = (GossipSubProtocol) peerNode.getProtocol(gossipProtocolID);
-            if (peerProtocol.localMesh.get(topicID).size() >= peerProtocol.degree) {
+            if (peerProtocol.localMesh.get(topicID).size() >= peerProtocol.D) {
                 continue; // Skip if the peer has reached its limit
             }
 

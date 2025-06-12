@@ -557,7 +557,7 @@ df["TotalSampleReceived_smooth"] = (
 
 # 5. Plot the smoothed lines
 plt.figure(figsize=(10,6))
-plt.plot(df["Node ID"], df["DuplicatedIHAVE_smooth"], label="Amount Duplicated IHAVE", color="blue")
+plt.plot(df["Node ID"], df["DuplicatedIHAVE_smooth"], label="Amount Duplicated Data", color="blue")
 plt.plot(df["Node ID"], df["TotalSampleReq_smooth"], label="Amount Sample Requested", color="orange")
 plt.plot(df["Node ID"], df["TotalSampleReceived_smooth"], label="Amount Sample Received (512)", color="green")
 
