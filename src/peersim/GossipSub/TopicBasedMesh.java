@@ -36,7 +36,7 @@ public class TopicBasedMesh {
                 topicMemberSet.add(curNode.nodeId);
                 curNode.setTopicMembersList(curTopic.topicID, topicMemberSet);
 
-                curNode.localMesh.putIfAbsent(curTopic.topicID, new HashSet<>());
+                curNode.meshPeersByTopic.putIfAbsent(curTopic.topicID, new HashSet<>());
                 curNode.gossipMesh.putIfAbsent(curTopic.topicID, new HashSet<>());
             }
 
@@ -56,20 +56,20 @@ public class TopicBasedMesh {
         Collections.shuffle(shuffledPeers,CommonState.r); // Ensure random connections
 
         for (Node peerNode : shuffledPeers) {
-            if (node.localMesh.get(topicID).size() >= node.D) {
+            if (node.meshPeersByTopic.get(topicID).size() >= node.D) {
                 break; // Stop if we've reached the desired number of peers
             }
 
             GossipSubProtocol peerProtocol = (GossipSubProtocol) peerNode.getProtocol(gossipProtocolID);
-            if (peerProtocol.localMesh.get(topicID).size() >= peerProtocol.D) {
+            if (peerProtocol.meshPeersByTopic.get(topicID).size() >= peerProtocol.D) {
                 continue; // Skip if the peer has reached its limit
             }
 
             if (!node.nodeId.equals(peerProtocol.nodeId) &&
-                    !node.localMesh.get(topicID).contains(peerProtocol.nodeId)) {
+                    !node.meshPeersByTopic.get(topicID).contains(peerProtocol.nodeId)) {
                 // Establish bi-directional connection
-                node.localMesh.get(topicID).add(peerProtocol.nodeId);
-                peerProtocol.localMesh.get(topicID).add(node.nodeId);
+                node.meshPeersByTopic.get(topicID).add(peerProtocol.nodeId);
+                peerProtocol.meshPeersByTopic.get(topicID).add(node.nodeId);
             }
         }
     }
@@ -87,10 +87,10 @@ public class TopicBasedMesh {
                 break;
 
             GossipSubProtocol peerNode = (GossipSubProtocol) newPeer.getProtocol(gossipProtocolID);
-            if (!peerNode.localMesh.get(topicID).contains(node.nodeId)) {
+            if (!peerNode.meshPeersByTopic.get(topicID).contains(node.nodeId)) {
                 // Establish bi-directional connection
-                peerNode.localMesh.get(topicID).add(node.nodeId);
-                node.localMesh.get(topicID).add(peerNode.nodeId);
+                peerNode.meshPeersByTopic.get(topicID).add(node.nodeId);
+                node.meshPeersByTopic.get(topicID).add(peerNode.nodeId);
                 count--;
             }
         }
@@ -100,7 +100,7 @@ public class TopicBasedMesh {
      * Removes excess peers when a node's mesh size exceeds its degree.
      */
     public void removeExcessPeers(GossipSubProtocol node, String topicID, int count) {
-        Iterator<BigInteger> iterator = node.localMesh.get(topicID).iterator();
+        Iterator<BigInteger> iterator = node.meshPeersByTopic.get(topicID).iterator();
         while (iterator.hasNext() && count > 0) {
             iterator.next();
             iterator.remove();

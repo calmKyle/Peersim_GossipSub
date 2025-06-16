@@ -17,8 +17,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.ArrayList;
-import java.util.List;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -105,7 +103,7 @@ public class GossipSubObserver implements Control {
                                 + "Total Sample Req Sent,Total Sample Received,Total Sample Req Timedout,"
                                 + "Sample Arrival Times,Sample RTT Times,Min Sample RTT,Avg Sample RTT,Max Sample RTT,"
                                 + "Total Seed Parts Received,Seed Part Arrival Times,Seed Part RTT Times,Min Seed Part RTT,"
-                                + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth, Duplicated Message IHAVE");
+                                + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth, Duplicated Message IHAVE, Duplicated_Data");
                 writer.newLine();
                 return;
             }
@@ -221,7 +219,7 @@ public class GossipSubObserver implements Control {
                         : "[]";
 
                 String metrics = String.format(
-                        "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f,%f,%f",
+                        "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f,%f,%f,%f",
                         CommonState.getTime(),
                         count,
                         protocol.custody1,
@@ -246,6 +244,7 @@ public class GossipSubObserver implements Control {
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getAverage() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMax() : 0.0,
                         bw,
+                        (double) protocol.duplicateIHaveMessage,
                         (double) protocol.duplicateData);
 
                 writer.write(metrics);
@@ -278,7 +277,7 @@ public class GossipSubObserver implements Control {
                 BigInteger srcId = gsp.getNodeId();
 
                 // walk this node's *localMesh* (active peers)
-                for (Map.Entry<String, Set<BigInteger>> entry : gsp.localMesh.entrySet()) {
+                for (Map.Entry<String, Set<BigInteger>> entry : gsp.meshPeersByTopic.entrySet()) {
                     String topic = entry.getKey();
                     for (BigInteger dstId : entry.getValue()) {
                         w.write(srcId + "," + dstId + ",Directed,1," + topic);

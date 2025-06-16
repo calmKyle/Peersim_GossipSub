@@ -92,7 +92,7 @@ public class HeartbeatManager {
 
             if (newScore < GossipScoringConfig.PUBLISH_THRESHOLD) {
                 /* below publishThreshold → prune from every mesh */
-                for (String topicID : protocol.localMesh.keySet()) {
+                for (String topicID : protocol.meshPeersByTopic.keySet()) {
                     if (protocol.inMyMesh(topicID, peerID)) {
                         protocol.prunePeer(peerID, topicID);
                     }

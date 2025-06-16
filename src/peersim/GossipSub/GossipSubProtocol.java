@@ -92,7 +92,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private static final int SHARD_COPIES = Configuration.getInt("SHARD_COPIES", 1);
 
     public Set<Topic> subscribedTopics = new HashSet<>();
-    protected Map<String, Set<BigInteger>> localMesh = new HashMap<>();
+    protected Map<String, Set<BigInteger>> meshPeersByTopic = new HashMap<>();
     protected Map<String, Set<BigInteger>> gossipMesh = new HashMap<>();
     protected Map<String, Set<BigInteger>> topicNodes = new HashMap<>();
 
@@ -278,7 +278,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
 
     public void advertiseMessageIHAVE(Message originalMsg, int myPid) {
-        Set<BigInteger> peers = localMesh.getOrDefault(originalMsg.messageTopicID, Collections.emptySet());
+        Set<BigInteger> peers = meshPeersByTopic.getOrDefault(originalMsg.messageTopicID, Collections.emptySet());
         if (peers.isEmpty())
             return;
 
@@ -319,8 +319,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
 
         for (String topicID : subscribedTopics.stream().map(t -> t.topicID).collect(Collectors.toList())) {
-            localMesh.putIfAbsent(topicID, new HashSet<>());
-            Set<BigInteger> peers = localMesh.get(topicID);
+            meshPeersByTopic.putIfAbsent(topicID, new HashSet<>());
+            Set<BigInteger> peers = meshPeersByTopic.get(topicID);
             if (peers == null)
                 continue;
 
@@ -334,7 +334,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public boolean inMyMesh(String topicID, BigInteger peer) {
-        Set<BigInteger> mesh = localMesh.get(topicID);
+        Set<BigInteger> mesh = meshPeersByTopic.get(topicID);
         return mesh != null && mesh.contains(peer);
     }
 
@@ -401,13 +401,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         Collections.shuffle(shuffled, CommonState.r);
 
         for (Node n : shuffled) {
-            if (localMesh.get(topicID).size() >= D_LOW || needed <= 0) break;
+            if (meshPeersByTopic.get(topicID).size() >= D_LOW || needed <= 0) break;
 
             GossipSubProtocol peer = (GossipSubProtocol) n.getProtocol(gossipSubId);
-            if (peer.localMesh.get(topicID).contains(this.nodeId)) continue;
+            if (peer.meshPeersByTopic.get(topicID).contains(this.nodeId)) continue;
 
             /* graft */
-            localMesh.get(topicID).add(peer.nodeId);
+            meshPeersByTopic.get(topicID).add(peer.nodeId);
             addPeerScoreIfAbsent(peer.nodeId);
 
             Message graft = createMessage(-1, Message.MSG_GRAFT,
@@ -473,8 +473,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
 
         // Otherwise, accept them in my local mesh for topicID
-        localMesh.putIfAbsent(topicID, new HashSet<>());
-        localMesh.get(topicID).add(p);
+        meshPeersByTopic.putIfAbsent(topicID, new HashSet<>());
+        meshPeersByTopic.get(topicID).add(p);
 
         // Just in case, ensure we track peer's score info
         addPeerScoreIfAbsent(p);
@@ -483,15 +483,15 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             System.out.println("[DEBUG handleGraft] Node " + nodeId
                     + " accepted peer " + p
                     + " into mesh for topic=" + topicID
-                    + ". Current mesh size=" + localMesh.get(topicID).size());
+                    + ". Current mesh size=" + meshPeersByTopic.get(topicID).size());
         }
 
         // If oversubscribed, remove some peers
-        if (localMesh.get(topicID).size() > D) {
-            int over = localMesh.get(topicID).size() - D; // trim back to “degree”
+        if (meshPeersByTopic.get(topicID).size() > D) {
+            int over = meshPeersByTopic.get(topicID).size() - D; // trim back to “degree”
             if (isDEBUG) {
                 System.out.printf("[DEBUG handleGraft] mesh %s oversized (%d>%d); pruning %d peers%n",
-                        topicID, localMesh.get(topicID).size(), D_HIGH, over);
+                        topicID, meshPeersByTopic.get(topicID).size(), D_HIGH, over);
             }
             removeExcessPeers(topicID, over);
         }
@@ -511,7 +511,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
 
         // Remove that node from local mesh (if present).
-        Set<BigInteger> meshPeers = localMesh.getOrDefault(topicID, new HashSet<>());
+        Set<BigInteger> meshPeers = meshPeersByTopic.getOrDefault(topicID, new HashSet<>());
         boolean wasPresent = meshPeers.remove(pruner);
 
         if (!wasPresent) {
@@ -565,7 +565,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         long now = CommonState.getTime();
 
         // Remove from local mesh
-        Set<BigInteger> meshPeers = localMesh.getOrDefault(topicID, new HashSet<>());
+        Set<BigInteger> meshPeers = meshPeersByTopic.getOrDefault(topicID, new HashSet<>());
         boolean wasPresent = meshPeers.remove(peerID);
 
         if (isDEBUG) {
@@ -643,7 +643,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //    }
 
     private void removeExcessPeers(String topicID, int toPrune) {
-        Set<BigInteger> mesh = localMesh.get(topicID);
+        Set<BigInteger> mesh = meshPeersByTopic.get(topicID);
         if (mesh == null || toPrune <= 0) return;
 
         /* ensure scores exist, then sort by ascending score */
@@ -723,7 +723,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void unsubscribeTopic(Topic topic) {
         if (subscribedTopics.contains(topic)) {
             subscribedTopics.remove(topic);
-            localMesh.remove(topic.topicID);
+            meshPeersByTopic.remove(topic.topicID);
             return;
         }
     }
@@ -822,14 +822,14 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     public void sendMessageToPeers(Message m, int myPid, String topicID,
             BigInteger avoid, BigInteger src) {
-        Set<BigInteger> peers = localMesh.get(topicID);
+        Set<BigInteger> peers = meshPeersByTopic.get(topicID);
         if (peers == null || peers.isEmpty()) {
             if (isDEBUG) {
                 System.out.println("[ERROR SEND MESSAGE: ] local mesh empty for node: " + nodeId);
             }
             return;
         }
-        sendMessageToTopicNodes(m, myPid, topicID, localMesh, avoid, src);
+        sendMessageToTopicNodes(m, myPid, topicID, meshPeersByTopic, avoid, src);
     }
 
     public void gossipMessageToTopicNodes(
@@ -871,10 +871,20 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
+        /** Deep-compare two possible payload objects (byte[], byte[][], String, …). */
+                private static boolean samePayload(Object a, Object b) {
+                if (a == b) return true;
+                if (a == null || b == null) return false;
+                if (a instanceof byte[] && b instanceof byte[])
+                        return java.util.Arrays.equals((byte[]) a, (byte[]) b);
+                if (a instanceof byte[][] && b instanceof byte[][])
+                        return java.util.Arrays.deepEquals((Object[]) a, (Object[]) b);
+                return a.equals(b);
+            }
+
     private void processCustody(Message m, List<Message> custodyParts, int threshold) {
 
         if (custodyParts.contains(m)) {
-            duplicateData++;
             if (isDEBUG) {
                 System.out.printf("[DUP] node %s got duplicate shard id=%d at t=%d%n",
                         nodeId, m.id, CommonState.getTime());
@@ -896,9 +906,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 createWholeRowOrColumnSeed(m, m.rowOrColumnNumber);
             }
         } else {
-            // We already reached the threshold; treat any further
-            // piece as a duplicate of the finished set.
-            duplicateData++;
             if (isDEBUG) {
                 System.out.printf("[DUP] node %s got duplicate shard id=%d at t=%d%n",
                         nodeId, m.id, CommonState.getTime());
@@ -942,9 +949,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void handleReceivedRowOrCol(Message m, int myPid) {
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
 
-        if (custody1.equals(key)) { // message belongs to custody‑1
-            if (custodyData1.contains(m)) { // we already have this message
-                duplicateData++; // …so just count it
+        if (custody1.equals(key)) {
+            if (custodyData1.contains(m)) {
                 if (isDEBUG) {
                     System.out.printf("[DUP] node %s got duplicate shard id=%d at t=%d%n",
                             nodeId, m.id, CommonState.getTime());
@@ -955,7 +961,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         } else if (custody2.equals(key)) { // message belongs to custody‑2
             if (custodyData2.contains(m)) {
-                duplicateData++;
                 if (isDEBUG) {
                     System.out.printf("[DUP] node %s got duplicate shard id=%d at t=%d%n",
                             nodeId, m.id, CommonState.getTime());
@@ -974,7 +979,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         seedArrivalTimeStore.add(now);
     }
 
-    // double check on this !
     public void samplingStarter() {
         if (samplingStarted)
             return;
@@ -1260,6 +1264,15 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         Message prev = messageCache.get(m.id);
         if (prev != null && prev.body != null) {
+                        if (samePayload(prev.body, m.body)) {
+                                duplicateData++;
+                            } else {
+                                markInvalidMessage(m.src, m.messageTopicID);
+                                if (isDEBUG) {
+                                        System.out.printf("[MISMATCH] proposer saw conflicting body for msg=%d at t=%d%n",
+                                                        m.id, CommonState.getTime());
+                                    }
+                            }
             return;
         }
 
@@ -1304,13 +1317,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
 
         IWANTmessageCache.remove(m.id);
-        sendDataToMesh(m, myPid);
+        sendDataToMesh(m, myPid, m.src);
         samplingStarter();
     }
 
 
     // Edger push
-    private void sendDataToMesh(Message m, int myPid) {
+    private void sendDataToMesh(Message m, int myPid, BigInteger avoidPeer) {
 
         /* 1. full body to every mesh peer (MSG_DATA) */
         Message full = createMessage(
@@ -1323,8 +1336,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 CommonState.getTime(), -6);
 
         sendMessageToPeers(full, myPid, m.messageTopicID,
-                nodeId /* avoid sending to self */,
-                nodeId /* orig */);
+                                (avoidPeer == null ? nodeId : avoidPeer),   // skip sender
+                                nodeId);
 
         /* 2. remember it, so the heartbeat can gossip IHAVE later */
         storeInEphemeralCache(full);
@@ -1334,7 +1347,16 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         Message prev = messageCache.get(m.id); // have we cached this id?
         if (prev != null && prev.body != null) { // and was it already full data?
-            return; // ➜ nothing else to do
+                            if (samePayload(prev.body, m.body)) {   // content really identical?
+                                    duplicateData++;                    //   → legit duplicate
+                                } else {                                // same ID, different bytes!
+//                                    markInvalidMessage(m.src, m.messageTopicID);
+                                    if (isDEBUG) {
+                                            System.out.printf("[MISMATCH] node %s got conflicting body for msg=%d at t=%d%n",
+                                                            nodeId, m.id, CommonState.getTime());
+                                        }
+                                }
+            return;
         }
 
         // If we already cached the data, no need to do anything
@@ -1353,7 +1375,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             messageCache.put(m.id, m);
 
             //edger push
-            sendDataToMesh(m, myPid);
+            sendDataToMesh(m, myPid, m.src);
         }
 
         // Then do your normal "apply block or row data" logic
@@ -1706,7 +1728,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
                 heartbeatManager.runHeartbeat(myPid);
                 if (isDEBUG) {
-                    for (Map.Entry<String, Set<BigInteger>> e : localMesh.entrySet()) {
+                    for (Map.Entry<String, Set<BigInteger>> e : meshPeersByTopic.entrySet()) {
                         int size = e.getValue().size();
 
                         if (size != D) {
@@ -1984,107 +2006,249 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
      * • topics can be “row first, column second” or vice-versa,
      * controlled by NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC (2 ⇒ 1+1, 4 ⇒ 2+2)
      */
+//    private void shardingBasedDistribution() {
+//
+//        /* ── constants from config ───────────────────────────────────────── */
+//        final int divisions = NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC; // shards per row/col
+//        final int kCopies = Math.max(1, SHARD_COPIES); // replicas ≥ 1
+//        final int rcPerTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 2);
+//        // keep symmetric
+//        boolean nextTopicIsRow = true;
+//
+//        /* ── global indices ─────────────────────────────────────────────── */
+//        int globalRow = 0;
+//        int globalCol = 0;
+//
+//        Block blk = block;
+//
+//        /* ── iterate over every topic ────────────────────────────────────── */
+//        for (Topic topic : CustomDistribution.topics.values()) {
+//
+//            int rowsPerTopic, colsPerTopic;
+//
+//            int rcCfg = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 1);
+//
+//            if (rcCfg == 1) { // ← new “1 row **or** 1 col” mode
+//                rowsPerTopic = nextTopicIsRow ? 1 : 0;
+//                colsPerTopic = nextTopicIsRow ? 0 : 1;
+//                nextTopicIsRow = !nextTopicIsRow; // flip for the next topic
+//            } else { // 2, 4, …
+//                rowsPerTopic = rcCfg / 2; // 1+1, 2+2, …
+//                colsPerTopic = rowsPerTopic;
+//            }
+//            System.out.println("----------------------------------------");
+//            // System.out.println("Topic-" + topics.values());
+//            System.out.printf("[SHARD-DIST] divisions=%d  k=%d  rows/cols per %s = %d/%d%n",
+//                    divisions, kCopies, topic.topicID, rowsPerTopic, colsPerTopic);
+//
+//            List<Node> members = topic.topicMembers;
+//            if (members.isEmpty()) {
+//                /* give an empty topic a fallback recipient so counters advance */
+//                members = Collections.singletonList(CustomDistribution.blockProposerNode);
+//            }
+//
+//            int rowsSentInTopic = 0;
+//            int colsSentInTopic = 0;
+//            boolean sendRowNext = true; // start with a row
+//
+//            /* keep sending until the topic got its quota of rows + cols */
+//            while (rowsSentInTopic < rowsPerTopic || colsSentInTopic < colsPerTopic) {
+//
+//                boolean sendingRow = sendRowNext ? rowsSentInTopic < rowsPerTopic
+//                        : colsSentInTopic >= colsPerTopic;
+//
+//                int shardIndex = sendingRow ? globalRow : globalCol;
+//                int dimLen = sendingRow
+//                        ? Configuration.getInt("NUMBER_OF_ROWS")
+//                        : Configuration.getInt("NUMBER_OF_COLUMNS");
+//                int partSize = dimLen / divisions;
+//
+//                if (shardIndex >= MAX_DIMENSION_SIZE)
+//                    break; // matrix exhausted
+//
+//                /* ---- (divisions × k) sends for this one row/col ---- */
+//                int sendsNeeded = divisions * kCopies;
+//                int cursor = 0; // walks through validators
+//
+//                for (int send = 0; send < sendsNeeded; send++) {
+//
+//                    Node peer = members.get(cursor % members.size());
+//                    cursor++; // round-robin
+//                    GossipSubProtocol dst = (GossipSubProtocol) peer.getProtocol(gossipSubId);
+//
+//                    int partIdx = send / kCopies; // 0 … divisions-1
+//                    int replicaIdx = send % kCopies; // 0 … k-1
+//                    int start = partIdx * partSize;
+//                    int end = start + partSize;
+//
+//                    byte[][] slice = sendingRow
+//                            ? Arrays.copyOfRange(blk.getRowData(shardIndex), start, end)
+//                            : Arrays.copyOfRange(blk.getColumnData(shardIndex), start, end);
+//
+//                    Message msg = createMessage(
+//                            -1, MESSAGE_TYPE,
+//                            this.nodeId, dst.nodeId,
+//                            topic.topicID,
+//                            slice,
+//                            sendingRow, // isRow?
+//                            shardIndex,
+//                            partIdx,
+//                            -1, -1);
+//
+//                    publishMessage(msg, dst.nodeId, gossipSubId);
+//
+//                    rememberCustodian(sendingRow, shardIndex, dst.nodeId);
+//
+//                    // if (isDEBUG) {
+//                    System.out.printf("[SHARD-DIST] %-3s %-3d  part=%02d copy=%d/%d → %s%n",
+//                            sendingRow ? "row" : "col",
+//                            shardIndex, partIdx, replicaIdx, kCopies, dst.nodeId);
+//                    // }
+//                }
+//
+//                /* ---- bump global & per-topic counters exactly once ---- */
+//                if (sendingRow) {
+//                    globalRow++;
+//                    rowsSentInTopic++;
+//                } else {
+//                    globalCol++;
+//                    colsSentInTopic++;
+//                }
+//
+//                /* alternate rows ↔ cols only when the cfg says “1+1” or “2+2” */
+//                if (rowsPerTopic == colsPerTopic)
+//                    sendRowNext = !sendRowNext;
+//            }
+//        }
+//
+//        /* ── final sanity log ────────────────────────────────────────────── */
+//        System.out.printf("Finished: rows=%d  cols=%d%n", globalRow - 1, globalCol - 1);
+//        System.out.println("*********Block proposer has sent the messages ********");
+//        System.out.printf("Data sent size       : %d%n", totalDataTransmitted);
+//        System.out.printf("Data transmission time: %d ms%n", totalTransmissionTime);
+//        System.out.println("Malicious Rate: " + Configuration.getDouble("MALICIOUS_RATE"));
+//        System.out.println("Seed Number: " + Configuration.getInt("random.seed"));
+//        System.out.println("ROW/COL Holder: " + NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
+//    }
+
+    /**
+     * Shard the current block and publish every shard to a validator:
+     *   • each row / column is split into <divisions> parts
+     *   • every part is replicated <kCopies> times
+     *   • the rows / columns assigned to a topic are controlled by
+     *     NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC (1 ⇒ row XOR col, 2 ⇒ 1+1, 4 ⇒ 2+2, …)
+     *
+     * A *fresh shuffle* of the topic-member list is performed for
+     * **every single row or column**, so no two labels are forced to
+     * share the same contiguous slice of validators.
+     */
     private void shardingBasedDistribution() {
 
-        /* ── constants from config ───────────────────────────────────────── */
-        final int divisions = NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC; // shards per row/col
-        final int kCopies = Math.max(1, SHARD_COPIES); // replicas ≥ 1
-        final int rcPerTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 2);
-        // keep symmetric
-        boolean nextTopicIsRow = true;
+        /* ── “per-row/col” constants ─────────────────────────────────── */
+        final int divisions = NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC;   // shards per row/col
+        final int kCopies   = Math.max(1, SHARD_COPIES);                   // replicas ≥ 1
+        final int rcCfg     = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 2);
 
-        /* ── global indices ─────────────────────────────────────────────── */
+        boolean nextTopicIsRow = true;   // only used when rcCfg == 1
+
+        /* ── global label counters ───────────────────────────────────── */
         int globalRow = 0;
         int globalCol = 0;
 
-        Block blk = block;
+        Block blk = block;               // current block’s matrix data
 
-        /* ── iterate over every topic ────────────────────────────────────── */
+        /* ── iterate over every topic in order ───────────────────────── */
         for (Topic topic : CustomDistribution.topics.values()) {
 
+            /* how many rows / cols should this topic receive? */
             int rowsPerTopic, colsPerTopic;
-
-            int rcCfg = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 1);
-
-            if (rcCfg == 1) { // ← new “1 row **or** 1 col” mode
+            if (rcCfg == 1) {            // “row XOR col” mode
                 rowsPerTopic = nextTopicIsRow ? 1 : 0;
                 colsPerTopic = nextTopicIsRow ? 0 : 1;
-                nextTopicIsRow = !nextTopicIsRow; // flip for the next topic
-            } else { // 2, 4, …
-                rowsPerTopic = rcCfg / 2; // 1+1, 2+2, …
+                nextTopicIsRow = !nextTopicIsRow;        // flip for next topic
+            } else {                     // symmetric modes: 1+1, 2+2, …
+                rowsPerTopic = rcCfg / 2;
                 colsPerTopic = rowsPerTopic;
             }
-            System.out.println("----------------------------------------");
-            // System.out.println("Topic-" + topics.values());
-            System.out.printf("[SHARD-DIST] divisions=%d  k=%d  rows/cols per %s = %d/%d%n",
+
+            System.out.printf(
+                    "[SHARD-DIST] divisions=%d  k=%d  rows/cols per %s = %d/%d%n",
                     divisions, kCopies, topic.topicID, rowsPerTopic, colsPerTopic);
 
-            List<Node> members = topic.topicMembers;
-            if (members.isEmpty()) {
-                /* give an empty topic a fallback recipient so counters advance */
-                members = Collections.singletonList(CustomDistribution.blockProposerNode);
-            }
+            /* ensure we have at least one recipient so counters advance */
+            List<Node> members = topic.topicMembers.isEmpty()
+                    ? Collections.singletonList(CustomDistribution.blockProposerNode)
+                    : topic.topicMembers;
 
             int rowsSentInTopic = 0;
             int colsSentInTopic = 0;
-            boolean sendRowNext = true; // start with a row
+            boolean sendRowNext = true;  // alternation when rowsPerTopic == colsPerTopic
 
-            /* keep sending until the topic got its quota of rows + cols */
+            /* keep sending until the topic has received its quota */
             while (rowsSentInTopic < rowsPerTopic || colsSentInTopic < colsPerTopic) {
 
-                boolean sendingRow = sendRowNext ? rowsSentInTopic < rowsPerTopic
+                /* choose whether we are sending a row or a column this turn */
+                boolean sendingRow = sendRowNext
+                        ? rowsSentInTopic < rowsPerTopic
                         : colsSentInTopic >= colsPerTopic;
 
                 int shardIndex = sendingRow ? globalRow : globalCol;
                 int dimLen = sendingRow
                         ? Configuration.getInt("NUMBER_OF_ROWS")
                         : Configuration.getInt("NUMBER_OF_COLUMNS");
+
+                if (shardIndex >= dimLen) break;         // matrix exhausted
+
                 int partSize = dimLen / divisions;
 
-                if (shardIndex >= MAX_DIMENSION_SIZE)
-                    break; // matrix exhausted
+                /* ── one fresh permutation for THIS row/column ───────── */
+                List<Node> shuffled = new ArrayList<>(members);
+                Collections.shuffle(shuffled, CommonState.r);   // Peersim PRNG
 
-                /* ---- (divisions × k) sends for this one row/col ---- */
-                int sendsNeeded = divisions * kCopies;
-                int cursor = 0; // walks through validators
+                /* ── (divisions × kCopies) transmissions ────────────── */
+                for (int part = 0; part < divisions; part++) {
+                    for (int copy = 0; copy < kCopies; copy++) {
 
-                for (int send = 0; send < sendsNeeded; send++) {
+                        /* pick without replacement inside this row/col */
+                        int idx = part * kCopies + copy;            // 0 … divisions·k-1
+                        Node peer = shuffled.get(idx % shuffled.size());
 
-                    Node peer = members.get(cursor % members.size());
-                    cursor++; // round-robin
-                    GossipSubProtocol dst = (GossipSubProtocol) peer.getProtocol(gossipSubId);
+                        GossipSubProtocol dst =
+                                (GossipSubProtocol) peer.getProtocol(gossipSubId);
 
-                    int partIdx = send / kCopies; // 0 … divisions-1
-                    int replicaIdx = send % kCopies; // 0 … k-1
-                    int start = partIdx * partSize;
-                    int end = start + partSize;
+                        int start =  part      * partSize;
+                        int end   = (part == divisions - 1)
+                                ? dimLen                       // last part may be longer
+                                : start + partSize;
 
-                    byte[][] slice = sendingRow
-                            ? Arrays.copyOfRange(blk.getRowData(shardIndex), start, end)
-                            : Arrays.copyOfRange(blk.getColumnData(shardIndex), start, end);
+                        byte[][] slice = sendingRow
+                                ? Arrays.copyOfRange(blk.getRowData(shardIndex),    start, end)
+                                : Arrays.copyOfRange(blk.getColumnData(shardIndex), start, end);
 
-                    Message msg = createMessage(
-                            -1, MESSAGE_TYPE,
-                            this.nodeId, dst.nodeId,
-                            topic.topicID,
-                            slice,
-                            sendingRow, // isRow?
-                            shardIndex,
-                            partIdx,
-                            -1, -1);
+                        Message msg = createMessage(
+                                -1, MESSAGE_TYPE,
+                                this.nodeId, dst.nodeId,
+                                topic.topicID,
+                                slice,
+                                sendingRow,          // isRow?
+                                shardIndex,
+                                part,
+                                copy,
+                                -1);                 // extra field unused here
 
-                    publishMessage(msg, dst.nodeId, gossipSubId);
+                        publishMessage(msg, dst.nodeId, gossipSubId);
+                        rememberCustodian(sendingRow, shardIndex, dst.nodeId);
 
-                    rememberCustodian(sendingRow, shardIndex, dst.nodeId);
-
-                    // if (isDEBUG) {
-                    System.out.printf("[SHARD-DIST] %-3s %-3d  part=%02d copy=%d/%d → %s%n",
-                            sendingRow ? "row" : "col",
-                            shardIndex, partIdx, replicaIdx, kCopies, dst.nodeId);
-                    // }
+//                        if (isDEBUG) {
+                            System.out.printf(
+                                    "[SHARD-DIST] %-3s %-4d part=%02d copy=%d/%d → %s%n",
+                                    sendingRow ? "row" : "col",
+                                    shardIndex, part, copy + 1, kCopies, dst.nodeId);
+//                        }
+                    }
                 }
 
-                /* ---- bump global & per-topic counters exactly once ---- */
+                /* ── advance global and per-topic counters ───────────── */
                 if (sendingRow) {
                     globalRow++;
                     rowsSentInTopic++;
@@ -2093,20 +2257,20 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     colsSentInTopic++;
                 }
 
-                /* alternate rows ↔ cols only when the cfg says “1+1” or “2+2” */
-                if (rowsPerTopic == colsPerTopic)
-                    sendRowNext = !sendRowNext;
+                /* alternate only when rows == cols per topic */
+                if (rowsPerTopic == colsPerTopic) sendRowNext = !sendRowNext;
             }
         }
 
-        /* ── final sanity log ────────────────────────────────────────────── */
+        /* ── final statistics ────────────────────────────────────────── */
         System.out.printf("Finished: rows=%d  cols=%d%n", globalRow - 1, globalCol - 1);
-        System.out.println("*********Block proposer has sent the messages ********");
-        System.out.printf("Data sent size       : %d%n", totalDataTransmitted);
+        System.out.println("********* Block proposer has sent the messages ********");
+        System.out.printf("Data sent size        : %d%n", totalDataTransmitted);
         System.out.printf("Data transmission time: %d ms%n", totalTransmissionTime);
-        System.out.println("Malicious Rate: " + Configuration.getInt("MALICIOUS_RATE"));
-        System.out.println("Seed Number: " + Configuration.getInt("random.seed"));
-        System.out.println("ROW/COL Holder: " + NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
+        System.out.println("Malicious Rate        : " + Configuration.getDouble("MALICIOUS_RATE"));
+        System.out.println("Seed Number           : " + Configuration.getInt("random.seed"));
+        System.out.println("ROW/COL Holder        : " + NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
     }
+
 
 }
