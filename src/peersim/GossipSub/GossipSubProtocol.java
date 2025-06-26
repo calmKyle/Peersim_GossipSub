@@ -124,7 +124,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return custodyData.computeIfAbsent(key, k -> new ArrayList<>());
     }
     private List<Message> partsOf(String key)  {
-        return custodyData.computeIfAbsent(key, k -> new ArrayList<>());
+        return custodyParts.computeIfAbsent(key, k -> new ArrayList<>());
     }
     private boolean iHold(String key)          { return custodies.contains(key); }
     public void addCustody(String key)   { custodies.add(key); }
@@ -890,8 +890,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         List<Message> bucket = partsOf(key);          // ← per-custody shard list
 
         // ── 1) Discard duplicates ───────────────────────────────────────────
-        if (bucket.contains(m)) {
-            duplicateData++;
+        if (bucket.stream().anyMatch(msg -> msg.id == m.id)) {
             if (isDEBUG) {
                 System.out.printf("[DUP] node %s got duplicate shard id=%d at t=%d%n",
                         nodeId, m.id, CommonState.getTime());
@@ -988,7 +987,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             handleTypeMessage(m, myPid);
         }
 
-        messageCache.put(m.id, m);
+//        messageCache.put(m.id, m);
 
         long now = CommonState.getTime();
             if (m.body == null && !IWANTmessageCache.containsKey(m.id)) {
