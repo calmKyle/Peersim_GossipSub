@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.stream.Collectors;
 
 public class GossipSubObserver implements Control {
     /**
@@ -218,12 +219,18 @@ public class GossipSubObserver implements Control {
                                 .replace("]", "").replace(",", ";")
                         : "[]";
 
+
+                // Join all custodies into one pipe-separated string, sorted for stability
+                String custodiesCsv = protocol.custodies.stream()
+                        .sorted()
+                        .collect(Collectors.joining("|"));
+
                 String metrics = String.format(
                         "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f,%f,%f,%f",
                         CommonState.getTime(),
                         count,
-                        protocol.custody1,
-                        protocol.custody2,
+                        custodiesCsv,
+                        protocol.D,
                         seedArrivalTimes,
                         seedMessageDelayTimes,
                         minSeedRTT,

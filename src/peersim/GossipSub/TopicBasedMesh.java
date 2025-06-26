@@ -14,97 +14,72 @@ public class TopicBasedMesh {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
     }
 
-    /**
-     * Creates a structured GossipSub mesh for each topic.
-     */
     public void createTopicMesh() {
-        System.out.println("Initializing GossipSub mesh for topics...");
+        System.out.println("Initializing GossipSub mesh for topics…");
 
-        for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
-            Topic curTopic = topicEntry.getValue();
-            if (curTopic.topicMembers.size() <= 1) {
-                continue; // No need to form a network with only one or no member.
+        for (Topic topic : CustomDistribution.topics.values()) {
+            if (topic.topicMembers.size() <= 1) continue;     // trivial topic
+
+            /* one immutable snapshot for this topic */
+            Set<BigInteger> snapshot = new HashSet<>();
+            for (Node n : topic.topicMembers) {
+                BigInteger id = ((GossipSubProtocol) n.getProtocol(gossipProtocolID)).nodeId;
+                snapshot.add(id);
             }
 
-            Set<BigInteger> topicMemberSet = new HashSet<>();
-            List<Node> topicNodes = new ArrayList<>(curTopic.topicMembers);
-            Collections.shuffle(topicNodes, CommonState.r); // Randomize peer selection
-
-            // Assign members to the topic
-            for (Node node : curTopic.topicMembers) {
-                GossipSubProtocol curNode = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
-                topicMemberSet.add(curNode.nodeId);
-                curNode.setTopicMembersList(curTopic.topicID, topicMemberSet);
-
-                curNode.meshPeersByTopic.putIfAbsent(curTopic.topicID, new HashSet<>());
-                curNode.gossipMesh.putIfAbsent(curTopic.topicID, new HashSet<>());
+            /* every node stores its *own* copy */
+            for (Node n : topic.topicMembers) {
+                GossipSubProtocol g = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
+                g.setTopicMembersList(topic.topicID, new HashSet<>(snapshot));
+                g.meshPeersByTopic.computeIfAbsent(topic.topicID, k -> new HashSet<>());
             }
 
-            // Form initial mesh connections
-            for (Node node : topicNodes) {
-                GossipSubProtocol curNode = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
-                connectPeers(curNode, topicNodes, curTopic.topicID);
-            }
-        }
-    }
+            /* first pass ─ naïve greedy connects                                              */
+            List<Node> shuffled = new ArrayList<>(topic.topicMembers);
+            Collections.shuffle(shuffled, CommonState.r);
+            for (Node n : shuffled) connectPeers((GossipSubProtocol) n.getProtocol(gossipProtocolID),
+                    shuffled, topic.topicID);
 
-    /**
-     * Connects peers within a topic based on GossipSub mesh constraints.
-     */
-    private void connectPeers(GossipSubProtocol node, List<Node> topicNodes, String topicID) {
-        List<Node> shuffledPeers = new ArrayList<>(topicNodes);
-        Collections.shuffle(shuffledPeers,CommonState.r); // Ensure random connections
-
-        for (Node peerNode : shuffledPeers) {
-            if (node.meshPeersByTopic.get(topicID).size() >= node.D) {
-                break; // Stop if we've reached the desired number of peers
-            }
-
-            GossipSubProtocol peerProtocol = (GossipSubProtocol) peerNode.getProtocol(gossipProtocolID);
-            if (peerProtocol.meshPeersByTopic.get(topicID).size() >= peerProtocol.D) {
-                continue; // Skip if the peer has reached its limit
-            }
-
-            if (!node.nodeId.equals(peerProtocol.nodeId) &&
-                    !node.meshPeersByTopic.get(topicID).contains(peerProtocol.nodeId)) {
-                // Establish bi-directional connection
-                node.meshPeersByTopic.get(topicID).add(peerProtocol.nodeId);
-                peerProtocol.meshPeersByTopic.get(topicID).add(node.nodeId);
+            /* second pass ─ make sure everyone has ≥ D_LO peers immediately                  */
+            for (Node n : shuffled) {
+                GossipSubProtocol g = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
+                int missing = g.D_LOW - g.meshPeersByTopic.get(topic.topicID).size();
+                if (missing > 0) addMorePeers(g, topic.topicID, missing);
             }
         }
     }
 
-    /**
-     * Adds more peers to maintain the required mesh size.
-     */
-    public void addMorePeers(GossipSubProtocol node, String topicID, int count) {
-        Topic topic = CustomDistribution.topics.get(topicID);
-        List<Node> potentialPeers = new ArrayList<>(topic.topicMembers);
-        Collections.shuffle(potentialPeers);
+    private void connectPeers(GossipSubProtocol g, List<Node> topicNodes, String tid) {
+        List<Node> peers = new ArrayList<>(topicNodes);
+        Collections.shuffle(peers, CommonState.r);
 
-        for (Node newPeer : potentialPeers) {
-            if (count <= 0)
-                break;
+        for (Node p : peers) {
+            if (g.meshPeersByTopic.get(tid).size() >= g.D) break;
 
-            GossipSubProtocol peerNode = (GossipSubProtocol) newPeer.getProtocol(gossipProtocolID);
-            if (!peerNode.meshPeersByTopic.get(topicID).contains(node.nodeId)) {
-                // Establish bi-directional connection
-                peerNode.meshPeersByTopic.get(topicID).add(node.nodeId);
-                node.meshPeersByTopic.get(topicID).add(peerNode.nodeId);
-                count--;
-            }
+            GossipSubProtocol pg = (GossipSubProtocol) p.getProtocol(gossipProtocolID);
+            if (pg.meshPeersByTopic.get(tid).size() >= pg.D)  continue;
+            if (g.nodeId.equals(pg.nodeId))                   continue;
+
+            g.meshPeersByTopic.get(tid).add(pg.nodeId);
+            pg.meshPeersByTopic.get(tid).add(g.nodeId);
         }
     }
 
-    /**
-     * Removes excess peers when a node's mesh size exceeds its degree.
-     */
-    public void removeExcessPeers(GossipSubProtocol node, String topicID, int count) {
-        Iterator<BigInteger> iterator = node.meshPeersByTopic.get(topicID).iterator();
-        while (iterator.hasNext() && count > 0) {
-            iterator.next();
-            iterator.remove();
-            count--;
+    /** Opportunistically add <code>count</code> more peers to <code>g</code>. */
+    private void addMorePeers(GossipSubProtocol g, String tid, int count) {
+        List<Node> pool = new ArrayList<>(CustomDistribution.topics.get(tid).topicMembers);
+        Collections.shuffle(pool, CommonState.r);
+
+        for (Node p : pool) {
+            if (count == 0) break;
+            GossipSubProtocol pg = (GossipSubProtocol) p.getProtocol(gossipProtocolID);
+            if (pg.nodeId.equals(g.nodeId))                   continue;
+            if (g.meshPeersByTopic.get(tid).contains(pg.nodeId)) continue;
+            if (pg.meshPeersByTopic.get(tid).size() >= pg.D)  continue;
+
+            g.meshPeersByTopic.get(tid).add(pg.nodeId);
+            pg.meshPeersByTopic.get(tid).add(g.nodeId);
+            --count;
         }
     }
 }

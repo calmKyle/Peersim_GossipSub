@@ -1,451 +1,197 @@
+/*  ────────────────────────────────────────────────────────────────────
+ *  peersim/GossipSub/CustomDistribution.java
+ *  --------------------------------------------------------------------
+ *  PeerDAS-compliant network initialiser
+ *  ------------------------------------------------------------------*/
 package peersim.GossipSub;
 
 import java.math.BigInteger;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.stream.IntStream;
 
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Network;
 import peersim.core.Node;
 
-/**
- * Initializes each node with a unique random NodeId.
- * The block proposer node is chosen at random.
- */
 public class CustomDistribution implements peersim.core.Control {
 
-    private static final String PAR_PROT = "protocol";
+    /* ---------- constants driven by the PeerDAS spec ------------------ */
+    private static final int ROWS                    = 512;   // extended square
+    private static final int COLS                    = 512;
+    private static final int LINE_PAIR_SIZE          = 2;     // 2 rows or 2 cols
+    private static final int PAIRS_PER_AXIS          = ROWS / LINE_PAIR_SIZE; // 256
+    private static final int NUMBER_OF_TOPICS        = 256;   // fixed
 
-    private static final int NUMBER_OF_TOPICS = Configuration.getInt("NUMBER_OF_TOPICS", 64);
-    private static final int NUMBER_OF_VALIDATOR_NODES = Configuration.getInt("NUMBER_OF_VALIDATORS", 8192);
-    private static final int NUMBER_OF_ROWSCOLS_IN_A_TOPIC = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC",
-            16);
-    private static final int NUMBER_OF_VALIDATORS_PER_TOPIC = Configuration.getInt("NUMBER_OF_VALIDATORS_PER_TOPIC",
-            128);
+    private static final int NUMBER_OF_VALIDATORS = Configuration.getInt("NUMBER_OF_VALIDATORS", 4096);
 
-    // Number of row or column holders per "segment"
-    private static final int NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC = (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1)
-            ? NUMBER_OF_VALIDATORS_PER_TOPIC
-            : (int) Math.ceil(
-            (NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) /
-                    Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
+    private static final int VALIDATORS_PER_TOPIC    =
+            Configuration.getInt("NUMBER_OF_VALIDATORS_PER_TOPIC", 128);
 
-    // Malicious Rate
-    private static final double MALICIOUS_RATE =
+    private static final double MALICIOUS_RATE       =
             Configuration.getDouble("MALICIOUS_RATE", 0.05);
 
+    /* permutation prime (must be odd and coprime with 256) */
+    private static final int PERMUTATION_PRIME       =
+            Configuration.getInt("PERMUTATION_PRIME", 149);
+
+    /* ---------- Peersim helpers -------------------------------------- */
+    private static final String PAR_PROT             = "protocol";
     private final int gossipProtocolID;
     private final UniformRandomGenerator urg;
-//    private static final Random random = new Random();
+    private final boolean isDEBUG =
+            Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
 
-    private static final Random random = CommonState.r;
-    // blockProposerNode will be assigned at random now
-    public static Node blockProposerNode;
+    private static final Random rnd = CommonState.r;
 
-    // Custody maps for row/column
-    public static HashMap<Integer, ArrayList<BigInteger>> rowCustodyNodes = new HashMap<>();
-    public static HashMap<Integer, ArrayList<BigInteger>> columnCustodyNodes = new HashMap<>();
+    /* ---------- global state ----------------------------------------- */
+    public static Map<BigInteger, Node> networkNodes              = new LinkedHashMap<>();
+    public static Map<String,    Topic> topics                    = new LinkedHashMap<>(NUMBER_OF_TOPICS);
+    public static Map<Integer, ArrayList<BigInteger>> rowCustodyNodes  = new HashMap<>();
+    public static Map<Integer, ArrayList<BigInteger>> colCustodyNodes  = new HashMap<>();
 
-    public static Block block = new Block(
-            Configuration.getInt("NUMBER_OF_ROWS"),
-            Configuration.getInt("NUMBER_OF_COLUMNS"));
-
-    public static Map<BigInteger, Node> networkNodes = new LinkedHashMap<>();
-    public static Map<String, Topic> topics = new LinkedHashMap<>(NUMBER_OF_TOPICS);
+    public static Node  blockProposerNode;        // chosen randomly
+    public static Block block = new Block(ROWS, COLS);
 
     public final String prefix;
-    private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
 
+    /* ----------------------------------------------------------------- */
     public CustomDistribution(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
-        this.urg = new UniformRandomGenerator(160, CommonState.r);
+        this.urg              = new UniformRandomGenerator(160, rnd);
         this.prefix = prefix;
     }
 
+    /* ================  MAIN ENTRY (called once by Peersim) ============ */
     @Override
     public boolean execute() {
-        System.out.println("NUMBER_OF_ROWSCOLS_IN_A_TOPIC: " + NUMBER_OF_ROWSCOLS_IN_A_TOPIC);
-        System.out.println("NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC: " + NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
-        System.out.println("NUMBER_OF_VALIDATORS_PER_TOPIC: " + NUMBER_OF_VALIDATORS_PER_TOPIC);
 
-        // [ADDED] Randomly pick one index to be block proposer
-        int randomIndex = CommonState.r.nextInt(Network.size());
-        if (isDEBUG){
-            System.out.println("[CustomDistribution] Choosing node index " + randomIndex + " as block proposer");
-        }
+        initNodes();          // IDs, proposer flag, malicious flag
+        try { initTopics(); } // Topic-1 … Topic-256
+        catch (NoSuchAlgorithmException e) { e.printStackTrace(); }
 
-        // 1. Assign NodeIDs and pick the random node as block proposer
-        for (int i = 0; i < Network.size(); i++) {
-            BigInteger nodeId = urg.generate();
-            Node n = Network.get(i);
+        assignCustodyPeerDAS();
+        new TopicBasedMesh(this.prefix).createTopicMesh();
 
-            GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
-            gsp.setNodeId(nodeId);
-
-            // Each node also needs a HeartbeatManager
-            HeartbeatManager hm = new HeartbeatManager(
-                    gsp,
-                    gsp.ephemeralCache,
-                    gsp.peerScores,
-                    isDEBUG);
-            gsp.setHeartbeatManager(hm);
-
-            networkNodes.put(nodeId, n);
-
-            // If it's our chosen random index, mark as block proposer
-            if (i == randomIndex) {
-                blockProposerNode = n;
-                gsp.setBlockProposerNode(true);
-                    System.out.println("[CustomDistribution] Node " + i + " / NodeID=" + nodeId + " is BLOCK PROPOSER");
-            } else {
-                gsp.setBlockProposerNode(false);
-            }
-
-            // Mark for malicious
-            double randVal = CommonState.r.nextDouble();
-            if (randVal < MALICIOUS_RATE) {
-                gsp.setMaliciousNode(true);
-                if (isDEBUG){
-                    System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId
-                            + " is MALICIOUS!");
-                }
-            } else {
-                gsp.setMaliciousNode(false);
-            }
-        }
-
-        // 2. Initialize topics and assign custody
-        try {
-            initTopics();
-            assignCustodyWithChunks();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
-
-        return false;
+        return false;         // allow other controls to keep running
     }
 
-    public Map<BigInteger, Node> getNetworkNodes() {
-        return networkNodes;
+    /* ================================================================= */
+    /*                              helpers                              */
+    /* ================================================================= */
+
+    /** Initialise every Peersim node: 160-bit ID, block-proposer, etc. */
+    private void initNodes() {
+
+        int proposerIdx = rnd.nextInt(Network.size());
+
+        for (int idx = 0; idx < Network.size(); idx++) {
+
+            Node n               = Network.get(idx);
+            GossipSubProtocol g  = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
+
+            BigInteger id = urg.generate();
+            g.setNodeId(id);
+            networkNodes.put(id, n);
+
+            g.setHeartbeatManager(
+                    new HeartbeatManager(g, g.ephemeralCache, g.peerScores, isDEBUG));
+
+            boolean proposer = idx == proposerIdx;
+            g.setBlockProposerNode(proposer);
+            if (proposer) blockProposerNode = n;
+
+            g.setMaliciousNode(rnd.nextDouble() < MALICIOUS_RATE);
+        }
     }
 
-    /**
-     * Creates all required Topic objects and stores them in `topics`.
-     */
+    /** Create Topic-1 … Topic-256 */
     private void initTopics() throws NoSuchAlgorithmException {
-        System.out.println("Initializing topics...");
-
         for (int i = 1; i <= NUMBER_OF_TOPICS; i++) {
-            Topic topic = new Topic("Topic-" + i);
-            topics.put(topic.topicID, topic);
+            Topic t = new Topic("Topic-" + i);
+            topics.put(t.topicID, t);
         }
     }
 
-    /**
-     * Assign row and column custody to validator nodes in chunks.
-     */
-    private void assignCustodyWithChunks() {
-        System.out.println("Assigning row/column custody in chunks...");
+    /* ------------------------------------------------------------- */
+    /*   ===  PeerDAS  :  2-row + 2-column custody per topic  ===   */
+    /* ------------------------------------------------------------- */
+    private void assignCustodyPeerDAS() {
 
-        // 1. Build a validator list that excludes the block proposer
-        List<Node> validatorNodes = new ArrayList<>();
-        for (Node n : networkNodes.values()) {
-            if (n == blockProposerNode) {
-                continue;
-            }
-            if (validatorNodes.size() >= NUMBER_OF_VALIDATOR_NODES) {
-                break;
-            }
-            validatorNodes.add(n);
-        }
-        Collections.shuffle(validatorNodes, CommonState.r);
+        /* 1 ─ gather & shuffle all non-proposer validators -------------------- */
+        List<Node> validators = new ArrayList<>();
+        for (Node n : networkNodes.values())
+            if (n != blockProposerNode) validators.add(n);
+        Collections.shuffle(validators, rnd);
 
-        // 2. Initialize row/column counters and topic counters
-        int rowNumber = 0;
-        int columnNumber = 0;
-        rowCustodyNodes.put(rowNumber, new ArrayList<>());
-        columnCustodyNodes.put(columnNumber, new ArrayList<>());
+        final int T = NUMBER_OF_TOPICS;          // 256
+        final int V = NUMBER_OF_VALIDATORS;         // e.g. 16499, or maybe 100
+        final int MIN = 1;                       // guarantee ≥1 per topic
 
-        int topicNumber = 1; // Start from topic 1
-        int assignedInCurrentTopic = 0; // how many nodes assigned so far in the current topic
+        /* 2 ─ how many validators per topic? --------------------------------- */
+        int base  = Math.max(MIN, V / T);        // 0→1, 64, 65, …    (floor)
+        int extra = (V >= T) ? V % T             // unique assignment possible
+                : 0;                // else we’ll duplicate
 
-        // 3. Iterate through validatorNodes in a loop
-        int i = 0;
-        while (i < validatorNodes.size()) {
-            // If assigned enough for the current topic, move to next
-            if (assignedInCurrentTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) {
-                topicNumber++;
-                assignedInCurrentTopic = 0;
-            }
+        int cursor = 0;                          // always modulo V
+        for (int t = 0; t < T; t++) {
 
-            // ROW CHUNK
-            ChunkResult rowResult = assignCustodyChunk(
-                    validatorNodes,
-                    i,
-                    NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC,
-                    topicNumber,
-                    assignedInCurrentTopic,
-                    rowNumber,
-                    "row");
-            i = rowResult.nextNodeIndex;
-            assignedInCurrentTopic = rowResult.assignedInThisTopic;
-            rowNumber = rowResult.nextLabelNumber;
+            Topic topic = topics.get("Topic-" + (t + 1));
 
-            if (i >= validatorNodes.size()) {
-                break;
-            }
-            if (assignedInCurrentTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) {
-                topicNumber++;
-                assignedInCurrentTopic = 0;
-            }
+            /* 2×2 cross mapping (unchanged) */
+            int rowPairIdx = t;
+            int colPairIdx = (PERMUTATION_PRIME * t) & 0xFF;
+            int r0 = rowPairIdx * 2, r1 = r0 + 1;
+            int c0 = colPairIdx * 2, c1 = c0 + 1;
 
-            // COLUMN CHUNK
-            ChunkResult colResult = assignCustodyChunk(
-                    validatorNodes,
-                    i,
-                    NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC,
-                    topicNumber,
-                    assignedInCurrentTopic,
-                    columnNumber,
-                    "column");
-            i = colResult.nextNodeIndex;
-            assignedInCurrentTopic = colResult.assignedInThisTopic;
-            columnNumber = colResult.nextLabelNumber;
-        }
+            int quota = base + (t < extra ? 1 : 0);   // 1, 64/65, …
 
-        // 4. Create the mesh in each topic
-        TopicBasedMesh tbm = new TopicBasedMesh(this.prefix);
-        tbm.createTopicMesh();
+            for (int i = 0; i < quota; i++) {
 
-        // 5. AFTER all custody assignments are done, verify
-        for (Map.Entry<BigInteger, Node> entry : networkNodes.entrySet()) {
-            GossipSubProtocol gsp = (GossipSubProtocol) entry.getValue().getProtocol(gossipProtocolID);
-            String c1 = gsp.custody1;
-            String c2 = gsp.custody2;
+                /* wrap-around makes duplicates when V < required slots */
+                Node node = validators.get(cursor % V);
+                cursor++;
 
-            if (c1 == null || c2 == null || c1.isEmpty() || c2.isEmpty()) {
-                if(isDEBUG){
-                    System.out.println("[CUSTODY WARNING] Node " + gsp.getNodeId()
-                            + " has incomplete custody: c1=" + c1 + ", c2=" + c2);
-                }
+                GossipSubProtocol g = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
+                BigInteger id       = g.getNodeId();
 
-            }
-        }
-    }
+                /* give the four custody labels */
+                g.addCustody("row"+r0); g.addCustody("row"+r1);
+                g.addCustody("col"+c0); g.addCustody("col"+c1);
 
-    private static class ChunkResult {
-        int nextNodeIndex;
-        int assignedInThisTopic;
-        int nextLabelNumber;
+                rowCustodyNodes.computeIfAbsent(r0,k->new ArrayList<>()).add(id);
+                rowCustodyNodes.computeIfAbsent(r1,k->new ArrayList<>()).add(id);
+                colCustodyNodes.computeIfAbsent(c0,k->new ArrayList<>()).add(id);
+                colCustodyNodes.computeIfAbsent(c1,k->new ArrayList<>()).add(id);
 
-        ChunkResult(int nextNodeIndex, int assignedInThisTopic, int nextLabelNumber) {
-            this.nextNodeIndex = nextNodeIndex;
-            this.assignedInThisTopic = assignedInThisTopic;
-            this.nextLabelNumber = nextLabelNumber;
-        }
-    }
-
-//    private ChunkResult assignCustodyChunk(
-//            List<Node> validatorNodes,
-//            int startIndex,
-//            int chunkSize,
-//            int topicNumber,
-//            int assignedSoFar,
-//            int labelNumber,
-//            String labelPrefix) {
-//        int i = startIndex;
-//        int assignedInTopic = assignedSoFar;
-//
-//        for (int count = 0; count < chunkSize; count++) {
-//            if (i >= validatorNodes.size()) break;
-//            if (assignedInTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) break;
-//
-//            Node node = validatorNodes.get(i++);
-//            GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
-//            BigInteger nodeId = gsp.getNodeId();
-//
-//            // Primary custody
-//            gsp.custody1 = labelPrefix + labelNumber;
-//            if (labelPrefix.equals("row")) {
-//                rowCustodyNodes.computeIfAbsent(labelNumber, k -> new ArrayList<>()).add(nodeId);
-//            } else {
-//                columnCustodyNodes.computeIfAbsent(labelNumber, k -> new ArrayList<>()).add(nodeId);
-//            }
-//
-//            // Secondary custody
-//            int dimension = Configuration.getInt("NUMBER_OF_ROWS");
-//            int randomX;
-//            do {
-//                randomX = random.nextInt(dimension);
-//            } while (randomX == labelNumber);
-//
-//            gsp.custody2 = labelPrefix + randomX;
-//            if (labelPrefix.equals("row")) {
-//                rowCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>()).add(nodeId);
-//            } else {
-//                columnCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>()).add(nodeId);
-//            }
-//
-//            // Subscribe to the primary topic
-//            subscribeNodeToTopic(gsp, node, topicNumber);
-//
-//            // Subscribe to a secondary topic determined by randomX
-//            int secondaryTopicNumber = (randomX / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC")) + 1;
-//            if (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1) {
-//                if (labelPrefix.equals("row")) {
-//                    secondaryTopicNumber = (randomX * 2) + 1;
-//                } else {
-//                    secondaryTopicNumber = (randomX * 2) + 2;
-//                }
-//                if (secondaryTopicNumber > NUMBER_OF_TOPICS) {
-//                    secondaryTopicNumber = secondaryTopicNumber % NUMBER_OF_TOPICS;
-//                    if (secondaryTopicNumber == 0) {
-//                        secondaryTopicNumber = NUMBER_OF_TOPICS;
-//                    }
-//                }
-//            }
-//            subscribeNodeToTopic(gsp, node, secondaryTopicNumber);
-//
-//            assignedInTopic++;
-//
-//            // If assigned chunkSize nodes in this row/col, move to next labelNumber
-//            if (assignedInTopic % chunkSize == 0) {
-//                labelNumber++;
-//                if (labelPrefix.equals("row")) {
-//                    rowCustodyNodes.putIfAbsent(labelNumber, new ArrayList<>());
-//                } else {
-//                    columnCustodyNodes.putIfAbsent(labelNumber, new ArrayList<>());
-//                }
-//            }
-//
-//            if (isDEBUG) {
-//                System.out.println(
-//                        "[CHUNK " + labelPrefix.toUpperCase() + "] Node=" + nodeId
-//                                + ", T1=" + topicNumber + ", T2=" + secondaryTopicNumber
-//                                + ", C1=" + gsp.custody1 + ", C2=" + gsp.custody2);
-//            }
-//        }
-//
-//        return new ChunkResult(i, assignedInTopic, labelNumber);
-//    }
-
-    /**
-     * Randomly assigns <code>chunkSize</code> validators to the current
-     * row-or-column label.  We guarantee:
-     *   • Each part (chunk element) is picked uniformly at random
-     *     without replacement.
-     *   • No validator is ever handed out twice across the whole
-     *     execution because we move the chosen node to the front
-     *     of the list and advance <code>startIndex</code>.
-     *
-     * @param validatorNodes      The global (already-shuffled) pool.
-     * @param startIndex          Index of the first unused node.
-     * @param chunkSize           How many validators we still need
-     *                            (8 for 512×512 DAS).
-     * @param topicNumber         Topic to subscribe the primary label to.
-     * @param assignedSoFar       Validators already placed in this topic.
-     * @param labelNumber         Current row or column index.
-     * @param labelPrefix         Either "row" or "column".
-     * @return ChunkResult        New cursor position + updated counters.
-     */
-    private ChunkResult assignCustodyChunk(
-            List<Node> validatorNodes,
-            int startIndex,
-            int chunkSize,
-            int topicNumber,
-            int assignedSoFar,
-            int labelNumber,
-            String labelPrefix) {
-
-        int i              = startIndex;      // cursor into validatorNodes
-        int assignedInTopic = assignedSoFar;  // running total for Topic-K
-
-        for (int part = 0; part < chunkSize; part++) {
-
-            /* --- Stop if we exhaust the pool or the topic quota ---------- */
-            if (i >= validatorNodes.size())              break;
-            if (assignedInTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) break;
-
-            /* --- Fisher-Yates “pick-and-lock-in” -------------------------- */
-            int swapPos = i + random.nextInt(validatorNodes.size() - i);
-            Collections.swap(validatorNodes, i, swapPos);
-            Node node   = validatorNodes.get(i);         // chosen validator
-            i++;                                         // advance cursor
-
-            GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
-            BigInteger nodeId     = gsp.getNodeId();
-
-            /* ------------ PRIMARY CUSTODY (row510 / col23 / …) ----------- */
-            gsp.custody1 = labelPrefix + labelNumber;
-            if (labelPrefix.equals("row")) {
-                rowCustodyNodes.computeIfAbsent(labelNumber, k -> new ArrayList<>())
-                        .add(nodeId);
-            } else {
-                columnCustodyNodes.computeIfAbsent(labelNumber, k -> new ArrayList<>())
-                        .add(nodeId);
-            }
-
-            /* ------------ SECONDARY CUSTODY (random row/col) ------------- */
-            int dimension = Configuration.getInt("NUMBER_OF_ROWS");  // == NUMBER_OF_COLUMNS
-            int randomX;
-            do { randomX = random.nextInt(dimension); }
-            while (randomX == labelNumber);              // avoid c1 == c2
-
-            gsp.custody2 = labelPrefix + randomX;
-            if (labelPrefix.equals("row")) {
-                rowCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>())
-                        .add(nodeId);
-            } else {
-                columnCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>())
-                        .add(nodeId);
-            }
-
-            /* --------------- TOPIC SUBSCRIPTIONS ------------------------- */
-            subscribeNodeToTopic(gsp, node, topicNumber);
-
-            int secondaryTopic = (randomX / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC")) + 1;
-            if (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1) {
-                secondaryTopic = labelPrefix.equals("row") ? (randomX * 2) + 1
-                        : (randomX * 2) + 2;
-                if (secondaryTopic > NUMBER_OF_TOPICS) {
-                    secondaryTopic %= NUMBER_OF_TOPICS;
-                    if (secondaryTopic == 0) secondaryTopic = NUMBER_OF_TOPICS;
+                /* subscribe once */
+                if (!g.isSubscribedToTopic(topic)) {
+                    g.subscribeTopic(topic);
+                    g.meshPeersByTopic.put(topic.topicID, new HashSet<>());
+                    g.gossipMesh      .put(topic.topicID, new HashSet<>());
+                    topic.addMember(node);
                 }
             }
-            subscribeNodeToTopic(gsp, node, secondaryTopic);
 
-            /* --------------- DEBUG TRACE ---------------------------------- */
-            if (isDEBUG) {
-                System.out.println("[CHUNK " + labelPrefix.toUpperCase() + "] node="
-                        + nodeId + "  T1=" + topicNumber + "  T2=" + secondaryTopic
-                        + "  C1=" + gsp.custody1 + "  C2=" + gsp.custody2);
-            }
-
-            assignedInTopic++;
+            if (isDEBUG)
+                System.out.printf(
+                        "[PeerDAS] %s → quota=%d  rows{%d,%d} cols{%d,%d}%n",
+                        topic.topicID, quota, r0, r1, c0, c1);
         }
 
-        /* Move to the next label (row+1 or col+1) once this chunk is done */
-        labelNumber++;
-
-        return new ChunkResult(i, assignedInTopic, labelNumber);
-    }
-
-    private void subscribeNodeToTopic(GossipSubProtocol gsp, Node node, int topicNumber) {
-        Topic topic = topics.get("Topic-" + topicNumber);
-        if (topic == null) {
-            return;
+        /* 3 ─ sanity print --------------------------------------------------- */
+        if (isDEBUG) {
+            long unassigned = networkNodes.values().stream()
+                    .filter(n -> {
+                        GossipSubProtocol g =
+                                (GossipSubProtocol) n.getProtocol(gossipProtocolID);
+                        return !g.isBlockProposerNode() && g.custodies.isEmpty();
+                    }).count();
+            System.out.printf(
+                    "Coverage → rows:true  cols:true  unassigned validators:%d%n",
+                    unassigned);                       // always 0 now
         }
-        if (!gsp.isSubscribedToTopic(topic)) {
-            gsp.subscribeTopic(topic);
-            gsp.meshPeersByTopic.put(topic.topicID, new HashSet<>());
-            gsp.gossipMesh.put(topic.topicID, new HashSet<>());
-            topic.addMember(node);
 
-            if (isDEBUG) {
-                System.out.println(
-                        "[SUBSCRIBE] Node " + gsp.getNodeId() + " -> Topic-" + topicNumber);
-            }
-        }
     }
 }

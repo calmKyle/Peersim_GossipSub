@@ -508,7 +508,7 @@ df.columns = df.columns.str.strip()
 plt.figure(figsize=(8, 6))
 
 # 4. Plot two lines, each with a label for the legend
-plt.plot(df["Node ID"], df["Duplicated Message IHAVE"], marker="o", label="Duplicated Data")
+plt.plot(df["Node ID"], df["Duplicated_Data"], marker="o", label="Duplicated Data")
 # plt.plot(df["Node ID"], df["Total Sample Req Sent"], marker="x", label="Total Sample Req Sent")
 
 # 5. Label axes and add a title
@@ -537,8 +537,8 @@ df = df.sort_values("Node ID")
 
 # 4. Create rolling-mean columns to smooth data over a window of, say, 100 nodes
 window_size = 100
-df["DuplicatedIHAVE_smooth"] = (
-    df["Duplicated Message IHAVE"]
+df["Duplicated_Data_smooth"] = (
+    df["Duplicated_Data"]
     .rolling(window=window_size, center=True, min_periods=1)
     .mean()
 )
@@ -557,7 +557,7 @@ df["TotalSampleReceived_smooth"] = (
 
 # 5. Plot the smoothed lines
 plt.figure(figsize=(10,6))
-plt.plot(df["Node ID"], df["DuplicatedIHAVE_smooth"], label="Amount Duplicated Data", color="blue")
+plt.plot(df["Node ID"], df["Duplicated_Data"], label="Amount Duplicated Data", color="blue")
 plt.plot(df["Node ID"], df["TotalSampleReq_smooth"], label="Amount Sample Requested", color="orange")
 plt.plot(df["Node ID"], df["TotalSampleReceived_smooth"], label="Amount Sample Received (512)", color="green")
 
