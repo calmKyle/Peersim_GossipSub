@@ -245,7 +245,7 @@ public class GossipSubObserver implements Control {
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMax() : 0.0,
                         bw,
                         (double) protocol.duplicateIHaveMessage,
-                        (double) protocol.duplicateData);
+                        (double) protocol.duplicateShards);
 
                 writer.write(metrics);
                 writer.newLine();
