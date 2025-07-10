@@ -139,8 +139,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public int duplicateIHaveMessage = 0;
     private final HashSet<Long> seenIHave   = new HashSet<>();
 
-    public int duplicateShards = 0;
+    public long duplicateShards = 0;
     private final HashSet<Long> seenShards = new HashSet<>();
+
+    public long uniqueShards  = 0;
 
     private final Set<Long> pendingIWant = new HashSet<>();
 
@@ -342,60 +344,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return mesh != null && mesh.contains(peer);
     }
 
-    // Function to add new peers when the mesh is too small
-//    public void addMorePeers(String topicID, int needed) {
-//        Topic topic = CustomDistribution.topics.get(topicID);
-//        if (topic == null)
-//            return;
-//
-//        List<Node> potentialPeers = new ArrayList<>(topic.topicMembers);
-//        Collections.shuffle(potentialPeers, CommonState.r);
-//
-//        for (Node newPeer : potentialPeers) {
-//            // If we've already reached our local 'degree', stop adding more
-//            if (localMesh.get(topicID).size() >= degree) {
-//                break;
-//            }
-//
-//            if (needed <= 0)
-//                break;
-//
-//            GossipSubProtocol peerNode = (GossipSubProtocol) newPeer.getProtocol(gossipSubId);
-//
-//            // If that peer already has that node, skip
-//            // (only if you want to reduce double-link creation)
-//            if (peerNode.localMesh.get(topicID).contains(this.nodeId)) {
-//                continue;
-//            }
-//
-//            // We add them to OUR local mesh
-//            localMesh.putIfAbsent(topicID, new HashSet<>());
-//            localMesh.get(topicID).add(peerNode.nodeId);
-//
-//            addPeerScoreIfAbsent(peerNode.nodeId);
-//
-//            // Then we send them a GRAFT, so *they* can decide if they want us in their mesh
-//            Message graft = createMessage(
-//                    -1,
-//                    Message.MSG_GRAFT,
-//                    this.nodeId,
-//                    peerNode.nodeId,
-//                    topicID,
-//                    null,
-//                    false, -1, -1,
-//                    CommonState.getTime(),
-//                    -1);
-//            publishMessage(graft, peerNode.nodeId, gossipSubId);
-//
-//            // We used up one slot
-//            needed--;
-//
-//            // If we want to be REALLY sure we don't overshoot, we do:
-//            if (localMesh.get(topicID).size() >= degree) {
-//                break;
-//            }
-//        }
-//    }
 
     private void addMorePeers(String topicID, int needed) {
         Topic topic = CustomDistribution.topics.get(topicID);
@@ -824,17 +772,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-    public void sendMessageToPeers(Message m, int myPid, String topicID,
-            BigInteger avoid, BigInteger src) {
-        Set<BigInteger> peers = meshPeersByTopic.get(topicID);
-        if (peers == null || peers.isEmpty()) {
-            if (isDEBUG) {
-                System.out.println("[ERROR SEND MESSAGE: ] local mesh empty for node: " + nodeId);
-            }
-            return;
-        }
-        sendMessageToTopicNodes(m, myPid, topicID, meshPeersByTopic, avoid, src);
-    }
+
 
     public void gossipMessageToTopicNodes(
             Message m, int myPid, String topicID,
@@ -1283,10 +1221,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
 
-        if (!seenShards.add(m.id)) {
-            duplicateShards++;
-            return;
-        }
+//        if (!seenShards.add(m.id)) {
+//            duplicateShards++;
+//            return;
+//        }
 
         GossipSubProtocol proposerNode = (GossipSubProtocol) CustomDistribution.blockProposerNode
                 .getProtocol(gossipSubId);
@@ -1333,6 +1271,17 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         samplingStarter();
     }
 
+    public void sendMessageToPeers(Message m, int myPid, String topicID,
+                                   BigInteger avoid, BigInteger src) {
+        Set<BigInteger> peers = meshPeersByTopic.get(topicID);
+        if (peers == null || peers.isEmpty()) {
+            if (isDEBUG) {
+                System.out.println("[ERROR SEND MESSAGE: ] local mesh empty for node: " + nodeId);
+            }
+            return;
+        }
+        sendMessageToTopicNodes(m, myPid, topicID, meshPeersByTopic, avoid, src);
+    }
 
     // Edger push
     private void sendDataToMesh(Message m, int myPid, BigInteger avoidPeer) {
@@ -1357,54 +1306,53 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     public void handleData(Message m, int myPid) {
 
-        Message prev = messageCache.get(m.id); // have we cached this id?
-        if (prev != null && prev.body != null) { // and was it already full data?
-                            if (samePayload(prev.body, m.body)) {   // content really identical?
-                                } else {                                // same ID, different bytes!
-//                                    markInvalidMessage(m.src, m.messageTopicID);
-                                    if (isDEBUG) {
-                                            System.out.printf("[MISMATCH] node %s got conflicting body for msg=%d at t=%d%n",
-                                                            nodeId, m.id, CommonState.getTime());
-                                        }
-                                }
-            return;
+        /* 1 ──────────────────────────────────────────────────────
+         *    Fast duplicate filter (same uid, second arrival)
+         */
+        if (!seenShards.add(m.id)) {       // already saw this uid
+            duplicateShards++;             // metric
+            return;                        // drop body
         }
+        uniqueShards++;
 
-        if (!seenShards.add(m.id)) {          // uid already present ⇒ duplicate
-            duplicateShards++;                  // per-validator counter
-            return;                           // drop silently
-        }
-
-        // If we already cached the data, no need to do anything
-        if (messageCache.containsKey(m.id)) {
-            // Maybe we only had an "IHAVE placeholder."
-            // Let's see if the placeholder's body is null:
-            Message placeholder = messageCache.get(m.id);
-            if (placeholder.body == null) {
-                // fill in the real body now
-                placeholder.body = m.body;
-                // You can do further logic like "markFirstDelivery" or "incrementDelivered"
+        /* 2 ──────────────────────────────────────────────────────
+         *    Cache lookup: did we store a full body/data before?
+         */
+        Message cached = messageCache.get(m.id);
+        if (cached != null && cached.body != null) {
+            if (!samePayload(cached.body, m.body)) {
+                // same ID but different bytes  → mark invalid
+                if (isDEBUG) {
+                    System.out.printf(
+                            "[MISMATCH] node %s got conflicting body id=%d t=%d%n",
+                            nodeId, m.id, CommonState.getTime());
+                }
+                /* markInvalidMessage(m.src, m.messageTopicID); */
             }
-            // else we had data already => do nothing
-        } else {
-            // If we never even had a placeholder, let's store it
-            messageCache.put(m.id, m);
-
-            //edger push
-            sendDataToMesh(m, myPid, m.src);
+            return;                       // we already processed the good copy
         }
 
-        // Then do your normal "apply block or row data" logic
-        // e.g. if (distributionStrategy == 3) handleReceivedRowOrCol(m, myPid); etc.
+        /* 3 ──────────────────────────────────────────────────────
+         *    First *full* copy we’ve seen  → store & eager-push
+         */
+        messageCache.put(m.id, m);        // cache full body
+
+        sendDataToMesh(m, myPid, m.src);  // eager push to D peers (skip sender)
+
+        /* 4 ──────────────────────────────────────────────────────
+         *    Apply shard data according to distribution strategy
+         */
         if (distributionStrategy == 3) {
             handleReceivedRowOrCol(m, myPid);
         } else if (distributionStrategy == 2) {
             handleReceivedPart(m, myPid);
         }
 
-        samplingStarter(); // if you want
+        /* 5 ──────────────────────────────────────────────────────
+         *    Optional: kick off DAS sampling if conditions met
+         */
+        samplingStarter();
     }
-
     public void markFirstDelivery(Message m) {
         // We only do "first message" logic if we haven't seen it before. E.g.:
         // seenMessageIDs, etc. Then:
@@ -1718,7 +1666,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     nCopiesDistributionStrategy();
                 } else if (distributionStrategy == 2) {
                     seenShards.clear();
-                    duplicateShards = 0;
+                    duplicateShards = uniqueShards = 0;
                     duplicateIHaveMessage = 0;
                     shardingBasedDistribution();
                 }
@@ -2102,6 +2050,19 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
                         int uid = shardUID(sendingRow, shardIndex, part); // D
 
+//                        Message msg = createMessage(
+//                                uid, Message.MSG_DATA,
+//                                this.nodeId, dst.nodeId,
+//                                topic.topicID,
+//                                slice,
+//                                sendingRow,
+//                                shardIndex,
+//                                part,
+//                                copy,
+//                                -1);
+
+//                        publishMessage(msg, dst.nodeId, gossipSubId);
+
                         Message msg = createMessage(
                                 uid, Message.MSG_DATA,
                                 this.nodeId, dst.nodeId,
@@ -2110,10 +2071,18 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                                 sendingRow,
                                 shardIndex,
                                 part,
-                                copy,
+                                0,
                                 -1);
 
-                        publishMessage(msg, dst.nodeId, gossipSubId);
+                        for (BigInteger peerId : recipientSet(topic)) {   // helper from previous answer
+                            if (peerId.equals(this.nodeId)) {
+                                continue;     // skip self
+                            }
+                            publishMessage(msg, peerId, gossipSubId);
+                        }
+//                        publishMessage(msg, this.nodeId, gossipSubId);
+
+
                         rememberCustodian(sendingRow, shardIndex, dst.nodeId);
 
                         System.out.printf(
@@ -2131,4 +2100,19 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
 
+
+    private Set<BigInteger> recipientSet(Topic topic) {
+
+        // 1 – mesh if available
+        Set<BigInteger> mesh = meshPeersByTopic.get(topic.topicID);
+        if (mesh != null && !mesh.isEmpty()) return mesh;
+
+        // 2 – fallback: everybody in the topic.members list
+        Set<BigInteger> subs = new HashSet<>();
+        for (Node n : topic.topicMembers) {
+            BigInteger id = ((GossipSubProtocol) n.getProtocol(gossipSubId)).nodeId;
+            subs.add(id);
+        }
+        return subs;
+    }
 }

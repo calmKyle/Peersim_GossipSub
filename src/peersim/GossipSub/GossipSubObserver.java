@@ -103,7 +103,7 @@ public class GossipSubObserver implements Control {
                                 + "Total Sample Req Sent,Total Sample Received,Total Sample Req Timedout,"
                                 + "Sample Arrival Times,Sample RTT Times,Min Sample RTT,Avg Sample RTT,Max Sample RTT,"
                                 + "Total Seed Parts Received,Seed Part Arrival Times,Seed Part RTT Times,Min Seed Part RTT,"
-                                + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth, Duplicated Message IHAVE, Duplicated_Data");
+                                + "Avg Seed Part RTT,Max Seed Part RTT,Avg. Bandwidth, Duplicated Message IHAVE, Duplicated_Data, Shards_Amount");
                 writer.newLine();
                 return;
             }
@@ -219,7 +219,7 @@ public class GossipSubObserver implements Control {
                         : "[]";
 
                 String metrics = String.format(
-                        "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f,%f,%f,%f",
+                        "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f,%f,%f,%f,%f",
                         CommonState.getTime(),
                         count,
                         protocol.custody1,
@@ -245,7 +245,9 @@ public class GossipSubObserver implements Control {
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMax() : 0.0,
                         bw,
                         (double) protocol.duplicateIHaveMessage,
-                        (double) protocol.duplicateShards);
+                        (double) protocol.duplicateShards,
+                    (double) protocol.uniqueShards  );
+
 
                 writer.write(metrics);
                 writer.newLine();
