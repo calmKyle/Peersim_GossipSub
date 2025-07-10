@@ -488,9 +488,8 @@ plt.legend()
 plt.grid(True)
 
 # Show the plot
-plt.show()
+# plt.show()
 save_figure("Figure_5")
-
 
 
 #################################################################################
@@ -504,25 +503,30 @@ df = pd.read_csv("output_results.csv")
 # 2. Strip leading/trailing spaces from column names (if needed)
 df.columns = df.columns.str.strip()
 
+avg_duplicate = df["Duplicated_Data"] / df["Shards_Amount"]
+
 # 3. Create a figure
 plt.figure(figsize=(8, 6))
 
 # 4. Plot two lines, each with a label for the legend
-plt.plot(df["Node ID"], df["Duplicated Message IHAVE"], marker="o", label="Duplicated Data")
+plt.plot(df["Node ID"], df["Duplicated Message IHAVE"], marker="o", label="Duplicated IHave Message")
+
+plt.plot(avg_duplicate, marker="x", label="Duplicated Data")
 # plt.plot(df["Node ID"], df["Total Sample Req Sent"], marker="x", label="Total Sample Req Sent")
 
 # 5. Label axes and add a title
 plt.xlabel("Node ID")
 plt.ylabel("Value")
-plt.title("Duplicate Data with Sharding Distribution")
+plt.title("Duplicate with Sharding Distribution")
 
 # 6. Show the legend so we know which line is which
 plt.legend()
 
+
 # 7. Display the chart
+# plt.show()
 save_figure("Figure_6")
-
-
+###########################################################################################
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -553,20 +557,27 @@ df["TotalSampleReceived_smooth"] = (
     .mean()
 )
 
+df["AvgDuplicate_smooth"] = (
+    df["Duplicated_Data"] / df["Shards_Amount"]
+    .rolling(window=window_size, center=True, min_periods=1)
+    .mean()
+)
 
 
 # 5. Plot the smoothed lines
 plt.figure(figsize=(10,6))
-plt.plot(df["Node ID"], df["DuplicatedIHAVE_smooth"], label="Amount Duplicated Data", color="blue")
+plt.plot(df["Node ID"], df["DuplicatedIHAVE_smooth"], label="Amount Duplicated IHAVE Message", color="blue")
 plt.plot(df["Node ID"], df["TotalSampleReq_smooth"], label="Amount Sample Requested", color="orange")
-plt.plot(df["Node ID"], df["TotalSampleReceived_smooth"], label="Amount Sample Received (512)", color="green")
+# plt.plot(df["Node ID"], df["TotalSampleReceived_smooth"], label="Amount Sample Received (512)", color="green")
+plt.plot(df["Node ID"], df["AvgDuplicate_smooth"], label="Amount Duplicate Data", color="red")
+
 
 # 6. Axis labels and legends
 plt.xlabel("Node ID")
 plt.ylabel("Smoothed Value")
-plt.title("Smoothed Duplicate IHAVE vs. Total Sample Req Sent")
+# plt.title("Smoothed Duplicate IHAVE vs. Total Sample Req Sent")
 plt.legend()
+# plt.show()
 save_figure("Figure_7")
-
 
 ########################################################################################
