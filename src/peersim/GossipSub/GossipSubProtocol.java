@@ -443,7 +443,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             int over = meshPeersByTopic.get(topicID).size() - D; // trim back to “degree”
             if (isDEBUG) {
                 System.out.printf("[DEBUG handleGraft] mesh %s oversized (%d>%d); pruning %d peers%n",
-                        topicID, meshPeersByTopic.get(topicID).size(), D_HIGH, over);
+                        topicID, meshPeersByTopic.get(topicID).size(), D, over);
             }
             removeExcessPeers(topicID, over);
         }

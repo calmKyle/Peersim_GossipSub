@@ -56,6 +56,8 @@ public class CustomDistribution implements peersim.core.Control {
 
     public final String prefix;
     private boolean isDEBUG = Configuration.getBoolean("DEBUG_GOSSIPSUB", false);
+    private static final boolean ALLOW_MALICIOUS_BLOCK_PRODUCER =
+            Configuration.getBoolean("ALLOW_MALICIOUS_BLOCK_PRODUCER", false);
 
     public CustomDistribution(String prefix) {
         this.gossipProtocolID = Configuration.getPid(prefix + "." + PAR_PROT);
@@ -75,7 +77,7 @@ public class CustomDistribution implements peersim.core.Control {
             System.out.println("[CustomDistribution] Choosing node index " + randomIndex + " as block proposer");
         }
 
-        // 1. Assign NodeIDs and pick the random node as block proposer
+        // 1.  Assign NodeIDs and pick the random node as block proposer
         for (int i = 0; i < Network.size(); i++) {
             BigInteger nodeId = urg.generate();
             Node n = Network.get(i);
@@ -83,37 +85,69 @@ public class CustomDistribution implements peersim.core.Control {
             GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
             gsp.setNodeId(nodeId);
 
-            // Each node also needs a HeartbeatManager
+            // heartbeat & bookkeeping (unchanged) …
             HeartbeatManager hm = new HeartbeatManager(
-                    gsp,
-                    gsp.ephemeralCache,
-                    gsp.peerScores,
-                    isDEBUG);
+                    gsp, gsp.ephemeralCache, gsp.peerScores, isDEBUG);
             gsp.setHeartbeatManager(hm);
 
             networkNodes.put(nodeId, n);
 
-            // If it's our chosen random index, mark as block proposer
-            if (i == randomIndex) {
-                blockProposerNode = n;
-                gsp.setBlockProposerNode(true);
-                    System.out.println("[CustomDistribution] Node " + i + " / NodeID=" + nodeId + " is BLOCK PROPOSER");
-            } else {
-                gsp.setBlockProposerNode(false);
-            }
+            /* -------- block-proposer flag ------------------------------------ */
+            boolean isProposer = (i == randomIndex);
+            gsp.setBlockProposerNode(isProposer);
+            if (isProposer) blockProposerNode = n;
 
-            // Mark for malicious
-            double randVal = CommonState.r.nextDouble();
-            if (randVal < MALICIOUS_RATE) {
+            /* -------- malicious flag ----------------------------------------- */
+            boolean canBeMalicious = !isProposer || ALLOW_MALICIOUS_BLOCK_PRODUCER;
+            if (canBeMalicious && CommonState.r.nextDouble() < MALICIOUS_RATE) {
                 gsp.setMaliciousNode(true);
-                if (isDEBUG){
-                    System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId
-                            + " is MALICIOUS!");
-                }
+                if (isDEBUG)
+                    System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId + " is MALICIOUS");
             } else {
                 gsp.setMaliciousNode(false);
             }
         }
+
+
+//        // 1. Assign NodeIDs and pick the random node as block proposer
+//        for (int i = 0; i < Network.size(); i++) {
+//            BigInteger nodeId = urg.generate();
+//            Node n = Network.get(i);
+//
+//            GossipSubProtocol gsp = (GossipSubProtocol) n.getProtocol(gossipProtocolID);
+//            gsp.setNodeId(nodeId);
+//
+//            // Each node also needs a HeartbeatManager
+//            HeartbeatManager hm = new HeartbeatManager(
+//                    gsp,
+//                    gsp.ephemeralCache,
+//                    gsp.peerScores,
+//                    isDEBUG);
+//            gsp.setHeartbeatManager(hm);
+//
+//            networkNodes.put(nodeId, n);
+//
+//            // If it's our chosen random index, mark as block proposer
+//            if (i == randomIndex) {
+//                blockProposerNode = n;
+//                gsp.setBlockProposerNode(true);
+//                    System.out.println("[CustomDistribution] Node " + i + " / NodeID=" + nodeId + " is BLOCK PROPOSER");
+//            } else {
+//                gsp.setBlockProposerNode(false);
+//            }
+//
+//            // Mark for malicious
+//            double randVal = CommonState.r.nextDouble();
+//            if (randVal < MALICIOUS_RATE) {
+//                gsp.setMaliciousNode(true);
+//                if (isDEBUG){
+//                    System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId
+//                            + " is MALICIOUS!");
+//                }
+//            } else {
+//                gsp.setMaliciousNode(false);
+//            }
+//        }
 
         // 2. Initialize topics and assign custody
         try {
@@ -246,89 +280,6 @@ public class CustomDistribution implements peersim.core.Control {
         }
     }
 
-//    private ChunkResult assignCustodyChunk(
-//            List<Node> validatorNodes,
-//            int startIndex,
-//            int chunkSize,
-//            int topicNumber,
-//            int assignedSoFar,
-//            int labelNumber,
-//            String labelPrefix) {
-//        int i = startIndex;
-//        int assignedInTopic = assignedSoFar;
-//
-//        for (int count = 0; count < chunkSize; count++) {
-//            if (i >= validatorNodes.size()) break;
-//            if (assignedInTopic >= NUMBER_OF_VALIDATORS_PER_TOPIC) break;
-//
-//            Node node = validatorNodes.get(i++);
-//            GossipSubProtocol gsp = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
-//            BigInteger nodeId = gsp.getNodeId();
-//
-//            // Primary custody
-//            gsp.custody1 = labelPrefix + labelNumber;
-//            if (labelPrefix.equals("row")) {
-//                rowCustodyNodes.computeIfAbsent(labelNumber, k -> new ArrayList<>()).add(nodeId);
-//            } else {
-//                columnCustodyNodes.computeIfAbsent(labelNumber, k -> new ArrayList<>()).add(nodeId);
-//            }
-//
-//            // Secondary custody
-//            int dimension = Configuration.getInt("NUMBER_OF_ROWS");
-//            int randomX;
-//            do {
-//                randomX = random.nextInt(dimension);
-//            } while (randomX == labelNumber);
-//
-//            gsp.custody2 = labelPrefix + randomX;
-//            if (labelPrefix.equals("row")) {
-//                rowCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>()).add(nodeId);
-//            } else {
-//                columnCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>()).add(nodeId);
-//            }
-//
-//            // Subscribe to the primary topic
-//            subscribeNodeToTopic(gsp, node, topicNumber);
-//
-//            // Subscribe to a secondary topic determined by randomX
-//            int secondaryTopicNumber = (randomX / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC")) + 1;
-//            if (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1) {
-//                if (labelPrefix.equals("row")) {
-//                    secondaryTopicNumber = (randomX * 2) + 1;
-//                } else {
-//                    secondaryTopicNumber = (randomX * 2) + 2;
-//                }
-//                if (secondaryTopicNumber > NUMBER_OF_TOPICS) {
-//                    secondaryTopicNumber = secondaryTopicNumber % NUMBER_OF_TOPICS;
-//                    if (secondaryTopicNumber == 0) {
-//                        secondaryTopicNumber = NUMBER_OF_TOPICS;
-//                    }
-//                }
-//            }
-//            subscribeNodeToTopic(gsp, node, secondaryTopicNumber);
-//
-//            assignedInTopic++;
-//
-//            // If assigned chunkSize nodes in this row/col, move to next labelNumber
-//            if (assignedInTopic % chunkSize == 0) {
-//                labelNumber++;
-//                if (labelPrefix.equals("row")) {
-//                    rowCustodyNodes.putIfAbsent(labelNumber, new ArrayList<>());
-//                } else {
-//                    columnCustodyNodes.putIfAbsent(labelNumber, new ArrayList<>());
-//                }
-//            }
-//
-//            if (isDEBUG) {
-//                System.out.println(
-//                        "[CHUNK " + labelPrefix.toUpperCase() + "] Node=" + nodeId
-//                                + ", T1=" + topicNumber + ", T2=" + secondaryTopicNumber
-//                                + ", C1=" + gsp.custody1 + ", C2=" + gsp.custody2);
-//            }
-//        }
-//
-//        return new ChunkResult(i, assignedInTopic, labelNumber);
-//    }
 
     /**
      * Randomly assigns <code>chunkSize</code> validators to the current
