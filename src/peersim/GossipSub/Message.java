@@ -129,10 +129,8 @@ public class Message extends SimpleEvent {
         this.isRow = isRow;
         this.rowOrColumnNumber = rowOrColumnNumber;
         this.partNumber = partNo;
-        // this.type = messageType;
         this.messageSendingTime = 0;
         this.typeID = typeID;
-
     }
 
     /**

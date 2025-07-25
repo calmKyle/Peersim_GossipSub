@@ -793,7 +793,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void handleReceivedPart(Message m, int myPid) {
         String s = m.isRow ? "row" : "column";
         String key = s + m.rowOrColumnNumber;
-//         int threshold = (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2;
         int threshold = 1;
 
         if (custody1.equals(key)) {
@@ -2074,13 +2073,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                                 0,
                                 -1);
 
-                        for (BigInteger peerId : recipientSet(topic)) {   // helper from previous answer
+                        for (BigInteger peerId : recipientSet(topic)) {
                             if (peerId.equals(this.nodeId)) {
                                 continue;     // skip self
                             }
                             publishMessage(msg, peerId, gossipSubId);
                         }
-//                        publishMessage(msg, this.nodeId, gossipSubId);
+                        publishMessage(msg, this.nodeId, gossipSubId);
 
 
                         rememberCustodian(sendingRow, shardIndex, dst.nodeId);
@@ -2097,6 +2096,14 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 if (rowsPerTopic == colsPerTopic) sendRowNext = !sendRowNext;
             }
         }
+                /* ── final sanity log ────────────────────────────────────────────── */
+        System.out.printf("Finished: rows=%d  cols=%d%n", globalRow - 1, globalCol - 1);
+        System.out.println("*********Block proposer has sent the messages ********");
+        System.out.printf("Data sent size       : %d%n", totalDataTransmitted);
+        System.out.printf("Data transmission time: %d ms%n", totalTransmissionTime);
+        System.out.println("Malicious Rate: " + Configuration.getDouble("MALICIOUS_RATE"));
+        System.out.println("Seed Number: " + Configuration.getInt("random.seed"));
+        System.out.println("ROW/COL Holder: " + NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
     }
 
 
