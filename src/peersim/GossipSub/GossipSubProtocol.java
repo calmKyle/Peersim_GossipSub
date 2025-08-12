@@ -59,7 +59,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private static String PAR_TRANSPORT = "transport";
     private static int NUMBER_OF_ROWSCOLS_IN_A_TOPIC = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 16);
     private static int NUMBER_OF_VALIDATORS_PER_TOPIC = Configuration.getInt("NUMBER_OF_VALIDATORS_PER_TOPIC", 128);
-//    private static int NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC = NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1
+    //    private static int NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC = NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1
 //            ? NUMBER_OF_VALIDATORS_PER_TOPIC
 //            : (int) Math.ceil(
 //                    (NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
@@ -219,7 +219,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         this.heartbeatManager = new HeartbeatManager(
                 this,
                 this.ephemeralCache, // make sure ephemeralCache is still declared (e.g., as a LinkedHashMap<Long,
-                                     // EphemeralMsgInfo>)
+                // EphemeralMsgInfo>)
                 this.peerScores, // likewise for peerScores
                 this.isDEBUG);
 
@@ -262,9 +262,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             double meshDelivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
             double meshScore = (meshDelivered < p.meshDeliveriesThreshold)
                     ? p.meshDeliveriesWeightUnder *
-                            (p.meshDeliveriesThreshold - meshDelivered)
+                    (p.meshDeliveriesThreshold - meshDelivered)
                     : p.meshDeliveriesWeightOver *
-                            (meshDelivered - p.meshDeliveriesThreshold);
+                    (meshDelivered - p.meshDeliveriesThreshold);
 
             /* invalid msgs */
             double invalid = p.invalidMsgWeight * ts.invalidMessages;
@@ -702,7 +702,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         long queuingDelay = messageQueue.isEmpty()
                 ? 0
                 : messageTransmissionDelayQueue.get(messageTransmissionDelayQueue.size() - 1)
-                        - CommonState.getTime();
+                - CommonState.getTime();
 
         int messageSize = calculateMessageSize(m);
         long transmissionDelay = (long) Math.ceil((double) messageSize / (double) (bandwidth / 1000));
@@ -721,8 +721,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public void sendMessageToTopicNodes(Message m, int myPid, String topicID,
-            Map<String, Set<BigInteger>> nodesInTopic,
-            BigInteger messageSender, BigInteger src) {
+                                        Map<String, Set<BigInteger>> nodesInTopic,
+                                        BigInteger messageSender, BigInteger src) {
         Set<BigInteger> topicNodes = nodesInTopic.get(topicID);
         if (topicNodes == null)
             return;
@@ -768,7 +768,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
 
-//    public void handleReceivedPart(Message m, int myPid) {
+    //    public void handleReceivedPart(Message m, int myPid) {
 //        String s = m.isRow ? "row" : "column";
 //        String key = s + m.rowOrColumnNumber;
 //        int threshold = 1;
@@ -805,16 +805,16 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-        /** Deep-compare two possible payload objects (byte[], byte[][], String, …). */
-                private static boolean samePayload(Object a, Object b) {
-                if (a == b) return true;
-                if (a == null || b == null) return false;
-                if (a instanceof byte[] && b instanceof byte[])
-                        return java.util.Arrays.equals((byte[]) a, (byte[]) b);
-                if (a instanceof byte[][] && b instanceof byte[][])
-                        return java.util.Arrays.deepEquals((Object[]) a, (Object[]) b);
-                return a.equals(b);
-            }
+    /** Deep-compare two possible payload objects (byte[], byte[][], String, …). */
+    private static boolean samePayload(Object a, Object b) {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+        if (a instanceof byte[] && b instanceof byte[])
+            return java.util.Arrays.equals((byte[]) a, (byte[]) b);
+        if (a instanceof byte[][] && b instanceof byte[][])
+            return java.util.Arrays.deepEquals((Object[]) a, (Object[]) b);
+        return a.equals(b);
+    }
 
     private void processCustody(Message m, List<Message> custodyParts, int threshold) {
 
@@ -983,9 +983,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
         messageCache.put(m.id, m);
         IWANTmessageCache.remove(m.id);
-           if (m.body != null) {
-                   storeInEphemeralCache(m);
-               }
+        if (m.body != null) {
+            storeInEphemeralCache(m);
+        }
         samplingStarter();
     }
 
@@ -1026,7 +1026,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     // Send IWANT message if a part is missing
     private void requestMissingPart(Message m, int myPid, int custody1Size, int custody2Size, String custody1,
-            String custody2) {
+                                    String custody2) {
 //        int threshold = (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2;
         int threshold = 1;
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
@@ -1111,15 +1111,15 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         Message prev = messageCache.get(m.id);
         if (prev != null && prev.body != null) {
-                        if (samePayload(prev.body, m.body)) {
+            if (samePayload(prev.body, m.body)) {
 //                                duplicateData++;
-                            } else {
-                                markInvalidMessage(m.src, m.messageTopicID);
-                                if (isDEBUG) {
-                                        System.out.printf("[MISMATCH] proposer saw conflicting body for msg=%d at t=%d%n",
-                                                        m.id, CommonState.getTime());
-                                    }
-                            }
+            } else {
+                markInvalidMessage(m.src, m.messageTopicID);
+                if (isDEBUG) {
+                    System.out.printf("[MISMATCH] proposer saw conflicting body for msg=%d at t=%d%n",
+                            m.id, CommonState.getTime());
+                }
+            }
             return;
         }
 
@@ -1235,8 +1235,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 CommonState.getTime(), -6);
 
         sendMessageToPeers(full, myPid, m.messageTopicID,
-                                (avoidPeer == null ? nodeId : avoidPeer),   // skip sender
-                                nodeId);
+                (avoidPeer == null ? nodeId : avoidPeer),   // skip sender
+                nodeId);
 
         /* 2. remember it, so the heartbeat can gossip IHAVE later */
         storeInEphemeralCache(full);
@@ -1334,9 +1334,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public Message createMessage(long id, int type, BigInteger src, BigInteger dest,
-            String topicID, Object body,
-            boolean isRow, int RowOrColNum,
-            int partNum, long timeStamp, long ackid) {
+                                 String topicID, Object body,
+                                 boolean isRow, int RowOrColNum,
+                                 int partNum, long timeStamp, long ackid) {
         Message msg;
         if (id == -1) {
             msg = new Message(type, isRow, RowOrColNum, partNum, ackid);
@@ -2087,7 +2087,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 if (rowsPerTopic == colsPerTopic) sendRowNext = !sendRowNext;
             }
         }
-                /* ── final sanity log ────────────────────────────────────────────── */
+        /* ── final sanity log ────────────────────────────────────────────── */
         System.out.printf("Finished: rows=%d  cols=%d%n", globalRow - 1, globalCol - 1);
         System.out.println("*********Block proposer has sent the messages ********");
         System.out.printf("Data sent size       : %d%n", totalDataTransmitted);
