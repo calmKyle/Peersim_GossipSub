@@ -1,71 +1,145 @@
+#!/usr/bin/env python3
+"""
+plot_rtt.py – Visualise Max Seed RTT vs. malicious rate
 
-#############################################
+• Reads CSV files whose name contains “…malicious_rate_<rate>…”
+  (rate can be 0, 0.1, 0.2, …; seed id can vary).
+• Merges every seed that belongs to the same rate.
+• Figure 1: CDF of Max Seed RTT – one stepped line per rate.
+            Legend labels are clickable: clicking toggles visibility.
+• Figure 2: “Patch‑line” – average Max Seed RTT for each rate.
+"""
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import glob
+import re
+from collections import defaultdict
 
-# Pattern to match all your CSV files
-csv_files = glob.glob('output_results_malicious_rate_*.csv')
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
-# --- Plot for Seed RTT ---
-plt.figure(figsize=(10, 7))
 
-for file in csv_files:
-    # Extract the malicious rate from filename for labeling
-    malicious_rate = file.split('_')[-1].replace('.csv', '')
+# ---------------------------------------------------------------------------
+# CONFIG – tweak if your filenames vary
+# ---------------------------------------------------------------------------
+FILE_PATTERN = 'output_results_malicious_rate_*.csv'
+RATE_REGEX   = re.compile(r'_rate_([0-9]+(?:\.[0-9]+)?)')   # captures “0”, “0.1” …
+THRESHOLD_MS = 4000
+XMAX_CDF     = 5000
+
+
+# ---------------------------------------------------------------------------
+# 1.  READ CSVs  ➜  bucket each seed under its malicious‑rate
+# ---------------------------------------------------------------------------
+rtt_by_rate = defaultdict(list)     # {rate → [np.array, …]}
+
+for file in glob.glob(FILE_PATTERN):
+    m = RATE_REGEX.search(file)
+    if not m:
+        print(f"⚠️  Skipping (no rate in name): {file}")
+        continue
+
+    rate = float(m.group(1))
+    df   = pd.read_csv(file)
+
+    if 'Max Seed Part RTT' not in df.columns:
+        print(f"⚠️  Skipping (missing column): {file}")
+        continue
+
+    rtt_by_rate[rate].append(df['Max Seed Part RTT'].values)
+
+if not rtt_by_rate:
+    raise SystemExit("No matching CSV files found – check FILE_PATTERN or folder.")
+
+
+# ---------------------------------------------------------------------------
+# 2.  FIGURE 1 – interactive CDF  (one‑seed normalised)
+# ---------------------------------------------------------------------------
+fig_cdf, ax_cdf = plt.subplots(figsize=(10, 7))
+cdf_lines       = []
+
+for rate in sorted(rtt_by_rate):
+    xs   = np.sort(np.concatenate(rtt_by_rate[rate]))          # merge all seeds
+    n_seeds = len(rtt_by_rate[rate])                           # how many seeds?
     
-    # Load CSV
-    df = pd.read_csv(file)
-    
-    # Get 'Max Seed RTT'
-    times_seed = df['Max Seed RTT']
-    
-    # Sort and compute CDF
-    data_sorted_seed = np.sort(times_seed)
-    cumulative_node_count_seed = np.arange(1, len(data_sorted_seed) + 1)
+    # ――― Y‑values now represent the *average* over seeds ―――
+    # Each seed contributes exactly 1 node to the count, so the final
+    # value on the y‑axis ends at 16 384 instead of n_seeds*16 384.
+    ys = np.arange(1, len(xs) + 1) / n_seeds
 
-    # Plot Seed Arrival Times
-    plt.step(data_sorted_seed, cumulative_node_count_seed, where='post', label=f'Seed RTT (rate={malicious_rate})')
+    line, = ax_cdf.step(xs, ys, where='post', label=f'rate = {rate:g}')
+    cdf_lines.append(line)
 
-# Decorations
-plt.title('CDF of Max Seed RTT (across multiple malicious rates)')
-plt.xlabel('Time (ms)')
-plt.ylabel('Number of Nodes')
-plt.xlim(0, 5000)
-plt.axvline(x=4000, color='red', linestyle='--', label='Threshold 4000 ms')
-plt.legend()
-plt.grid(True)
-plt.show()
+ax_cdf.set(
+    title='CDF of Max Seed RTT (average across seeds; 16 384 nodes per seed)',
+    xlabel='Time (ms)',
+    ylabel='Average number of nodes',
+    xlim=(0, XMAX_CDF)
+)
+ax_cdf.axvline(THRESHOLD_MS, color='red', ls='--',
+               label=f'{THRESHOLD_MS} ms threshold')
+ax_cdf.grid(True)
 
-# --- Plot for Sample RTT ---
-plt.figure(figsize=(10, 7))
+legend       = ax_cdf.legend(loc='best', title='Click a label to hide/show')
+legend_lines = legend.get_lines()          # portable across Matplotlib versions
+for leg_line in legend_lines:
+    leg_line.set_picker(True)
+    leg_line.set_alpha(1.0)
 
-for file in csv_files:
-    # Extract the malicious rate from filename for labeling
-    malicious_rate = file.split('_')[-1].replace('.csv', '')
-    
-    # Load CSV
-    df = pd.read_csv(file)
-    
-    # Get 'Max Sample RTT'
-    times_sample = df['Max Sample RTT']
-    
-    # Sort and compute CDF
-    data_sorted_sample = np.sort(times_sample)
-    cumulative_node_count_sample = np.arange(1, len(data_sorted_sample) + 1)
 
-    # Plot Sample RTT
-    plt.step(data_sorted_sample, cumulative_node_count_sample, where='post',  label=f'Sample RTT (rate={malicious_rate})')
+def on_pick(event):
+    leg_line = event.artist
+    if leg_line not in legend_lines:
+        return
+    idx        = legend_lines.index(leg_line)
+    data_line  = cdf_lines[idx]
+    visible    = not data_line.get_visible()
+    data_line.set_visible(visible)
+    leg_line.set_alpha(1.0 if visible else 0.25)
+    fig_cdf.canvas.draw_idle()
 
-# Decorations
-plt.title('CDF of Max Sample RTT (across multiple malicious rates)')
-plt.xlabel('Time (ms)')
-plt.ylabel('Number of Nodes')
-plt.xlim(0, 5000)
-plt.axvline(x=4000, color='red', linestyle='--', label='Threshold 4000 ms')
-plt.legend()
-plt.grid(True)
+
+fig_cdf.canvas.mpl_connect('pick_event', on_pick)
+fig_cdf.tight_layout()
+
+
+# ---------------------------------------------------------------------------
+# 3.  FIGURE 2 – highest RTT (+2 ms); hide < 100 ms or ≥ 4 000 ms
+# ---------------------------------------------------------------------------
+deadline_ms   = 4000        # 4‑s deadline
+min_valid_ms  = 100         # hide everything below this
+
+# Add 2 ms to each rate’s single worst RTT
+max_rtt_plus2 = {r: np.max(np.concatenate(v)) + 2
+                 for r, v in rtt_by_rate.items()}
+
+# Keep only points in the allowed band [100 ms, 4 000 ms)
+valid_rates, valid_vals = [], []
+for r, val in max_rtt_plus2.items():
+    if min_valid_ms <= val < deadline_ms:
+        valid_rates.append(r)
+        valid_vals.append(val)
+
+fig_max, ax_max = plt.subplots(figsize=(8, 5))
+
+if valid_rates:  # plot only if something survives the filter
+    ax_max.plot(valid_rates, valid_vals, marker='o', lw=2,
+                label='max RTT + 2 ms')
+
+# Always show the 4‑s deadline
+ax_max.axhline(deadline_ms, color='red', ls='--', label='4 000 ms deadline')
+
+ax_max.set(
+    title='Highest Max Seed RTT (+2 ms)\n(points < 100 ms or ≥ 4 000 ms hidden)',
+    xlabel='Malicious rate (fraction)',
+    ylabel='Highest Max Seed RTT (ms)'
+)
+ax_max.set_xticks(sorted(valid_rates))
+ax_max.grid(True)
+ax_max.legend()
+fig_max.tight_layout()
+# ---------------------------------------------------------------------------
+# 4.  SHOW
+# ---------------------------------------------------------------------------
 plt.show()
 

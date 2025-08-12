@@ -568,31 +568,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-//    private void removeExcessPeers(String topicID, int count) {
-//        Set<BigInteger> peers = localMesh.get(topicID);
-//        if (peers == null || count <= 0)
-//            return;
-//
-//        int maxAllowed = peers.size() - minDegree;
-//        count = Math.min(count, maxAllowed);
-//        if (count <= 0)
-//            return;
-//
-//        // Make sure each peer has a PeerScoreInfo
-//        for (BigInteger p : peers) {
-//            addPeerScoreIfAbsent(p);
-//        }
-//
-//        // Then do the sorting:
-//        List<BigInteger> sorted = new ArrayList<>(peers);
-//        sorted.sort(Comparator.comparingDouble(p -> computeScore(peerScores.get(p))));
-//
-//        // Prune the worst 'count' peers
-//        for (int i = 0; i < count; i++) {
-//            BigInteger toRemove = sorted.get(i);
-//            prunePeer(toRemove, topicID);
-//        }
-//    }
 
     private void removeExcessPeers(String topicID, int toPrune) {
         Set<BigInteger> mesh = meshPeersByTopic.get(topicID);
@@ -670,14 +645,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
         subscribedTopics.add(topic);
-    }
-
-    public void unsubscribeTopic(Topic topic) {
-        if (subscribedTopics.contains(topic)) {
-            subscribedTopics.remove(topic);
-            meshPeersByTopic.remove(topic.topicID);
-            return;
-        }
     }
 
     public boolean isSubscribedToTopic(Topic topic) {
@@ -773,26 +740,51 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
 
-
-    public void gossipMessageToTopicNodes(
-            Message m, int myPid, String topicID,
-            BigInteger avoid, BigInteger src) {
-        m.body = null; // only metadata
-        sendMessageToTopicNodes(m, myPid, topicID, gossipMesh, avoid, src);
-    }
+//    public void createWholeRowOrColumnSeed(Message m, int rowOrColNum) {
+//        byte[][] body = m.isRow ? block.getRowData(rowOrColNum) : block.getColumnData(rowOrColNum);
+//        Message newSeed = createMessage(
+//                -1, 3, nodeId, nodeId, m.messageTopicID, body,
+//                m.isRow, m.rowOrColumnNumber, -1, CommonState.getTime(), -1);
+//        custodyData1.add(newSeed);
+//        samplingStarter();
+//    }
 
     public void createWholeRowOrColumnSeed(Message m, int rowOrColNum) {
         byte[][] body = m.isRow ? block.getRowData(rowOrColNum) : block.getColumnData(rowOrColNum);
+
         Message newSeed = createMessage(
                 -1, 3, nodeId, nodeId, m.messageTopicID, body,
                 m.isRow, m.rowOrColumnNumber, -1, CommonState.getTime(), -1);
-        custodyData1.add(newSeed);
+
+        String key = (m.isRow ? "row" : "column") + rowOrColNum;
+
+        if (key.equals(custody1)) {
+            custodyData1.add(newSeed);
+        } else if (key.equals(custody2)) {
+            custodyData2.add(newSeed);
+        }
+
         samplingStarter();
     }
 
+
+//    public void handleReceivedPart(Message m, int myPid) {
+//        String s = m.isRow ? "row" : "column";
+//        String key = s + m.rowOrColumnNumber;
+//        int threshold = 1;
+//
+//        if (custody1.equals(key)) {
+//            processCustody(m, custody1Parts, threshold);
+//        } else if (custody2.equals(key)) {
+//            processCustody(m, custody2Parts, threshold);
+//        }
+//    }
     public void handleReceivedPart(Message m, int myPid) {
         String s = m.isRow ? "row" : "column";
         String key = s + m.rowOrColumnNumber;
+
+        // Majority threshold, consistent with requestMissingPart()
+//        int threshold = Math.max(1, (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2);
         int threshold = 1;
 
         if (custody1.equals(key)) {
@@ -801,6 +793,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             processCustody(m, custody2Parts, threshold);
         }
     }
+
 
     private void storeInEphemeralCache(Message m) {
         if (!ephemeralCache.containsKey(m.id)) {
@@ -854,38 +847,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
     }
 
-    // private void processCustody(Message m, List<Message> custodyParts, int
-    // threshold) {
-    // if (custodyParts.size() < threshold) {
-    // long currentTime = CommonState.getTime();
-    // seedPartArrivalTimeFromPeer.add(currentTime);
-    // seedPartDelayTimeFromPeer.add(currentTime - m.timestamp);
-    // seedPartArrivalTimeStore.add(currentTime - m.timestamp);
-    // custodyParts.add(m);
-    //
-    // if (custodyParts.size() == threshold) {
-    // createWholeRowOrColumnSeed(m, m.rowOrColumnNumber);
-    // }
-    // }
-    // }
 
-    // public void handleReceivedRowOrCol(Message m, int myPid) {
-    // String s = m.isRow ? "row" : "column";
-    // String key = s + m.rowOrColumnNumber;
-    //
-    // if (custody1.equals(key)) {
-    // custodyData1.add(m);
-    // } else if (custody2.equals(key)) {
-    // custodyData2.add(m);
-    // } else {
-    // return;
-    // }
-    //
-    // long currentTime = CommonState.getTime();
-    // messageArrivalTimeFromBP.add(currentTime);
-    // messageDelayTimeFromBP.add(currentTime - m.timestamp);
-    // seedArrivalTimeStore.add(currentTime);
-    // }
 
     public void handleReceivedRowOrCol(Message m, int myPid) {
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
@@ -932,7 +894,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 shouldStart = true;
             }
         } else if (distributionStrategy == 2) {
-            if (custodyData1.size() >= 2) {
+            if (custodyData1.size() >= 1 || custodyData2.size() >= 1) {
                 shouldStart = true;
             }
         }
@@ -942,6 +904,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             startSampling();
         }
     }
+
 
     public void handleIHave(Message m, int myPid) {
         if (!seenIHave.add(m.id)) {      // uid already present ⇒ duplicate
@@ -956,6 +919,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             return;
         }
         messageCache.put(m.id, m);
+
         if (USE_ADAPTIVE_GOSSIP) {
             gossipTracer.computeIfAbsent(m.src, k -> new GossipTracer()).ihaveSeen++;
         }
@@ -966,48 +930,47 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         messageCache.put(m.id, m);
 
         long now = CommonState.getTime();
-            if (m.body == null && !IWANTmessageCache.containsKey(m.id)) {
-                    Message want = createMessage(
-                                    m.id, Message.MSG_IWANT,
-                                    nodeId,            /* src  = me      */
-                                    m.src,             /* dest = advert sender */
-                                    m.messageTopicID,
-                                    /* body = */ null,
-                                    m.isRow, m.rowOrColumnNumber, m.partNumber,
-                                    now, -6);
+        if (m.body == null && !IWANTmessageCache.containsKey(m.id)) {
+            Message want = createMessage(
+                    m.id, Message.MSG_IWANT,
+                    nodeId,            /* src  = me      */
+                    m.src,             /* dest = advert sender */
+                    m.messageTopicID,
+                    /* body = */ null,
+                    m.isRow, m.rowOrColumnNumber, m.partNumber,
+                    now, -6);
 
-                            publishMessage(want, m.src, myPid);
-                    IWANTmessageCache.put(m.id, m);   // remember so we send it only once
-                }
-
-        storeInEphemeralCache(m);
-
-        if (lastAdvertisedTime.containsKey(m.id)
-                && (now - lastAdvertisedTime.get(m.id) < ADVERTISEMENT_TTL)) {
-
-            // Node already gossiped this IHAVE not too long ago => skip re-gossip
-            return;
+            publishMessage(want, m.src, myPid);
+            IWANTmessageCache.put(m.id, m);   // remember so we send it only once
         }
 
+        if (lastAdvertisedTime.getOrDefault(m.id, 0L) + ADVERTISEMENT_TTL > now) {
+            return;                           // recently advertised → done
+        }
         lastAdvertisedTime.put(m.id, now);
 
-        // Metadata
-        Message advert = createMessage(m.id, Message.MSG_IHAVE, m.src,
-                m.dest, m.messageTopicID, /* body */ null,
-                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
+        Message advert = createMessage(
+                m.id, Message.MSG_IHAVE,
+                nodeId,               /* src = me (re-originated) */
+                null,                 /* dest = fill per-peer below */
+                m.messageTopicID,
+                /* body */ null,
+                m.isRow, m.rowOrColumnNumber, m.partNumber,
+                now, -6);
 
-        // Full Message
-        Message full = createMessage(m.id, Message.MSG_DATA, nodeId,
-                m.dest, m.messageTopicID, m.body,
-                m.isRow, m.rowOrColumnNumber, m.partNumber, CommonState.getTime(), -6);
+        sendMessageToPeers(advert, myPid, m.messageTopicID,
+                /* avoid = */ nodeId,          // don’t echo back to self
+                m.src);                        // don’t send to original sender
 
 
         incrementDelivered(m.src, m.messageTopicID);
         // edger push
-        sendMessageToPeers(full, myPid, m.messageTopicID, this.nodeId, m.src);
+
+        if (m.body != null) {             // only cache once we have the full payload
+            storeInEphemeralCache(m);
+        }
 
         // Lazy gossip
-//        gossipMessageToTopicNodes(advert, myPid, m.messageTopicID, this.nodeId, m.src);
         samplingStarter();
     }
 
@@ -1020,6 +983,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
         messageCache.put(m.id, m);
         IWANTmessageCache.remove(m.id);
+           if (m.body != null) {
+                   storeInEphemeralCache(m);
+               }
         samplingStarter();
     }
 
@@ -1037,7 +1003,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 }
             }
         } else if (distributionStrategy == 2) {
-            if (!custodyData1.contains(m)) {
+            if (!custodyData1.contains(m) || !custodyData2.contains(m)) {
                 if (custody1.equals(key) || custody2.equals(key)) {
                     if (m.body == null) {
                         requestMissingPart(m, myPid, custody1Parts.size(), custody2Parts.size(), custody1, custody2);
@@ -1061,7 +1027,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // Send IWANT message if a part is missing
     private void requestMissingPart(Message m, int myPid, int custody1Size, int custody2Size, String custody1,
             String custody2) {
-        int threshold = (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2;
+//        int threshold = (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2;
+        int threshold = 1;
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
 
         if (custody1.equals(key) && custody1Size < threshold) {
@@ -1082,70 +1049,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         IWANTmessageCache.put(m.id, m);
         publishMessage(request, m.src, myPid);
     }
-
-//    public void handleIWANT(Message m, int myPid) {
-//        if (isDEBUG) {
-//            System.out.println("[DEBUG handleIWANT] Node " + nodeId
-//                    + " received IWANT for msgId=" + m.id
-//                    + " from node " + m.src);
-//        }
-//        iWantRecv++;
-//
-//        // Try to find the requested message among your local caches/collections.
-//        // For example, if you store complete messages in 'messageCache', do:
-//        Message storedMsg = messageCache.get(m.id);
-//
-//        // If we don't have it, do nothing (or log).
-//        // The requesting node may ask another peer.
-//        if (storedMsg == null || storedMsg.body == null) {
-//            if (isDEBUG) {
-//                System.out.println("[DEBUG handleIWANT] Node " + nodeId
-//                        + " => does NOT have msgId=" + m.id + ", ignoring request.");
-//            }
-//            return;
-//        }
-//
-//        // Message storedMsg = messageCache.get(m.id);
-//        if (storedMsg == null || storedMsg.body == null) {
-//            storedMsg = lookupInCustody(m);
-//            if (storedMsg == null) { // still nothing
-//                if (isDEBUG) {
-//                    System.out.println("[DEBUG handleIWANT] Node " + nodeId +
-//                            " cannot satisfy msgId=" + m.id + " — ignoring");
-//                }
-//                return;
-//            }
-//        }
-//
-//        // We do have it. Construct a MSG_DATA response with the full body.
-//        // Note: we re-use m.id, plus 'nodeId' as our src, and 'm.src' as the dest.
-//        // The body is the actual payload from 'storedMsg'.
-//        Message response = createMessage(
-//                m.id,
-//                Message.MSG_DATA,
-//                nodeId, // from me
-//                m.src, // back to the requester
-//                storedMsg.messageTopicID,
-//                storedMsg.body, // the actual payload
-//                storedMsg.isRow,
-//                storedMsg.rowOrColumnNumber,
-//                storedMsg.partNumber,
-//                CommonState.getTime(), // timestamp
-//                m.id // ackId can track which message we're responding to
-//        );
-//
-//        // (Optional) store it in ephemeral cache if your logic requires
-//        storeInEphemeralCache(response);
-//
-//        // Publish/forward the full data back to the requester
-//        publishMessage(response, m.src, myPid);
-//
-//        if (isDEBUG) {
-//            System.out.println("[DEBUG handleIWANT] Node " + nodeId
-//                    + " => Sent MSG_DATA for msgId=" + m.id
-//                    + " to node " + m.src);
-//        }
-//    }
 
 
     public void handleIWANT(Message m, int myPid) {
@@ -1283,11 +1186,47 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     // Edger push
+//    private static final boolean IHAVE_FIRST = true;
+//    private void sendDataToMesh(Message m, int myPid, BigInteger avoidPeer) {
+//
+//        /* -----------   (a) remember the full body locally   ----------- */
+//        storeInEphemeralCache(m);                // so heart-beat can gossip it later
+//
+//        /* -----------   (b) choose what to send to mesh peers   ----------- */
+//        if (IHAVE_FIRST) {
+//            /* send only metadata now – peers will IWANT it if needed */
+//            Message advert = createMessage(
+//                    m.id, Message.MSG_IHAVE,     // ← IHAVE, not DATA
+//                    nodeId,
+//                    null,                        // dest     will be filled below
+//                    m.messageTopicID,
+//                    /* body */ null,             // no payload
+//                    m.isRow, m.rowOrColumnNumber, m.partNumber,
+//                    CommonState.getTime(), -6);
+//
+//            sendMessageToPeers(advert, myPid, m.messageTopicID,
+//                    (avoidPeer == null ? nodeId : avoidPeer),
+//                    nodeId);
+//        } else {
+//            /* legacy eager full-DATA path (kept for toggling) */
+//            Message full = createMessage(
+//                    m.id, Message.MSG_DATA,
+//                    nodeId, m.dest, m.messageTopicID,
+//                    m.body,
+//                    m.isRow, m.rowOrColumnNumber, m.partNumber,
+//                    CommonState.getTime(), -6);
+//
+//            sendMessageToPeers(full, myPid, m.messageTopicID,
+//                    (avoidPeer == null ? nodeId : avoidPeer),
+//                    nodeId);
+//        }
+//    }
     private void sendDataToMesh(Message m, int myPid, BigInteger avoidPeer) {
 
         /* 1. full body to every mesh peer (MSG_DATA) */
+
         Message full = createMessage(
-                m.id, Message.MSG_DATA,      // <-- DATA, not IHAVE
+                m.id, Message.MSG_DATA,
                 nodeId,                  /* src  = me   */
                 m.dest,                  /* dest = will be overwritten */
                 m.messageTopicID,
@@ -1301,6 +1240,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         /* 2. remember it, so the heartbeat can gossip IHAVE later */
         storeInEphemeralCache(full);
+
     }
 
     public void handleData(Message m, int myPid) {
@@ -1521,8 +1461,46 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     }
 
+//    public void handleSampleRequest(Message m, int myPid) {
+//
+//        boolean requestedRow = m.isRow;
+//        int rowOrColNumb = m.rowOrColumnNumber;
+//        int idx = Integer.parseInt((String) m.body);
+//
+//        BigInteger blockProposerId = ((GossipSubProtocol) (CustomDistribution.blockProposerNode
+//                .getProtocol(gossipSubId))).nodeId;
+//
+//        if (!custody1.isEmpty()) {
+//            for (Message custodyMessage : custodyData1) {
+//                if (m.isRow == custodyMessage.isRow && m.rowOrColumnNumber == custodyMessage.rowOrColumnNumber
+//                        && m.partNumber == custodyMessage.partNumber) {
+//                    byte[][] data = (byte[][]) custodyData1.get(0).body;
+//                    byte sampleDataResp = data[0][idx];
+//                    Message sampleResponse = createMessage(m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
+//                            m.messageTopicID, Integer.toString(sampleDataResp), m.isRow, m.rowOrColumnNumber,
+//                            m.partNumber, m.timestamp, m.typeID);
+//                    this.publishMessage(sampleResponse, m.src, gossipSubId);
+//                    return;
+//                }
+//            }
+//        }
+//        if (!custody2.isEmpty()) {
+//            for (Message custodyMessage : custodyData2) {
+//                if (m.isRow == custodyMessage.isRow && m.rowOrColumnNumber == custodyMessage.rowOrColumnNumber
+//                        && m.partNumber == custodyMessage.partNumber) {
+//                    byte[][] data = (byte[][]) custodyData2.get(0).body;
+//                    byte sampleDataResp = data[0][idx];
+//                    Message sampleResponse = createMessage(m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
+//                            m.messageTopicID, Integer.toString(sampleDataResp), m.isRow, m.rowOrColumnNumber,
+//                            m.partNumber, m.timestamp, m.typeID);
+//                    this.publishMessage(sampleResponse, m.src, gossipSubId);
+//                    return;
+//                }
+//            }
+//        }
+//    }
+
     public void handleSampleRequest(Message m, int myPid) {
-        // if (isMaliciousNode()) return;
 
         boolean requestedRow = m.isRow;
         int rowOrColNumb = m.rowOrColumnNumber;
@@ -1533,31 +1511,45 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         if (!custody1.isEmpty()) {
             for (Message custodyMessage : custodyData1) {
-                if (m.isRow == custodyMessage.isRow && m.rowOrColumnNumber == custodyMessage.rowOrColumnNumber
-                        && m.partNumber == custodyMessage.partNumber) {
-                    byte[][] data = (byte[][]) custodyData1.get(0).body;
+                boolean sameRowCol = (m.isRow == custodyMessage.isRow) &&
+                        (m.rowOrColumnNumber == custodyMessage.rowOrColumnNumber);
+
+                boolean partMatchesOrIsSeed = (custodyMessage.partNumber == -1) ||
+                        (m.partNumber == custodyMessage.partNumber);
+
+                if (sameRowCol && partMatchesOrIsSeed) {
+                    byte[][] data = (byte[][]) custodyMessage.body;
                     byte sampleDataResp = data[0][idx];
-                    Message sampleResponse = createMessage(m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
-                            m.messageTopicID, Integer.toString(sampleDataResp), m.isRow, m.rowOrColumnNumber,
-                            m.partNumber, m.timestamp, m.typeID);
+                    Message sampleResponse = createMessage(
+                            m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
+                            m.messageTopicID, Integer.toString(sampleDataResp),
+                            m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, m.typeID);
                     this.publishMessage(sampleResponse, m.src, gossipSubId);
                     return;
                 }
             }
+
         }
-        if (!custodyData2.isEmpty()) {
+        if (!custody2.isEmpty()) {
             for (Message custodyMessage : custodyData2) {
-                if (m.isRow == custodyMessage.isRow && m.rowOrColumnNumber == custodyMessage.rowOrColumnNumber
-                        && m.partNumber == custodyMessage.partNumber) {
-                    byte[][] data = (byte[][]) custodyData2.get(0).body;
+                boolean sameRowCol = (m.isRow == custodyMessage.isRow) &&
+                        (m.rowOrColumnNumber == custodyMessage.rowOrColumnNumber);
+
+                boolean partMatchesOrIsSeed = (custodyMessage.partNumber == -1) ||
+                        (m.partNumber == custodyMessage.partNumber);
+
+                if (sameRowCol && partMatchesOrIsSeed) {
+                    byte[][] data = (byte[][]) custodyMessage.body;
                     byte sampleDataResp = data[0][idx];
-                    Message sampleResponse = createMessage(m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
-                            m.messageTopicID, Integer.toString(sampleDataResp), m.isRow, m.rowOrColumnNumber,
-                            m.partNumber, m.timestamp, m.typeID);
+                    Message sampleResponse = createMessage(
+                            m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
+                            m.messageTopicID, Integer.toString(sampleDataResp),
+                            m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, m.typeID);
                     this.publishMessage(sampleResponse, m.src, gossipSubId);
                     return;
                 }
             }
+
         }
     }
 
@@ -2004,10 +1996,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
             /* B: make sure we have enough unique recipients */
             if (members.size() < divisions * kCopies) {
-                throw new IllegalStateException("Topic " + topic.topicID
-                        + " has only " + members.size()
-                        + " members — need ≥ divisions×copies = "
-                        + (divisions * kCopies));
+                System.out.printf("[SHARD-DIST] Topic %s needs %d recipients but has only %d — "
+                                + "will reuse nodes in round-robin%n",
+                        topic.topicID, divisions * kCopies, members.size());
             }
 
             int rowsSent = 0, colsSent = 0;
@@ -2034,8 +2025,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 for (int part = 0; part < divisions; part++) {
                     for (int copy = 0; copy < kCopies; copy++) {
 
-                        Node peer = shuffled.get(part * kCopies + copy);  // no wrap-around
-
+//                        Node peer = shuffled.get(part * kCopies + copy);  // no wrap-around
+                        Node peer = shuffled.get((part * kCopies + copy) % shuffled.size());
 
                         GossipSubProtocol dst =
                                 (GossipSubProtocol) peer.getProtocol(gossipSubId);

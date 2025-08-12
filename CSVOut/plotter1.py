@@ -129,7 +129,8 @@ plt.xticks(rotation=90)
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 
 # 🔹 Show the plot
-save_figure("Figure_2")
+plt.show()
+# save_figure("Figure_2")
 
 
 
@@ -191,7 +192,8 @@ plt.tight_layout()
 
 # **Show plot only if running in an interactive environment**
 try:
-    save_figure("Figure_3")
+    plt.show()
+    #save_figure("Figure_3")
 except Exception:
     print("Matplotlib is running in a headless environment; use plt.savefig() instead.")
 
@@ -509,7 +511,7 @@ avg_duplicate = df["Duplicated_Data"] / df["Shards_Amount"]
 plt.figure(figsize=(8, 6))
 
 # 4. Plot two lines, each with a label for the legend
-plt.plot(df["Node ID"], df["Duplicated Message IHAVE"], marker="o", label="Duplicated IHave Message")
+# plt.plot(df["Node ID"], df["Duplicated Message IHAVE"], marker="o", label="Duplicated IHave Message")
 
 plt.plot(avg_duplicate, marker="x", label="Duplicated Data")
 # plt.plot(df["Node ID"], df["Total Sample Req Sent"], marker="x", label="Total Sample Req Sent")
@@ -524,8 +526,8 @@ plt.legend()
 
 
 # 7. Display the chart
-# plt.show()
-save_figure("Figure_6")
+plt.show()
+# save_figure("Figure_6")
 ###########################################################################################
 import pandas as pd
 import matplotlib.pyplot as plt
