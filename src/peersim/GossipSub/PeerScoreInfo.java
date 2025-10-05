@@ -23,6 +23,9 @@ public class PeerScoreInfo {
 
     public long pruneBackoffUntil = 0L;
 
+    public double appScore   = 0.0;   // P5: application-specific trust
+    public double ipSurplus  = 0.0;   // P6: (peersOnThisIP – threshold)²
+
     // We record the last time we updated the counters to handle time-based decays.
     public long lastUpdateTime;
 

@@ -129,8 +129,8 @@ plt.xticks(rotation=90)
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 
 # 🔹 Show the plot
-plt.show()
-# save_figure("Figure_2")
+#plt.show()
+save_figure("Figure_2")
 
 
 
@@ -192,8 +192,8 @@ plt.tight_layout()
 
 # **Show plot only if running in an interactive environment**
 try:
-    plt.show()
-    #save_figure("Figure_3")
+    #plt.show()
+    save_figure("Figure_3")
 except Exception:
     print("Matplotlib is running in a headless environment; use plt.savefig() instead.")
 
@@ -526,8 +526,8 @@ plt.legend()
 
 
 # 7. Display the chart
-plt.show()
-# save_figure("Figure_6")
+#plt.show()
+save_figure("Figure_6")
 ###########################################################################################
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -569,12 +569,13 @@ df["AvgDuplicate_smooth"] = (
 # 5. Plot the smoothed lines
 plt.figure(figsize=(10,6))
 plt.plot(df["Node ID"], df["DuplicatedIHAVE_smooth"], label="Amount Duplicated IHAVE Message", color="blue")
-plt.plot(df["Node ID"], df["TotalSampleReq_smooth"], label="Amount Sample Requested", color="orange")
+# plt.plot(df["Node ID"], df["TotalSampleReq_smooth"], label="Amount Sample Requested", color="orange")
 # plt.plot(df["Node ID"], df["TotalSampleReceived_smooth"], label="Amount Sample Received (512)", color="green")
 plt.plot(df["Node ID"], df["AvgDuplicate_smooth"], label="Amount Duplicate Data", color="red")
 
 
 # 6. Axis labels and legends
+plt.ylim(0, 10)
 plt.xlabel("Node ID")
 plt.ylabel("Smoothed Value")
 # plt.title("Smoothed Duplicate IHAVE vs. Total Sample Req Sent")

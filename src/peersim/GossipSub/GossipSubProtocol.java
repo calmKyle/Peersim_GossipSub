@@ -241,39 +241,104 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // Map from peer ID -> scoring info
     public Map<BigInteger, PeerScoreInfo> peerScores = new HashMap<>();
 
+//    public double computeScore(PeerScoreInfo psi) {
+//        long nowMs = CommonState.getTime();
+//        double total = 0.0;
+//
+//        for (Map.Entry<String, PeerScoreInfo.TopicScores> e : psi.topicScoresMap.entrySet()) {
+//            String t = e.getKey();
+//            PeerScoreInfo.TopicScores ts = e.getValue();
+//            GossipScoringConfig.TopicParam p = TOPIC_PARAMS.getOrDefault(t, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
+//
+//            /* a) time-in-mesh in **seconds** */
+//            double secs = (nowMs - psi.timeInMeshStart) / 1000.0;
+//            double timeScore = p.timeInMeshWeight * Math.min(secs, p.timeInMeshCapSeconds);
+//
+//            /* first deliveries */
+//            double first = p.firstMsgWeight *
+//                    Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
+//
+//            /* b) mesh deliveries reward / penalty around threshold */
+//            double meshDelivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
+//            double meshScore = (meshDelivered < p.meshDeliveriesThreshold)
+//                    ? p.meshDeliveriesWeightUnder *
+//                    (p.meshDeliveriesThreshold - meshDelivered)
+//                    : p.meshDeliveriesWeightOver *
+//                    (meshDelivered - p.meshDeliveriesThreshold);
+//
+//            /* invalid msgs */
+//            double invalid = p.invalidMsgWeight * ts.invalidMessages;
+//
+//            total += p.topicWeight * (timeScore + first + meshScore + invalid);
+//        }
+//        psi.cachedScore = total;
+//        return total;
+//    }
+
     public double computeScore(PeerScoreInfo psi) {
         long nowMs = CommonState.getTime();
-        double total = 0.0;
+        double topicSum = 0.0;
 
+        /* ---- build a human-readable trace ---- */
+        StringBuilder trace = new StringBuilder()
+                .append("│  computing score for peer ").append(psi.hashCode())
+                .append(" @ ").append(nowMs).append('\n');
+
+        /* ---------- P1-P4 per-topic ---------- */
         for (Map.Entry<String, PeerScoreInfo.TopicScores> e : psi.topicScoresMap.entrySet()) {
-            String t = e.getKey();
+            String topic = e.getKey();
             PeerScoreInfo.TopicScores ts = e.getValue();
-            GossipScoringConfig.TopicParam p = TOPIC_PARAMS.getOrDefault(t, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
+            GossipScoringConfig.TopicParam p =
+                    TOPIC_PARAMS.getOrDefault(topic, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
 
-            /* a) time-in-mesh in **seconds** */
-            double secs = (nowMs - psi.timeInMeshStart) / 1000.0;
-            double timeScore = p.timeInMeshWeight * Math.min(secs, p.timeInMeshCapSeconds);
+            double secs      = (nowMs - psi.timeInMeshStart) / 1000.0;
+            double P1_time   = p.timeInMeshWeight *
+                    Math.min(secs, p.timeInMeshCapSeconds);
 
-            /* first deliveries */
-            double first = p.firstMsgWeight *
+            double P2_first  = p.firstMsgWeight *
                     Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
 
-            /* b) mesh deliveries reward / penalty around threshold */
-            double meshDelivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
-            double meshScore = (meshDelivered < p.meshDeliveriesThreshold)
-                    ? p.meshDeliveriesWeightUnder *
-                    (p.meshDeliveriesThreshold - meshDelivered)
-                    : p.meshDeliveriesWeightOver *
-                    (meshDelivered - p.meshDeliveriesThreshold);
+            double delivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
+            double P3_mesh   = (delivered < p.meshDeliveriesThreshold)
+                    ? p.meshDeliveriesWeightUnder * (p.meshDeliveriesThreshold - delivered)
+                    : p.meshDeliveriesWeightOver  * (delivered - p.meshDeliveriesThreshold);
 
-            /* invalid msgs */
-            double invalid = p.invalidMsgWeight * ts.invalidMessages;
+            double P4_invalid = p.invalidMsgWeight * ts.invalidMessages;
 
-            total += p.topicWeight * (timeScore + first + meshScore + invalid);
+            double subtotal = p.topicWeight * (P1_time + P2_first + P3_mesh + P4_invalid);
+            topicSum += subtotal;
+
+            trace.append(String.format(
+                    "│  topic %-12s  P1=%.3f  P2=%.3f  P3=%.3f  P4=%.3f"
+                            + "  w=%.2f  → subtotal=%.3f%n",
+                    topic, P1_time, P2_first, P3_mesh, P4_invalid, p.topicWeight, subtotal));
         }
+
+        /* ---------- TopicCap (TC) ---------- */
+        double total = Math.min(topicSum, GossipScoringConfig.TOPIC_CAP);
+        trace.append(String.format("│  Σ topics = %.3f → after TC(%.1f) = %.3f%n",
+                topicSum, GossipScoringConfig.TOPIC_CAP, total));
+
+        /* ---------- P5 / P6 ---------- */
+        double P5_app  = GossipScoringConfig.P5_WEIGHT * psi.appScore;
+        double P6_ip   = GossipScoringConfig.P6_WEIGHT * psi.ipSurplus;
+        total += P5_app + P6_ip;
+
+        trace.append(String.format("│  P5_app=%.3f  P6_ip=%.3f  → TOTAL = %.3f%n",
+                        P5_app, P6_ip, total))
+                .append("└──────────────────────────────────────\n");
+
+        /* emit log entry (only if FINE enabled) */
+        if(isDEBUG){
+            System.out.println(trace.toString());
+        }
+
+
         psi.cachedScore = total;
         return total;
     }
+
+
 
     private double score(BigInteger p) {
         GossipTracer gt = gossipTracer.get(p);
@@ -557,6 +622,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         // Set backoff
         PeerScoreInfo psi = peerScores.get(peerID);
         if (psi != null) {
+            PeerScoreInfo.TopicScores ts =
+                    psi.topicScoresMap.computeIfAbsent(topicID, k -> new PeerScoreInfo.TopicScores());
+            ts.underDelivery += Math.max(0, ts.meshMsgExpected - ts.meshMsgDelivered);  // P3b
             long backoff = 60000; // 1 minute
             psi.pruneBackoffUntil = now + backoff;
 

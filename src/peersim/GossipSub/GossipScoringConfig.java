@@ -11,21 +11,6 @@ import java.util.Map;
 public class GossipScoringConfig {
 
     public static class TopicParam {
-//        public double topicWeight;
-//        public double timeInMeshWeight;
-//        public double timeInMeshCap;
-//
-//        public double firstMessageDeliveriesWeight;
-//        public double firstMessageDeliveriesDecay;
-//        public double firstMessageDeliveriesCap;
-//
-//        public double meshMessageDeliveriesWeight;
-//        public double meshMessageDeliveriesDecay;
-//        public double meshMessageDeliveriesCap;
-//        public double meshMessageDeliveriesThreshold;
-//
-//        public double invalidMessageDeliveriesWeight;
-//        public double invalidMessageDeliveriesDecay;
 
         // (e.g. penalty weights, etc.)
 
@@ -87,9 +72,14 @@ public class GossipScoringConfig {
     }
 
     // Example thresholds, if you want them:
-    public static double GOSSIP_THRESHOLD = -4000;
-    public static double PUBLISH_THRESHOLD = -8000;
-    public static double GRAYLIST_THRESHOLD = -16000;
-    public static double ACCEPTPX_THRESHOLD = 100;
+    public static final double GRAYLIST_THRESHOLD   = -100.0;
+    public static final double PUBLISH_THRESHOLD    = -10.0;
+    public static final double GOSSIP_THRESHOLD     = -5.0;
+    public static final double ACCEPTPX_THRESHOLD   = 50.0;
+
+    public static double P5_WEIGHT   = 1.0;   // application trust
+    public static double P6_WEIGHT   = -0.5;  // IP-surplus penalty
+    public static double TOPIC_CAP   = 15.0;  // TC from the paper
+    public static int    P6_THRESHOLD = 5;    // peers per /24 before penalty
     // etc.
 }
