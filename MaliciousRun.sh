@@ -1,38 +1,75 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Build LIB_JARS dynamically
-LIB_JARS=$(find -L lib/ -name "*.jar" | tr [:space:] :)
+# -----------------------------
+# Settings (edit if needed)
+# -----------------------------
+# Root folder containing the SeedCompletionMalicious0_* directories.
+# Default: current directory (.)
+CONFIG_ROOT="${1:-.}"
 
-# Step 1: Compile
-echo "Compiling Java sources..."
+# Java options & classpath jars
+JAVA_OPTS="-Xmx128000m -Xms2000m"
+
+echo "==> Building classpath from lib/ ..."
+LIB_JARS=$(find -L lib/ -type f -name "*.jar" | tr $'\n' :)
+CLASSPATH="${LIB_JARS}:classes"
+
+# -----------------------------
+# Compile
+# -----------------------------
+echo "==> Compiling Java sources..."
 mkdir -p classes
-javac -sourcepath src -classpath "$LIB_JARS" -d classes $(find -L src/ -name "*.java")
+javac -sourcepath src -classpath "$CLASSPATH" -d classes $(find -L src/ -type f -name "*.java")
 
-# Check if compilation succeeded
-if [ $? -ne 0 ]; then
-    echo "Compilation failed. Exiting."
-    exit 1
+echo "==> Compile OK."
+
+# -----------------------------
+# Collect all .cfg files
+# Layout expected:
+#   SeedCompletionMalicious0_[0-4]/TOPIC_AMOUNT_*/K*/Shard_*/MaliciousGossipConfig_seed_*.cfg
+# -----------------------------
+echo "==> Scanning config files under: ${CONFIG_ROOT}"
+
+# Build list deterministically:
+# 1) by SeedCompletionMalicious0_X
+# 2) by TOPIC_AMOUNT_*
+# 3) by K*
+# 4) by Shard_*
+# 5) by file name
+mapfile -t CFGS < <(
+  find "${CONFIG_ROOT}" \
+    -type f -name "MaliciousGossipConfig_seed_*.cfg" \
+    -path "*/SeedCompletionMalicious0_[0-4]/TOPIC_AMOUNT_*/*/Shard_*/*" \
+    | LC_ALL=C sort
+)
+
+TOTAL=${#CFGS[@]}
+if (( TOTAL == 0 )); then
+  echo "No config files found. Check CONFIG_ROOT or directory pattern."
+  exit 1
 fi
 
-# Step 2: Run simulations
-shopt -s globstar
-JAVA_OPTS="-Xmx32000m -Xms2000m"
-CLASSPATH="${LIB_JARS}:classes"
-CONFIG_DIR="MaliciousConfig"
+echo "==> Found ${TOTAL} config(s). (Expecting 1600 if you have 5 big folders × 320 each)"
 
-# Loop through each .cfg file
-for cfg_path in "$CONFIG_DIR"/SeedCompletionMalicious*/**/*.cfg; do
-    # Extract just the file name (e.g., MaliciousGossipConfig_10.cfg)
-    cfg_file=$(basename "$cfg_path")
+# -----------------------------
+# Run simulations sequentially
+# -----------------------------
+echo "==> Starting simulations..."
+idx=0
+for cfg_path in "${CFGS[@]}"; do
+  ((idx++))
+  cfg_file=$(basename "$cfg_path")
 
-    echo "========================================"
-    echo "Running simulation with: $cfg_file"
-    start_time=$(date +%s)
+  echo "--------------------------------------------------------------------------------"
+  echo "[$idx/$TOTAL] Running: $cfg_file"
+  echo "Path: $cfg_path"
+  start_time=$(date +%s)
 
-    # Run the simulation
-    java $JAVA_OPTS -cp "$CLASSPATH" peersim.Simulator "$cfg_path"
+  java $JAVA_OPTS -cp "$CLASSPATH" peersim.Simulator "$cfg_path"
 
-    end_time=$(date +%s)
-    echo "Finished $cfg_file in $((end_time - start_time)) seconds"
-    echo "========================================"
+  end_time=$(date +%s)
+  echo "Finished $cfg_file in $((end_time - start_time))s  [$idx/$TOTAL]"
 done
+
+echo "==> All ${TOTAL} simulations complete."

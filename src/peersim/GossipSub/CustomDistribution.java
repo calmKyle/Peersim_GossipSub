@@ -93,12 +93,12 @@ public class CustomDistribution implements peersim.core.Control {
             HeartbeatManager hm = new HeartbeatManager(
                     gsp, gsp.ephemeralCache, gsp.peerScores, isDEBUG);
 
-            EDSimulator.add(
-                    CommonState.r.nextInt(10),                 // small random offset
-                    new SimpleEvent(Message.MSG_HEARTBEAT),    // the same heartbeat event you already handle
-                    n,
-                    gossipProtocolID
-            );
+//            EDSimulator.add(
+//                    CommonState.r.nextInt(10),                 // small random offset
+//                    new SimpleEvent(Message.MSG_HEARTBEAT),    // the same heartbeat event you already handle
+//                    n,
+//                    gossipProtocolID
+//            );
 
             gsp.setHeartbeatManager(hm);
 

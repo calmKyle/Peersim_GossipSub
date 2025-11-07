@@ -138,7 +138,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private int randomSampleCounter = 0;
 
     public int duplicateIHaveMessage = 0;
-    private final HashSet<Long> seenIHave   = new HashSet<>();
+//    private final HashSet<Long> seenIHave   = new HashSet<>();
+    private final Map<BigInteger, HashSet<Long>> seenIHaveByPeer = new HashMap<>();
+
 
     public long duplicateShards = 0;
     private final HashSet<Long> seenShards = new HashSet<>();
@@ -1899,7 +1901,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         // Malicious
         // isMaliciousNode() && !m.src.equals(this.nodeId) // forwarding only ommisionb
         if (isOmissionNode() && !isFloodingNode()) {   // keep pure-omission only
-            if (isDEBUG) System.out.println("[MAL-DROP] node " + nodeId
+            if (isDEBUG) System.out.println("[OMISSION] node " + nodeId
                     + " dropped fwd of msg " + m.id);
             return;
         }
@@ -1932,15 +1934,31 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 : messageTransmissionDelayQueue.get(messageTransmissionDelayQueue.size() - 1)
                 - CommonState.getTime();
 
+//        int messageSize = calculateMessageSize(m);
+//        long transmissionDelay = (long) Math.ceil((double) messageSize / (double) (bandwidth / 1000));
+//        long propagationDelay = latency;
+//        long totalDelay = queuingDelay + transmissionDelay + propagationDelay;
+//
+//        totalDataTransmitted += messageSize;
+//        totalTransmissionTime += totalDelay;
+//
+//        EDSimulator.add(totalDelay, m, dest, myPid);
+
         int messageSize = calculateMessageSize(m);
-        long transmissionDelay = (long) Math.ceil((double) messageSize / (double) (bandwidth / 1000));
+
+    // Convert bandwidth (bits/s) -> bytes/ms
+        double bytesPerMs = (bandwidth / 8.0) / 1000.0;
+        long transmissionDelay = (long) Math.ceil(messageSize / bytesPerMs);
+
         long propagationDelay = latency;
         long totalDelay = queuingDelay + transmissionDelay + propagationDelay;
 
         totalDataTransmitted += messageSize;
-        totalTransmissionTime += totalDelay;
+    // For average bandwidth, only count serialization time:
+        totalTransmissionTime += transmissionDelay;
 
         EDSimulator.add(totalDelay, m, dest, myPid);
+
 
         long scheduledTransmissionTime = CommonState.getTime() + transmissionDelay;
         messageQueue.add(m);
@@ -1996,23 +2014,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
 
-    //    public void handleReceivedPart(Message m, int myPid) {
-//        String s = m.isRow ? "row" : "column";
-//        String key = s + m.rowOrColumnNumber;
-//        int threshold = 1;
-//
-//        if (custody1.equals(key)) {
-//            processCustody(m, custody1Parts, threshold);
-//        } else if (custody2.equals(key)) {
-//            processCustody(m, custody2Parts, threshold);
-//        }
-//    }
-    public void handleReceivedPart(Message m, int myPid) {
+        public void handleReceivedPart(Message m, int myPid) {
         String s = m.isRow ? "row" : "column";
         String key = s + m.rowOrColumnNumber;
-
-        // Majority threshold, consistent with requestMissingPart()
-//        int threshold = Math.max(1, (SHARD_AMOUNT + 1) / 2);
         int threshold = 1;
 
         if (custody1.equals(key)) {
@@ -2021,6 +2025,25 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             processCustody(m, custody2Parts, threshold);
         }
     }
+//    public void handleReceivedPart(Message m, int myPid) {
+//        String s = m.isRow ? "row" : "column";
+//        String key = s + m.rowOrColumnNumber;
+//
+//        // Majority threshold, consistent with requestMissingPart()
+////        int threshold = Math.max(1, (SHARD_AMOUNT + 1) / 2);
+//        int threshold = 1;
+//
+////        if (custody1 != null && custody1.equals(key)) {
+////            processCustody(m, custody1Parts, threshold);
+////        } else if ( custody1 != null &&  custody2.equals(key)) {
+////            processCustody(m, custody2Parts, threshold);
+////        }
+//        if (custody1.equals(key)) {
+//            processCustody(m, custody1Parts, threshold);
+//        } else if (custody2.equals(key)) {
+//            processCustody(m, custody2Parts, threshold);
+//        }
+//    }
 
 
     private void storeInEphemeralCache(Message m) {
@@ -2135,9 +2158,12 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
 
     public void handleIHave(Message m, int myPid) {
-        if (!seenIHave.add(m.id)) {      // uid already present ⇒ duplicate
-            duplicateIHaveMessage ++;            // bump per-validator metric
-            return;                      // drop silently
+        HashSet<Long> seenFromThisPeer =
+                seenIHaveByPeer.computeIfAbsent(m.src, k -> new HashSet<>());
+
+        if (!seenFromThisPeer.add(m.id)) {
+            duplicateIHaveMessage++;
+            return;    // drop repeats from the same sender
         }
 
         if (messageCache.containsKey(m.id)) {
@@ -2177,18 +2203,18 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         }
         lastAdvertisedTime.put(m.id, now);
 
-        Message advert = createMessage(
-                m.id, Message.MSG_IHAVE,
-                nodeId,               /* src = me (re-originated) */
-                null,                 /* dest = fill per-peer below */
-                m.messageTopicID,
-                /* body */ null,
-                m.isRow, m.rowOrColumnNumber, m.partNumber,
-                now, -6);
-
-        sendMessageToPeers(advert, myPid, m.messageTopicID,
-                /* avoid = */ nodeId,          // don’t echo back to self
-                m.src);                        // don’t send to original sender
+//        Message advert = createMessage(
+//                m.id, Message.MSG_IHAVE,
+//                nodeId,               /* src = me (re-originated) */
+//                null,                 /* dest = fill per-peer below */
+//                m.messageTopicID,
+//                /* body */ null,
+//                m.isRow, m.rowOrColumnNumber, m.partNumber,
+//                now, -6);
+//
+//        sendMessageToPeers(advert, myPid, m.messageTopicID,
+//                /* avoid = */ nodeId,          // don’t echo back to self
+//                m.src);                        // don’t send to original sender
 
 
         incrementDelivered(m.src, m.messageTopicID);
@@ -2414,21 +2440,23 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     // Edger push
-//    private static final boolean IHAVE_FIRST = true;
+//    private static final boolean IHAVE_FIRST = false;
 //    private void sendDataToMesh(Message m, int myPid, BigInteger avoidPeer) {
 //
 //        /* -----------   (a) remember the full body locally   ----------- */
-//        storeInEphemeralCache(m);                // so heart-beat can gossip it later
+//        storeInEphemeralCache(m);
 //
 //        /* -----------   (b) choose what to send to mesh peers   ----------- */
 //        if (IHAVE_FIRST) {
+//            if (m.body != null ) {
+//                storeInEphemeralCache(m);   // cache DATA by id
+//            }
 //            /* send only metadata now – peers will IWANT it if needed */
 //            Message advert = createMessage(
-//                    m.id, Message.MSG_IHAVE,     // ← IHAVE, not DATA
-//                    nodeId,
-//                    null,                        // dest     will be filled below
+//                    m.id, Message.MSG_IHAVE,
+//                    nodeId, null,
 //                    m.messageTopicID,
-//                    /* body */ null,             // no payload
+//                    null,                      // no payload
 //                    m.isRow, m.rowOrColumnNumber, m.partNumber,
 //                    CommonState.getTime(), -6);
 //
@@ -2436,6 +2464,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //                    (avoidPeer == null ? nodeId : avoidPeer),
 //                    nodeId);
 //        } else {
+//            if (m.body != null ) {
+//                storeInEphemeralCache(m);   // cache DATA by id
+//            }
 //            /* legacy eager full-DATA path (kept for toggling) */
 //            Message full = createMessage(
 //                    m.id, Message.MSG_DATA,
@@ -2449,6 +2480,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //                    nodeId);
 //        }
 //    }
+
+
     private void sendDataToMesh(Message m, int myPid, BigInteger avoidPeer) {
 
         /* 1. full body to every mesh peer (MSG_DATA) */
@@ -2924,20 +2957,20 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     }
                 }
 
-                if (isFloodingNode()) {
-                    int rate = Configuration.getInt("FLOOD_RATE", 100);
-                    if (subscribedTopics.isEmpty()) {
-                        System.out.printf("[FLOOD] node=%s has no topics; skipping%n", nodeId);
-                    }
-                    for (int i = 0; i < rate; i++) {
-                        for (Topic t : subscribedTopics) {
-                            Message flood = buildFloodMsg(t.topicID);
-                            sendDataToMesh(flood, myPid, nodeId); // avoid echoing to self
-                            System.out.printf("[FLOOD] node=%s topic=%s t=%d%n",
-                                    nodeId, t.topicID, CommonState.getTime()); // newline flushes
-                        }
-                    }
-                }
+//                if (isFloodingNode()) {
+//                    int rate = Configuration.getInt("FLOOD_RATE", 100);
+//                    if (subscribedTopics.isEmpty()) {
+//                        System.out.printf("[FLOOD-EMPTY] node=%s has no topics; skipping%n", nodeId);
+//                    }
+//                    for (int i = 0; i < rate; i++) {
+//                        for (Topic t : subscribedTopics) {
+//                            Message flood = buildFloodMsg(t.topicID);
+//                            sendDataToMesh(flood, myPid, nodeId); // avoid echoing to self
+//                            System.out.printf("[FLOOD-ATK] node=%s topic=%s t=%d%n",
+//                                    nodeId, t.topicID, CommonState.getTime()); // newline flushes
+//                        }
+//                    }
+//                }
                 // re-schedule
                 EDSimulator.add(HEARTBEAT_PERIOD,
                         new SimpleEvent(Message.MSG_HEARTBEAT), myNode, myPid);
