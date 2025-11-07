@@ -25,7 +25,7 @@ public class CustomDistribution implements peersim.core.Control {
             128);
 
     // Number of row or column holders per "segment"
-    private static final int NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC = (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1)
+    private static final int SHARD_AMOUNT = (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1)
             ? NUMBER_OF_VALIDATORS_PER_TOPIC
             : (int) Math.ceil(
             (NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) /
@@ -68,7 +68,7 @@ public class CustomDistribution implements peersim.core.Control {
     @Override
     public boolean execute() {
         System.out.println("NUMBER_OF_ROWSCOLS_IN_A_TOPIC: " + NUMBER_OF_ROWSCOLS_IN_A_TOPIC);
-        System.out.println("NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC: " + NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
+        System.out.println("SHARD_AMOUNT: " + SHARD_AMOUNT);
         System.out.println("NUMBER_OF_VALIDATORS_PER_TOPIC: " + NUMBER_OF_VALIDATORS_PER_TOPIC);
 
         // [ADDED] Randomly pick one index to be block proposer
@@ -217,7 +217,7 @@ public class CustomDistribution implements peersim.core.Control {
             ChunkResult rowResult = assignCustodyChunk(
                     validatorNodes,
                     i,
-                    NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC,
+                    SHARD_AMOUNT,
                     topicNumber,
                     assignedInCurrentTopic,
                     rowNumber,
@@ -238,7 +238,7 @@ public class CustomDistribution implements peersim.core.Control {
             ChunkResult colResult = assignCustodyChunk(
                     validatorNodes,
                     i,
-                    NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC,
+                    SHARD_AMOUNT,
                     topicNumber,
                     assignedInCurrentTopic,
                     columnNumber,

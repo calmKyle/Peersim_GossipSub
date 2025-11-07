@@ -40,6 +40,8 @@ public class HeartbeatManager {
             System.out.println("[DEBUG HEARTBEAT] Heartbeat at t=" + now +
                     " Node=" + protocol.getNodeId() +
                     " ephemeralCacheSize=" + ephemeralCache.size());
+            System.out.printf("[HEARTBEAT] at T=%d ms", now);
+
         }
 
         // 1) Expire old ephemeral messages
@@ -54,19 +56,6 @@ public class HeartbeatManager {
         }
 
 
-//        for (Map.Entry<BigInteger, PeerScoreInfo> entry : peerScores.entrySet()) {
-//            PeerScoreInfo psi = entry.getValue();
-//            decayPeerTopicCounters(psi); // <-- new
-//            double oldScore = psi.cachedScore;
-//            double newScore = protocol.computeScore(psi);
-//            psi.cachedScore = newScore;
-//
-//            if (isDEBUG) {
-//                System.out.println("[DEBUG SCORE] Peer=" + entry.getKey() +
-//                        " oldScore=" + oldScore +
-//                        " newScore=" + newScore);
-//            }
-//        }
 
         for (Map.Entry<BigInteger, PeerScoreInfo> entry
                 : new ArrayList<>(peerScores.entrySet())) {

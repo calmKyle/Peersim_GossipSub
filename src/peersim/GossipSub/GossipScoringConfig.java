@@ -31,6 +31,8 @@ public class GossipScoringConfig {
 
         public double invalidMsgWeight      = -2.0;
         public double invalidMsgDecay       = 0.3;
+
+        public double meshDeliveriesActivationSeconds = 5.0;
     }
 
     public static final Map<String, TopicParam> TOPIC_PARAMS = new HashMap<>();
@@ -72,14 +74,18 @@ public class GossipScoringConfig {
     }
 
     // Example thresholds, if you want them:
-    public static final double GRAYLIST_THRESHOLD   = -100.0;
-    public static final double PUBLISH_THRESHOLD    = -10.0;
-    public static final double GOSSIP_THRESHOLD     = -5.0;
-    public static final double ACCEPTPX_THRESHOLD   = 50.0;
+    public static double GOSSIP_THRESHOLD      = -10.0;
+    public static double PUBLISH_THRESHOLD     = -50.0;
+    public static double GRAYLIST_THRESHOLD    = -80.0;
+    public static double ACCEPTPX_THRESHOLD    =  10.0;
 
     public static double P5_WEIGHT   = 1.0;   // application trust
     public static double P6_WEIGHT   = -0.5;  // IP-surplus penalty
     public static double TOPIC_CAP   = 15.0;  // TC from the paper
     public static int    P6_THRESHOLD = 5;    // peers per /24 before penalty
-    // etc.
+
+    public double timeInMeshWeight           = 1.0;   // positive weight
+    public long   timeInMeshQuantumMillis    = 1000;  // 1s quanta (tune)
+
+    public long   meshMsgDeliveriesActivationMillis = 5000;
 }

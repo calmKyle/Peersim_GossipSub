@@ -2,6 +2,9 @@ package peersim.GossipSub;
 
 import java.lang.reflect.Type;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  *
@@ -102,6 +105,19 @@ public class Message extends SimpleEvent {
     public long messageSendingTime; // It is the time stamp at which the message was sent
     // ______________________________________________________________________________________________
 
+    private List<BigInteger> prunePX;
+    public List<BigInteger> getPrunePX() {                      // NEW
+        if (prunePX == null) return Collections.emptyList();
+        return Collections.unmodifiableList(prunePX);
+    }
+
+    public void setPrunePX(List<BigInteger> px) {               // NEW
+        if (px == null || px.isEmpty()) {
+            this.prunePX = null;
+        } else {
+            this.prunePX = new ArrayList<>(px); // defensive copy
+        }
+    }
     /**
      * Creates an empty message by using default values (message type = MSG_LOOKUP
      * and <code>new String("")</code> value for the
@@ -169,6 +185,9 @@ public class Message extends SimpleEvent {
         dolly.messageSendingTime = this.messageSendingTime;
         // dolly.isRow = this.isRow;
         // dolly.rowOrColumnNumber =this.rowOrColumnNumber;
+        if (this.prunePX != null && !this.prunePX.isEmpty()) {
+            dolly.prunePX = new ArrayList<>(this.prunePX);
+        }
 
         return dolly;
     }

@@ -63,8 +63,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //            ? NUMBER_OF_VALIDATORS_PER_TOPIC
 //            : (int) Math.ceil(
 //                    (NUMBER_OF_VALIDATORS_PER_TOPIC / 2.0) / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
-    private static final int NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC =
-            Configuration.getInt("ROW_OR_COLUMN_HOLDERS_PER_TOPIC",
+    private static final int SHARD_AMOUNT =
+            Configuration.getInt("SHARD_AMOUNT",
                     /* fallback: keep old heuristic */
                     (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1)
                             ? NUMBER_OF_VALIDATORS_PER_TOPIC
@@ -86,6 +86,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public int D_LOW = Configuration.getInt("MIN_DEGREE", 4);
     public int D_HIGH = Configuration.getInt("MAX_DEGREE", 8);
     protected int D = Configuration.getInt("DEGREE", 8);;
+    public boolean ALLOW_EXCEED_D_HIGH_ON_DOUT = Configuration.getBoolean("ALLOW_EXCEED_D_HIGH_ON_DOUT", false);
 
     // ── sharding‐specific tunables
     // ────────────────────────────────────────────────
@@ -158,8 +159,46 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     private Set<Long> seenMessageIDs = new HashSet<>();
 
+    // Opportunistic Graft
+    private final Map<String, Set<BigInteger>> outboundByTopic = new HashMap<>();
+    private final Map<String, Set<BigInteger>> inboundByTopic  = new HashMap<>();
 
+    private long lastOpportunisticCheckMs = 0L;
+    private final int D_OUT;
+    private static final long OP_GRAFT_INTERVAL_MS = 60_000L;
+    private static final int  OP_GRAFT_K = 2;
+    private static final double OP_GRAFT_MEDIAN_THRESHOLD = 0;
 
+    private void markOutbound(String topicId, BigInteger peer) {
+        outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>()).add(peer);
+        inboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>()); // đảm bảo map tồn tại
+    }
+
+    private void markInbound(String topicId, BigInteger peer) {
+        inboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>()).add(peer);
+        outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
+    }
+
+    private void unmarkDirections(String topicId, BigInteger peer) {
+        Set<BigInteger> out = outboundByTopic.get(topicId);
+        if (out != null) out.remove(peer);
+        Set<BigInteger> in  = inboundByTopic.get(topicId);
+        if (in  != null) in.remove(peer);
+    }
+
+    private int outboundCount(String topicId) {
+        return outboundByTopic.getOrDefault(topicId, Collections.emptySet()).size();
+    }
+
+    private boolean isInOutbound(String topicId, BigInteger peer) {
+        return outboundByTopic.getOrDefault(topicId, Collections.emptySet()).contains(peer);
+    }
+
+    private boolean isInInbound(String topicId, BigInteger peer) {
+        return inboundByTopic.getOrDefault(topicId, Collections.emptySet()).contains(peer);
+    }
+
+   // heartbeat
     private HeartbeatManager heartbeatManager;
 
     /****************************************************************/
@@ -208,6 +247,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         _lastIWantRecv = iWantRecv;
     }
 
+
     /****************************************************************/
 
     public GossipSubProtocol(String prefix) {
@@ -222,6 +262,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 // EphemeralMsgInfo>)
                 this.peerScores, // likewise for peerScores
                 this.isDEBUG);
+
+        //D_out ~= min(D_LOW - 1, D/2), guarentee ≥ 1
+        int candidate = Math.min(Math.max(1, D / 2), Math.max(1, D_LOW - 1));
+        this.D_OUT = Math.max(1, candidate);
 
         // for testing
         // this.isDEBUG = Configuration.contains("DEBUG_GOSSIPSUB")
@@ -241,39 +285,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // Map from peer ID -> scoring info
     public Map<BigInteger, PeerScoreInfo> peerScores = new HashMap<>();
 
-//    public double computeScore(PeerScoreInfo psi) {
-//        long nowMs = CommonState.getTime();
-//        double total = 0.0;
-//
-//        for (Map.Entry<String, PeerScoreInfo.TopicScores> e : psi.topicScoresMap.entrySet()) {
-//            String t = e.getKey();
-//            PeerScoreInfo.TopicScores ts = e.getValue();
-//            GossipScoringConfig.TopicParam p = TOPIC_PARAMS.getOrDefault(t, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
-//
-//            /* a) time-in-mesh in **seconds** */
-//            double secs = (nowMs - psi.timeInMeshStart) / 1000.0;
-//            double timeScore = p.timeInMeshWeight * Math.min(secs, p.timeInMeshCapSeconds);
-//
-//            /* first deliveries */
-//            double first = p.firstMsgWeight *
-//                    Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
-//
-//            /* b) mesh deliveries reward / penalty around threshold */
-//            double meshDelivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
-//            double meshScore = (meshDelivered < p.meshDeliveriesThreshold)
-//                    ? p.meshDeliveriesWeightUnder *
-//                    (p.meshDeliveriesThreshold - meshDelivered)
-//                    : p.meshDeliveriesWeightOver *
-//                    (meshDelivered - p.meshDeliveriesThreshold);
-//
-//            /* invalid msgs */
-//            double invalid = p.invalidMsgWeight * ts.invalidMessages;
-//
-//            total += p.topicWeight * (timeScore + first + meshScore + invalid);
-//        }
-//        psi.cachedScore = total;
-//        return total;
-//    }
 
     public double computeScore(PeerScoreInfo psi) {
         long nowMs = CommonState.getTime();
@@ -291,17 +302,37 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             GossipScoringConfig.TopicParam p =
                     TOPIC_PARAMS.getOrDefault(topic, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
 
-            double secs      = (nowMs - psi.timeInMeshStart) / 1000.0;
-            double P1_time   = p.timeInMeshWeight *
-                    Math.min(secs, p.timeInMeshCapSeconds);
+//            double secs      = (nowMs - psi.timeInMeshStart) / 1000.0;
+//            double P1_time   = p.timeInMeshWeight *
+//                    Math.min(secs, p.timeInMeshCapSeconds);
+//
+//            double P2_first  = p.firstMsgWeight *
+//                    Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
+//
+//            double delivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
+//            double P3_mesh   = (delivered < p.meshDeliveriesThreshold)
+//                    ? p.meshDeliveriesWeightUnder * (p.meshDeliveriesThreshold - delivered)
+//                    : p.meshDeliveriesWeightOver  * (delivered - p.meshDeliveriesThreshold);
 
-            double P2_first  = p.firstMsgWeight *
+            double secsInTopic = (ts.timeInMeshStart < 0)
+                    ? 0.0
+                    : Math.max(0.0, (nowMs - ts.timeInMeshStart) / 1000.0);
+            double P1_time = p.timeInMeshWeight *
+                    Math.min(secsInTopic, p.timeInMeshCapSeconds);
+
+            double P2_first = p.firstMsgWeight *
                     Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
 
             double delivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
-            double P3_mesh   = (delivered < p.meshDeliveriesThreshold)
-                    ? p.meshDeliveriesWeightUnder * (p.meshDeliveriesThreshold - delivered)
-                    : p.meshDeliveriesWeightOver  * (delivered - p.meshDeliveriesThreshold);
+            boolean p3Active = secsInTopic >= p.meshDeliveriesActivationSeconds;
+            double P3_mesh;
+            if (!p3Active) {
+                P3_mesh = 0.0;
+            } else {
+                P3_mesh = (delivered < p.meshDeliveriesThreshold)
+                        ? p.meshDeliveriesWeightUnder * (p.meshDeliveriesThreshold - delivered)
+                        : p.meshDeliveriesWeightOver  * (delivered - p.meshDeliveriesThreshold);
+            }
 
             double P4_invalid = p.invalidMsgWeight * ts.invalidMessages;
 
@@ -346,60 +377,464 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return (double) gt.iwantSent / gt.ihaveSeen;       // 0 … 1
     }
 
+    void advertiseMessageIHAVE(Message originalMsg, int myPid) {
+        Set<BigInteger> all = topicNodes.getOrDefault(originalMsg.messageTopicID, Collections.emptySet());
+        Set<BigInteger> inMesh = meshPeersByTopic.getOrDefault(originalMsg.messageTopicID, Collections.emptySet());
 
-
-    public void advertiseMessageIHAVE(Message originalMsg, int myPid) {
-        Set<BigInteger> peers = meshPeersByTopic.getOrDefault(originalMsg.messageTopicID, Collections.emptySet());
-        if (peers.isEmpty())
-            return;
-
-//        int advertiseCnt = Math.max(1, (int) Math.ceil(GOSSIP_FACTOR * peers.size()));
-        int advertiseCnt = USE_ADAPTIVE_GOSSIP        // ← the flag you added before
-                ? Math.min(D_LAZY, peers.size())      // fixed fan-out in adaptive mode
-                : Math.max(1, (int) Math.ceil(GOSSIP_FACTOR * peers.size()));
-//        List<BigInteger> shuffled = new ArrayList<>(peers);
-        List<BigInteger> picks = new ArrayList<>(peers);
-
-        if (USE_ADAPTIVE_GOSSIP) {
-            picks.sort((p,q) ->          /* descending by “usefulness” ratio */
-                    Double.compare(score(q), score(p)));
+        List<BigInteger> candidates = new ArrayList<>();
+        for (BigInteger p : all) {
+            if (!inMesh.contains(p) && !p.equals(nodeId)) candidates.add(p);
         }
+        if (candidates.isEmpty()) candidates.addAll(inMesh);
 
-        Collections.shuffle(picks.subList(
-                        USE_ADAPTIVE_GOSSIP ? Math.min(peers.size(), 4) : 0, picks.size()),
-                CommonState.r);
-//        Collections.shuffle(shuffled, CommonState.r);
+        if (candidates.isEmpty()) return;
 
+        int advertiseCnt = USE_ADAPTIVE_GOSSIP
+                ? Math.min(D_LAZY, candidates.size())
+                : Math.max(1, (int) Math.ceil(GOSSIP_FACTOR * candidates.size()));
+
+        Collections.shuffle(candidates, CommonState.r);
         Message advert = createMessage(originalMsg.id, Message.MSG_IHAVE, nodeId, null,
-                originalMsg.messageTopicID, null,
-                originalMsg.isRow, originalMsg.rowOrColumnNumber,
+                originalMsg.messageTopicID, null, originalMsg.isRow, originalMsg.rowOrColumnNumber,
                 originalMsg.partNumber, CommonState.getTime(), -6);
 
         for (int i = 0; i < advertiseCnt; i++) {
-            BigInteger peer = picks.get(i);
-            if (peer.equals(nodeId))
-                continue;
+            BigInteger peer = candidates.get(i);
+            if (peer.equals(nodeId)) continue;
             Message copy = (Message) advert.copy();
             copy.dest = peer;
             publishMessage(copy, peer, myPid);
         }
     }
 
-    public void updateMeshConnections() {
-        if (subscribedTopics.isEmpty())
-            return;
 
-        for (String topicID : subscribedTopics.stream().map(t -> t.topicID).collect(Collectors.toList())) {
-            meshPeersByTopic.putIfAbsent(topicID, new HashSet<>());
-            Set<BigInteger> peers = meshPeersByTopic.get(topicID);
-            if (peers == null)
+//    public void advertiseMessageIHAVE(Message originalMsg, int myPid) {
+//        Set<BigInteger> peers = meshPeersByTopic.getOrDefault(originalMsg.messageTopicID, Collections.emptySet());
+//        if (peers.isEmpty())
+//            return;
+//
+////        int advertiseCnt = Math.max(1, (int) Math.ceil(GOSSIP_FACTOR * peers.size()));
+//        int advertiseCnt = USE_ADAPTIVE_GOSSIP
+//                ? Math.min(D_LAZY, peers.size())
+//                : Math.max(1, (int) Math.ceil(GOSSIP_FACTOR * peers.size()));
+////        List<BigInteger> shuffled = new ArrayList<>(peers);
+//        List<BigInteger> picks = new ArrayList<>(peers);
+//
+//        if (USE_ADAPTIVE_GOSSIP) {
+//            picks.sort((p,q) ->          /* descending by “usefulness” ratio */
+//                    Double.compare(score(q), score(p)));
+//        }
+//
+//        Collections.shuffle(picks.subList(
+//                        USE_ADAPTIVE_GOSSIP ? Math.min(peers.size(), 4) : 0, picks.size()),
+//                CommonState.r);
+////        Collections.shuffle(shuffled, CommonState.r);
+//
+//        Message advert = createMessage(originalMsg.id, Message.MSG_IHAVE, nodeId, null,
+//                originalMsg.messageTopicID, null,
+//                originalMsg.isRow, originalMsg.rowOrColumnNumber,
+//                originalMsg.partNumber, CommonState.getTime(), -6);
+//
+//        for (int i = 0; i < advertiseCnt; i++) {
+//            BigInteger peer = picks.get(i);
+//            if (peer.equals(nodeId))
+//                continue;
+//            Message copy = (Message) advert.copy();
+//            copy.dest = peer;
+//            publishMessage(copy, peer, myPid);
+//        }
+//    }
+
+    private List<BigInteger> selectHighScorePeersForTopic(
+            String topicId,
+            Set<BigInteger> disallow, // ví dụ: mesh ∪ backoff ∪ {self} ∪ {peer đang xử lý}
+            int limit) {
+
+        Set<BigInteger> all = topicNodes.getOrDefault(topicId, Collections.emptySet());
+        List<BigInteger> cands = new ArrayList<>(Math.max(16, limit * 2));
+
+        for (BigInteger p : all) {
+            if (p.equals(nodeId)) continue;
+            if (disallow != null && disallow.contains(p)) continue;
+
+            // tôn trọng backoff PRUNE
+            PeerScoreInfo psi = peerScores.get(p);
+            if (psi != null && psi.isPruneBackoffActiveForTopic(topicId, CommonState.getTime())) {
                 continue;
-
-            if (peers.size() < D_LOW) {
-                addMorePeers(topicID, D - peers.size());
             }
-            if (peers.size() > D_HIGH) {
-                removeExcessPeers(topicID, peers.size() - D);
+            cands.add(p);
+        }
+
+
+        long now = CommonState.getTime();
+        // sort theo score giảm dần
+        cands.sort((a, b) -> {
+            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
+            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+            return Double.compare(sb, sa);
+        });
+
+        if (cands.size() > limit) {
+            return new ArrayList<>(cands.subList(0, limit));
+        }
+        return cands;
+    }
+
+
+//    public void updateMeshConnections() {
+//        if (subscribedTopics.isEmpty())
+//            return;
+//
+//        for (String topicID : subscribedTopics.stream().map(t -> t.topicID).collect(Collectors.toList())) {
+//            meshPeersByTopic.putIfAbsent(topicID, new HashSet<>());
+//            Set<BigInteger> peers = meshPeersByTopic.get(topicID);
+//            if (peers == null)
+//                continue;
+//
+//            if (peers.size() < D_LOW) {
+//                addMorePeers(topicID, D - peers.size());
+//            }
+//            if (peers.size() > D_HIGH) {
+//                removeExcessPeers(topicID, peers.size() - D);
+//            }
+//        }
+//    }
+
+//    private void updateMeshConnections(String topicId, int pid) {
+//        Set<BigInteger> mesh = meshPeersByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
+//        int size = mesh.size();
+//
+//        if (size < D_LOW) {
+//            addMorePeers(topicId, D - size, pid);
+//        } else if (size > D_HIGH) {
+//            removeExcessPeers(topicId, size - D, pid);
+//        }
+//
+//        int out = outboundCount(topicId);
+//        if (out >= D_OUT) return; // enough outbound
+//
+//        final long now = CommonState.getTime();
+//        int toAdd = D_OUT - out;
+//
+//        java.util.function.Predicate<BigInteger> isInBackoff = (peer) -> {
+//            PeerScoreInfo psi = peerScores.get(peer);
+//            if (psi == null) return false;
+//            PeerScoreInfo.TopicScores ts =
+//                    (psi.topicScoresMap != null) ? psi.topicScoresMap.get(topicId) : null;
+//            if (ts != null && ts.pruneBackoffUntil > now) return true;
+//            return psi.pruneBackoffUntil > now; // fallback
+//        };
+//
+//        Set<BigInteger> outbound = outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
+//        Set<BigInteger> inbound  = inboundByTopic.computeIfAbsent(topicId,  k -> new HashSet<>());
+//
+//        // ──────────────────────────────────────────────────────────
+//        List<BigInteger> inboundOnly = new ArrayList<>();
+//        for (BigInteger p : mesh) {
+//            if (!outbound.contains(p) && inbound.contains(p) && !isInBackoff.test(p)) {
+//                inboundOnly.add(p);
+//            }
+//        }
+//        inboundOnly.sort((a, b) -> {
+//            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
+//            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+//            return Double.compare(sb, sa);
+//        });
+//
+//        for (BigInteger p : inboundOnly) {
+//            if (toAdd <= 0) break;
+//            addPeerScoreIfAbsent(p);
+//            Message graft = createMessage(/* id */ -1, Message.MSG_GRAFT, nodeId, p,
+//                    topicId, null, false, -1, -1, now, /*via*/ -5);
+//            publishMessage(graft, p, pid);
+//            markOutbound(topicId, p);
+//            toAdd--;
+//        }
+//        if (toAdd <= 0) return;
+//
+//        // ──────────────────────────────────────────────────────────
+//        boolean allowExceed = false;
+//        try { allowExceed = ALLOW_EXCEED_D_HIGH_ON_DOUT; } catch (Throwable ignore) {}
+//
+//        Set<BigInteger> disallow = new HashSet<>();
+//        disallow.add(nodeId);
+//
+//        List<BigInteger> candidates = selectHighScorePeersForTopic(topicId, disallow, toAdd * 3);
+//
+//        List<BigInteger> outsideMesh = new ArrayList<>();
+//        List<BigInteger> inMeshButNotOutbound = new ArrayList<>();
+//        for (BigInteger p : candidates) {
+//            if (p.equals(nodeId)) continue;
+//            if (outbound.contains(p)) continue;
+//            if (isInBackoff.test(p)) continue;
+//
+//            if (!mesh.contains(p)) outsideMesh.add(p);
+//            else if (!outbound.contains(p) && inbound.contains(p)) inMeshButNotOutbound.add(p);
+//        }
+//
+//        java.util.function.Supplier<BigInteger> worstInboundSupplier = () -> {
+//            BigInteger worstInbound = null;
+//            double worstScore = Double.POSITIVE_INFINITY;
+//            for (BigInteger q : mesh) {
+//                if (inbound.contains(q) && !outbound.contains(q)) {
+//                    double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+//                    if (s < worstScore) { worstScore = s; worstInbound = q; }
+//                }
+//            }
+//            return worstInbound;
+//        };
+//
+//        for (BigInteger p : outsideMesh) {
+//            if (toAdd <= 0) break;
+//
+//            if (!allowExceed && mesh.size() >= D_HIGH) {
+//                BigInteger worstInbound = worstInboundSupplier.get();
+//                if (worstInbound != null) {
+//                    prunePeer(worstInbound, topicId);
+//                    mesh.remove(worstInbound);
+//                    unmarkDirections(topicId, worstInbound);
+//                } else {
+//                    continue;
+//                }
+//            }
+//
+//            mesh.add(p);
+//            addPeerScoreIfAbsent(p);
+//            Message graft = createMessage(/* id */ -1, Message.MSG_GRAFT, nodeId, p,
+//                    topicId, null, false, -1, -1, now, /*via*/ -5);
+//            publishMessage(graft, p, pid);
+//            markOutbound(topicId, p);
+//            toAdd--;
+//        }
+//        if (toAdd <= 0) return;
+//
+//        for (BigInteger p : inMeshButNotOutbound) {
+//            if (toAdd <= 0) break;
+//
+//            if (!allowExceed && mesh.size() >= D_HIGH) {
+//                BigInteger worstInbound = null;
+//                double worstScore = Double.POSITIVE_INFINITY;
+//                for (BigInteger q : mesh) {
+//                    if (inbound.contains(q) && !outbound.contains(q) && !q.equals(p)) {
+//                        double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+//                        if (s < worstScore) { worstScore = s; worstInbound = q; }
+//                    }
+//                }
+//                if (worstInbound != null) {
+//                    prunePeer(worstInbound, topicId);
+//                    mesh.remove(worstInbound);
+//                    unmarkDirections(topicId, worstInbound);
+//                } else {
+//                    continue;
+//                }
+//            }
+//
+//            addPeerScoreIfAbsent(p);
+//            Message graft = createMessage(/* id */ -1, Message.MSG_GRAFT, nodeId, p,
+//                    topicId, null, false, -1, -1, now, /*via*/ -5);
+//            publishMessage(graft, p, pid);
+//            markOutbound(topicId, p);
+//            toAdd--;
+//
+//            if (mesh.size() < D) {
+//                int missing = D - mesh.size();
+//                addMorePeers(topicId, missing, pid);
+//            }
+//        }
+//    }
+
+    // Prefer evicting outbound-only first (keeps in-degree high → more duplicates)
+    private BigInteger pickVictimAtHigh(
+            Set<BigInteger> mesh,
+            Set<BigInteger> inbound,
+            Set<BigInteger> outbound,
+            String topicId,
+            long now
+    ) {
+        BigInteger best = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+
+        // type order: 0 = outbound-only, 1 = both, 2 = inbound-only
+        java.util.function.BiPredicate<BigInteger, Integer> isType = (q, type) -> {
+            boolean in  = inbound.contains(q);
+            boolean out = outbound.contains(q);
+            if (type == 0) return out && !in;     // outbound-only (first to go)
+            if (type == 1) return out && in;      // bidirectional (second)
+            return in && !out;                     // inbound-only (last resort)
+        };
+
+        for (int type = 0; type < 3; type++) {
+            best = null; bestScore = Double.POSITIVE_INFINITY;
+            for (BigInteger q : mesh) {
+                if (!isType.test(q, type)) continue;
+                double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+                if (s < bestScore) { bestScore = s; best = q; }
+            }
+            if (best != null) return best;
+        }
+        return null;
+    }
+
+
+    private void updateMeshConnections(String topicId, int pid) {
+        Set<BigInteger> mesh = meshPeersByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
+        int size = mesh.size();
+
+        // (1) Rebalance to [D_LOW, D_HIGH]
+        if (size < D_LOW) {
+            addMorePeers(topicId, D - size, pid);
+        } else if (size > D_HIGH) {
+            removeExcessPeers(topicId, size - D, pid);
+        }
+
+        final long now = CommonState.getTime();
+
+        // Backoff checker (per-topic then peer-wide)
+        java.util.function.Predicate<BigInteger> isInBackoff = (peer) -> {
+            PeerScoreInfo psi = peerScores.get(peer);
+            if (psi == null) return false;
+            PeerScoreInfo.TopicScores ts =
+                    (psi.topicScoresMap != null) ? psi.topicScoresMap.get(topicId) : null;
+            if (ts != null && ts.pruneBackoffUntil > now) return true;
+            return psi.pruneBackoffUntil > now; // fallback
+        };
+
+        Set<BigInteger> outbound = outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
+        Set<BigInteger> inbound  = inboundByTopic.computeIfAbsent(topicId,  k -> new HashSet<>());
+
+        // (2) Ensure D_OUT: convert inbound->outbound first
+        int out = outboundCount(topicId);
+        if (out < D_OUT) {
+            int toAdd = D_OUT - out;
+
+            // Prefer inbound-only in mesh, highest score first
+            List<BigInteger> inboundOnly = new ArrayList<>();
+            for (BigInteger p : mesh) {
+                if (!outbound.contains(p) && inbound.contains(p) && !isInBackoff.test(p)) {
+                    inboundOnly.add(p);
+                }
+            }
+            inboundOnly.sort((a, b) -> {
+                double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
+                double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+                return Double.compare(sb, sa);
+            });
+
+            for (BigInteger p : inboundOnly) {
+                if (toAdd <= 0) break;
+                addPeerScoreIfAbsent(p);
+                Message graft = createMessage(-1, Message.MSG_GRAFT, nodeId, p,
+                        topicId, null, false, -1, -1, now, /*via*/ -5);
+                publishMessage(graft, p, pid);
+                markOutbound(topicId, p);
+                toAdd--;
+            }
+
+            if (toAdd > 0) {
+                boolean allowExceed = false;
+                try { allowExceed = ALLOW_EXCEED_D_HIGH_ON_DOUT; } catch (Throwable ignore) {}
+
+                // Don’t disallow mesh: we’ll split into outside/in-mesh below
+                Set<BigInteger> disallow = new HashSet<>();
+                disallow.add(nodeId);
+
+                List<BigInteger> candidates = selectHighScorePeersForTopic(topicId, disallow, toAdd * 3);
+
+                List<BigInteger> outsideMesh = new ArrayList<>();
+                List<BigInteger> inMeshButNotOutbound = new ArrayList<>();
+                for (BigInteger p : candidates) {
+                    if (p.equals(nodeId)) continue;
+                    if (outbound.contains(p)) continue;
+                    if (isInBackoff.test(p)) continue;
+
+                    if (!mesh.contains(p)) outsideMesh.add(p);
+                    else if (inbound.contains(p)) inMeshButNotOutbound.add(p);
+                }
+
+                java.util.function.Supplier<BigInteger> worstInboundSupplier = () -> {
+                    BigInteger worstInbound = null;
+                    double worstScore = Double.POSITIVE_INFINITY;
+                    for (BigInteger q : mesh) {
+                        if (inbound.contains(q) && !outbound.contains(q)) {
+                            double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+                            if (s < worstScore) { worstScore = s; worstInbound = q; }
+                        }
+                    }
+                    return worstInbound;
+                };
+
+                for (BigInteger p : outsideMesh) {
+                    if (toAdd <= 0) break;
+
+                    if (!allowExceed && mesh.size() >= D_HIGH) {
+                        BigInteger worstInbound = worstInboundSupplier.get();
+                        if (worstInbound != null) {
+                            prunePeer(worstInbound, topicId);
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    mesh.add(p); // optimistic
+                    addPeerScoreIfAbsent(p);
+                    Message graft = createMessage(-1, Message.MSG_GRAFT, nodeId, p,
+                            topicId, null, false, -1, -1, now, /*via*/ -5);
+                    publishMessage(graft, p, pid);
+                    markOutbound(topicId, p);
+                    toAdd--;
+                }
+
+                for (BigInteger p : inMeshButNotOutbound) {
+                    if (toAdd <= 0) break;
+
+                    if (!allowExceed && mesh.size() >= D_HIGH) {
+                        BigInteger worstInbound = worstInboundSupplier.get();
+                        if (worstInbound != null && !worstInbound.equals(p)) {
+                            prunePeer(worstInbound, topicId);
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    addPeerScoreIfAbsent(p);
+                    Message graft = createMessage(-1, Message.MSG_GRAFT, nodeId, p,
+                            topicId, null, false, -1, -1, now, /*via*/ -5);
+                    publishMessage(graft, p, pid);
+                    markOutbound(topicId, p);
+                    toAdd--;
+                }
+            }
+        }
+
+        if (mesh.size() < D) {
+            int missing = D - mesh.size();
+            addMorePeers(topicId, missing, pid);
+        }
+    }
+
+
+    public void updateMeshConnections() {
+        // Use your existing pid field if present; otherwise replace with a constant or a getter
+        final int pid = this.gossipSubId;
+        final long now = CommonState.getTime();
+
+        // 1) Maintain mesh per topic: rebalance [D_LOW, D_HIGH] + ensure D_OUT
+        for (String topicId : meshPeersByTopic.keySet()) {
+            updateMeshConnections(topicId, pid);   // your existing 2-arg method
+        }
+
+        // 2) Lazy gossip (IHAVE) — safe no-op if you keep stub
+        advertisePendingIHave(pid);
+
+        // 3) Decay counters/scores — safe no-op if you keep stub
+        decayPeerTopicCountersIfAny();
+        decayScoresIfAny();
+
+        // 4) Opportunistic grafting every ~60s
+        if (now - lastOpportunisticCheckMs >= OP_GRAFT_INTERVAL_MS) {
+            lastOpportunisticCheckMs = now;
+            for (String topicId : meshPeersByTopic.keySet()) {
+                maybeOpportunisticGraft(topicId, pid);
             }
         }
     }
@@ -410,201 +845,673 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
 
-    private void addMorePeers(String topicID, int needed) {
-        Topic topic = CustomDistribution.topics.get(topicID);
-        if (topic == null) return;
+    private void addMorePeers(String topicId, int need, int pid) {
+        if (need <= 0) return;
 
-        List<Node> shuffled = new ArrayList<>(topic.topicMembers);
-        Collections.shuffle(shuffled, CommonState.r);
+        final long now = CommonState.getTime();
 
-        for (Node n : shuffled) {
-            if (meshPeersByTopic.get(topicID).size() >= D_LOW || needed <= 0) break;
+        Set<BigInteger> mesh     = meshPeersByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
+        Set<BigInteger> outbound = outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
+        Set<BigInteger> inbound  = inboundByTopic.computeIfAbsent(topicId,  k -> new HashSet<>());
 
-            GossipSubProtocol peer = (GossipSubProtocol) n.getProtocol(gossipSubId);
-            if (peer.meshPeersByTopic.get(topicID).contains(this.nodeId)) continue;
+        int outNow  = outbound.size();
+        int outNeed = Math.max(0, D_OUT - outNow);
+        int target  = Math.max(need, outNeed);
+        if (target <= 0) return;
 
-            /* graft */
-            meshPeersByTopic.get(topicID).add(peer.nodeId);
-            addPeerScoreIfAbsent(peer.nodeId);
+        java.util.function.Predicate<BigInteger> isInBackoff = (peer) -> {
+            PeerScoreInfo psi = peerScores.get(peer);
+            if (psi == null) return false;
+            PeerScoreInfo.TopicScores ts =
+                    (psi.topicScoresMap != null) ? psi.topicScoresMap.get(topicId) : null;
+            if (ts != null && ts.pruneBackoffUntil > now) return true;
+            return psi.pruneBackoffUntil > now;
+        };
 
-            Message graft = createMessage(-1, Message.MSG_GRAFT,
-                    this.nodeId, peer.nodeId,
-                    topicID, null, false, -1, -1,
-                    CommonState.getTime(), -1);
-            publishMessage(graft, peer.nodeId, gossipSubId);
-            needed--;
+        List<BigInteger> inboundOnly = new ArrayList<>();
+        for (BigInteger q : mesh) {
+            if (outbound.contains(q)) continue;
+            if (!inbound.contains(q)) continue;
+            if (isInBackoff.test(q)) continue;
+            inboundOnly.add(q);
+        }
+        inboundOnly.sort((a, b) -> {
+            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
+            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+            return Double.compare(sb, sa);
+        });
+
+        boolean allowExceed = false;
+        try { allowExceed = ALLOW_EXCEED_D_HIGH_ON_DOUT; } catch (Throwable ignore) {}
+
+        int remaining = target;
+
+        for (BigInteger p : inboundOnly) {
+            if (remaining <= 0) break;
+            if (outbound.contains(p)) continue;
+
+            if (!allowExceed && mesh.size() >= D_HIGH) {
+                BigInteger worstInbound = null;
+                double worstScore = Double.POSITIVE_INFINITY;
+
+                for (BigInteger q : mesh) {
+                    if (inbound.contains(q) && !outbound.contains(q) && !q.equals(p)) {
+                        double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+                        if (s < worstScore) { worstScore = s; worstInbound = q; }
+                    }
+                }
+
+                if (worstInbound != null) {
+                    prunePeer(worstInbound, topicId);
+                    mesh.remove(worstInbound);
+                    unmarkDirections(topicId, worstInbound);
+                } else {
+                    continue;
+                }
+            }
+
+            addPeerScoreIfAbsent(p);
+            Message graft = createMessage(-1, Message.MSG_GRAFT, nodeId, p,
+                    topicId, null, false, -1, -1, now, -5);
+            publishMessage(graft, p, pid);
+            markOutbound(topicId, p);
+            remaining--;
+        }
+
+        if (remaining <= 0) return;
+
+        Set<BigInteger> disallow = new HashSet<>();
+        disallow.add(nodeId);
+
+        List<BigInteger> selected = selectHighScorePeersForTopic(topicId, disallow, remaining * 3);
+
+        List<BigInteger> outsideMesh = new ArrayList<>();
+        List<BigInteger> inMeshButNotOutbound = new ArrayList<>();
+
+        for (BigInteger p : selected) {
+            if (p.equals(nodeId)) continue;
+            if (outbound.contains(p)) continue;
+            if (isInBackoff.test(p)) continue;
+
+            if (!mesh.contains(p)) outsideMesh.add(p);
+            else if (inbound.contains(p) && !outbound.contains(p)) inMeshButNotOutbound.add(p);
+        }
+
+        for (BigInteger p : outsideMesh) {
+            if (remaining <= 0) break;
+
+//            if (!allowExceed && mesh.size() >= D_HIGH) {
+//                BigInteger worstInbound = null;
+//                double worstScore = Double.POSITIVE_INFINITY;
+//
+//                for (BigInteger q : mesh) {
+//                    if (inbound.contains(q) && !outbound.contains(q)) {
+//                        double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+//                        if (s < worstScore) { worstScore = s; worstInbound = q; }
+//                    }
+//                }
+//
+//                if (worstInbound != null) {
+//                    prunePeer(worstInbound, topicId);
+//                    mesh.remove(worstInbound);
+//                    unmarkDirections(topicId, worstInbound);
+//                } else {
+//                    continue;
+//                }
+//            }
+            if (!allowExceed && mesh.size() >= D_HIGH) {
+                BigInteger victim = pickVictimAtHigh(mesh, inbound, outbound, topicId, now);
+                if (victim != null) {
+                    prunePeer(victim, topicId);
+                    mesh.remove(victim);
+                    unmarkDirections(topicId, victim);
+                } else {
+                    continue;
+                }
+            }
+
+
+            mesh.add(p);
+            addPeerScoreIfAbsent(p);
+            Message graft = createMessage(-1, Message.MSG_GRAFT, nodeId, p,
+                    topicId, null, false, -1, -1, now, -5);
+            publishMessage(graft, p, pid);
+            markOutbound(topicId, p);
+            remaining--;
+        }
+
+        if (remaining <= 0) return;
+
+        for (BigInteger p : inMeshButNotOutbound) {
+            if (remaining <= 0) break;
+
+//            if (!allowExceed && mesh.size() >= D_HIGH) {
+//                BigInteger worstInbound = null;
+//                double worstScore = Double.POSITIVE_INFINITY;
+//
+//                for (BigInteger q : mesh) {
+//                    if (inbound.contains(q) && !outbound.contains(q) && !q.equals(p)) {
+//                        double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+//                        if (s < worstScore) { worstScore = s; worstInbound = q; }
+//                    }
+//                }
+//
+//                if (worstInbound != null) {
+//                    prunePeer(worstInbound, topicId);
+//                    mesh.remove(worstInbound);
+//                    unmarkDirections(topicId, worstInbound);
+//                } else {
+//                    continue;
+//                }
+//            }
+
+            if (!allowExceed && mesh.size() >= D_HIGH) {
+                BigInteger victim = pickVictimAtHigh(mesh, inbound, outbound, topicId, now);
+                if (victim != null) {
+                    prunePeer(victim, topicId);
+                    mesh.remove(victim);
+                    unmarkDirections(topicId, victim);
+                } else {
+                    continue;
+                }
+            }
+
+
+            addPeerScoreIfAbsent(p);
+            Message graft = createMessage(-1, Message.MSG_GRAFT, nodeId, p,
+                    topicId, null, false, -1, -1, now, -5);
+            publishMessage(graft, p, pid);
+            markOutbound(topicId, p);
+            remaining--;
         }
     }
 
+
+
+
+//    private void addMorePeers(String topicID, int needed) {
+//        Topic topic = CustomDistribution.topics.get(topicID);
+//        if (topic == null) return;
+//
+//        List<Node> shuffled = new ArrayList<>(topic.topicMembers);
+//        Collections.shuffle(shuffled, CommonState.r);
+//
+//        for (Node n : shuffled) {
+//            if (meshPeersByTopic.get(topicID).size() >= D_LOW || needed <= 0) break;
+//
+//            GossipSubProtocol peer = (GossipSubProtocol) n.getProtocol(gossipSubId);
+//            if (peer.meshPeersByTopic.get(topicID).contains(this.nodeId)) continue;
+//
+//            /* graft */
+//            meshPeersByTopic.get(topicID).add(peer.nodeId);
+//            addPeerScoreIfAbsent(peer.nodeId);
+//
+//            Message graft = createMessage(-1, Message.MSG_GRAFT,
+//                    this.nodeId, peer.nodeId,
+//                    topicID, null, false, -1, -1,
+//                    CommonState.getTime(), -1);
+//            publishMessage(graft, peer.nodeId, gossipSubId);
+//            needed--;
+//        }
+//    }
+
+//    public void handleGraft(Message m, int myPid) {
+//        String topicID = m.messageTopicID;
+//        BigInteger p = m.src; // the peer that is trying to graft onto me
+//
+//        // For convenience, let's store the current time
+//        long now = CommonState.getTime();
+//
+//        // Log that got a GRAFT
+//        if (isDEBUG) {
+//            System.out.println("[DEBUG handleGraft] Node " + nodeId
+//                    + " received GRAFT from peer " + p
+//                    + " for topic=" + topicID
+//                    + " at time=" + now);
+//        }
+//
+//        // Ensure we have a PeerScoreInfo for this peer
+//        addPeerScoreIfAbsent(p);
+//        PeerScoreInfo psi = peerScores.get(p);
+//        if (psi == null) {
+//            if (isDEBUG) {
+//                System.out.println("[DEBUG handleGraft] No PeerScoreInfo for " + p
+//                        + "; ignoring GRAFT.");
+//            }
+//            return;
+//        }
+//
+//        // Compute their score and do backoff checks
+//        double s = computeScore(psi);
+//        if (isDEBUG) {
+//            System.out.println("[DEBUG handleGraft] Peer " + p + " has score=" + s
+//                    + ", time=" + now
+//                    + ", pruneBackoffUntil=" + psi.pruneBackoffUntil);
+//        }
+//
+//        // If negative score or in backoff, we prune them immediately
+//        if (s < 0 || now < psi.pruneBackoffUntil) {
+//            if (isDEBUG) {
+//                System.out.println("[DEBUG handleGraft] Peer " + p
+//                        + " is being PRUNE'd (score<0 or in backoff).");
+//            }
+//            Message prune = createMessage(
+//                    -1,
+//                    Message.MSG_PRUNE,
+//                    this.nodeId,
+//                    p,
+//                    topicID,
+//                    null, false, -1, -1,
+//                    now,
+//                    -1);
+//            publishMessage(prune, p, myPid);
+//            return; // do not add them to my local mesh
+//        }
+//
+//        // Otherwise, accept them in my local mesh for topicID
+//        meshPeersByTopic.putIfAbsent(topicID, new HashSet<>());
+//        meshPeersByTopic.get(topicID).add(p);
+//
+//        meshPeersByTopic.computeIfAbsent(topicID, k -> new HashSet<>()).add(p);
+//
+//        // Đánh dấu inbound vì peer chủ động GRAFT với mình  // NEW
+//        markInbound(topicID, p);
+//
+//
+//        // Just in case, ensure we track peer's score info
+//        addPeerScoreIfAbsent(p);
+//
+//        if (isDEBUG) {
+//            System.out.println("[DEBUG handleGraft] Node " + nodeId
+//                    + " accepted peer " + p
+//                    + " into mesh for topic=" + topicID
+//                    + ". Current mesh size=" + meshPeersByTopic.get(topicID).size());
+//        }
+//
+//        // If oversubscribed, remove some peers
+//        if (meshPeersByTopic.get(topicID).size() > D) {
+//            int over = meshPeersByTopic.get(topicID).size() - D; // trim back to “degree”
+//            if (isDEBUG) {
+//                System.out.printf("[DEBUG handleGraft] mesh %s oversized (%d>%d); pruning %d peers%n",
+//                        topicID, meshPeersByTopic.get(topicID).size(), D, over);
+//            }
+//            removeExcessPeers(topicID, over);
+//        }
+//    }
+//
+//    public void handlePrune(Message m, int myPid) {
+//        BigInteger pruner = m.src; // the node that is pruning me
+//        String topicID = m.messageTopicID;
+//        long now = CommonState.getTime();
+//
+//        // Log that received a PRUNE
+//        if (isDEBUG) {
+//            System.out.println("[DEBUG handlePrune] Node " + nodeId
+//                    + " received PRUNE from " + pruner
+//                    + " for topic=" + topicID
+//                    + " at time=" + now);
+//        }
+//
+//        // Remove that node from local mesh (if present).
+//        Set<BigInteger> meshPeers = meshPeersByTopic.getOrDefault(topicID, new HashSet<>());
+//        boolean wasPresent = meshPeers.remove(pruner);
+//
+//        if (!wasPresent) {
+//            // Not in our mesh anyway
+//            if (isDEBUG) {
+//                System.out.println("[DEBUG handlePrune] Node " + nodeId
+//                        + " wasn't tracking pruner=" + pruner
+//                        + " in localMesh for topic=" + topicID
+//                        + ", ignoring.");
+//            }
+//            return;
+//        }
+//
+//        // Now check if this removal dropped our mesh below minDegree
+//        int sizeAfterRemoval = meshPeers.size();
+//        if (isDEBUG) {
+//            System.out.println("[DEBUG handlePrune] After removing " + pruner
+//                    + ", localMesh[" + topicID + "] size=" + sizeAfterRemoval
+//                    + " for node=" + nodeId);
+//        }
+//
+//        if (sizeAfterRemoval < D_LOW) {
+//            int needed = D - sizeAfterRemoval;
+//            if (needed > 0) {
+//                if (isDEBUG) {
+//                    System.out.println("[DEBUG handlePrune] localMesh[" + topicID + "] too small ("
+//                            + sizeAfterRemoval + " < minDegree=" + D_LOW
+//                            + "). GRAFTing " + needed + " peers...");
+//                }
+//                addMorePeers(topicID, needed);
+//            }
+//        }
+//
+//        // If for some reason end up bigger than maxDegree, removeExcessPeers
+//        if (sizeAfterRemoval > D_HIGH) {
+//            int over = sizeAfterRemoval - D;
+//            if (isDEBUG) {
+//                System.out.println("[DEBUG handlePrune] localMesh[" + topicID + "] oversubscribed size="
+//                        + sizeAfterRemoval + " > maxDegree=" + D_HIGH
+//                        + ". removing 'over'=" + over + " peers...");
+//            }
+//            removeExcessPeers(topicID, over);
+//        }
+//
+//    }
+
     public void handleGraft(Message m, int myPid) {
-        String topicID = m.messageTopicID;
-        BigInteger p = m.src; // the peer that is trying to graft onto me
+        final String    topicID = m.messageTopicID;
+        final BigInteger p      = m.src;
+        final long      now     = CommonState.getTime();
 
-        // For convenience, let's store the current time
-        long now = CommonState.getTime();
-
-        // Log that got a GRAFT
         if (isDEBUG) {
             System.out.println("[DEBUG handleGraft] Node " + nodeId
                     + " received GRAFT from peer " + p
-                    + " for topic=" + topicID
-                    + " at time=" + now);
+                    + " topic=" + topicID
+                    + " t=" + now);
         }
 
-        // Ensure we have a PeerScoreInfo for this peer
         addPeerScoreIfAbsent(p);
         PeerScoreInfo psi = peerScores.get(p);
         if (psi == null) {
             if (isDEBUG) {
-                System.out.println("[DEBUG handleGraft] No PeerScoreInfo for " + p
-                        + "; ignoring GRAFT.");
+                System.out.println("[DEBUG handleGraft] No PeerScoreInfo for " + p + "; ignoring.");
             }
             return;
         }
 
-        // Compute their score and do backoff checks
         double s = computeScore(psi);
-        if (isDEBUG) {
-            System.out.println("[DEBUG handleGraft] Peer " + p + " has score=" + s
-                    + ", time=" + now
-                    + ", pruneBackoffUntil=" + psi.pruneBackoffUntil);
+        long topicBackoffUntil = 0L;
+        if (psi.topicScoresMap != null) {
+            PeerScoreInfo.TopicScores ts = psi.topicScoresMap.get(topicID);
+            if (ts != null) topicBackoffUntil = ts.pruneBackoffUntil;
         }
-
-        // If negative score or in backoff, we prune them immediately
-        if (s < 0 || now < psi.pruneBackoffUntil) {
-            if (isDEBUG) {
-                System.out.println("[DEBUG handleGraft] Peer " + p
-                        + " is being PRUNE'd (score<0 or in backoff).");
-            }
-            Message prune = createMessage(
-                    -1,
-                    Message.MSG_PRUNE,
-                    this.nodeId,
-                    p,
-                    topicID,
-                    null, false, -1, -1,
-                    now,
-                    -1);
-            publishMessage(prune, p, myPid);
-            return; // do not add them to my local mesh
-        }
-
-        // Otherwise, accept them in my local mesh for topicID
-        meshPeersByTopic.putIfAbsent(topicID, new HashSet<>());
-        meshPeersByTopic.get(topicID).add(p);
-
-        // Just in case, ensure we track peer's score info
-        addPeerScoreIfAbsent(p);
+        boolean inBackoff = (now < topicBackoffUntil) || (now < psi.pruneBackoffUntil);
 
         if (isDEBUG) {
-            System.out.println("[DEBUG handleGraft] Node " + nodeId
-                    + " accepted peer " + p
-                    + " into mesh for topic=" + topicID
-                    + ". Current mesh size=" + meshPeersByTopic.get(topicID).size());
+            System.out.println("[DEBUG handleGraft] Peer " + p + " score=" + s
+                    + " topicBackoffUntil=" + topicBackoffUntil
+                    + " peerBackoffUntil=" + psi.pruneBackoffUntil
+                    + " inBackoff=" + inBackoff);
         }
 
-        // If oversubscribed, remove some peers
-        if (meshPeersByTopic.get(topicID).size() > D) {
-            int over = meshPeersByTopic.get(topicID).size() - D; // trim back to “degree”
+        if (s < 0 || inBackoff) {
             if (isDEBUG) {
-                System.out.printf("[DEBUG handleGraft] mesh %s oversized (%d>%d); pruning %d peers%n",
-                        topicID, meshPeersByTopic.get(topicID).size(), D, over);
+                System.out.println("[DEBUG handleGraft] Deny GRAFT from " + p + " (score<0 or backoff); sending PRUNE.");
             }
-            removeExcessPeers(topicID, over);
+            prunePeer(p, topicID);
+            return;
+        }
+
+        Set<BigInteger> mesh = meshPeersByTopic.computeIfAbsent(topicID, k -> new HashSet<>());
+        boolean added = mesh.add(p);
+        markInbound(topicID, p);
+
+        if (added) {
+            // ensure PeerScoreInfo exists
+            addPeerScoreIfAbsent(p);
+            PeerScoreInfo psi_added = peerScores.get(p);
+            PeerScoreInfo.TopicScores ts =
+                    psi_added.topicScoresMap.computeIfAbsent(topicID, t -> new PeerScoreInfo.TopicScores());
+
+            ts.timeInMeshStart = now;
+        }
+
+        if (isDEBUG) {
+            System.out.println("[DEBUG handleGraft] ACCEPT " + p + " into mesh[" + topicID + "]"
+                    + " (added=" + added + ") size=" + mesh.size());
+        }
+
+
+        if (mesh.size() > D_HIGH) {
+            int over = mesh.size() - D;
+            if (isDEBUG) {
+                System.out.printf("[DEBUG handleGraft] mesh[%s] oversized %d>%d; prune %d%n",
+                        topicID, mesh.size(), D, over);
+            }
+            removeExcessPeers(topicID, over, myPid);
         }
     }
 
     public void handlePrune(Message m, int myPid) {
-        BigInteger pruner = m.src; // the node that is pruning me
-        String topicID = m.messageTopicID;
-        long now = CommonState.getTime();
+        final BigInteger pruner  = m.src;
+        final String     topicID = m.messageTopicID;
+        final long       now     = CommonState.getTime();
 
-        // Log that received a PRUNE
         if (isDEBUG) {
             System.out.println("[DEBUG handlePrune] Node " + nodeId
                     + " received PRUNE from " + pruner
-                    + " for topic=" + topicID
-                    + " at time=" + now);
+                    + " topic=" + topicID
+                    + " t=" + now);
         }
 
-        // Remove that node from local mesh (if present).
-        Set<BigInteger> meshPeers = meshPeersByTopic.getOrDefault(topicID, new HashSet<>());
-        boolean wasPresent = meshPeers.remove(pruner);
+        Set<BigInteger> mesh = meshPeersByTopic.computeIfAbsent(topicID, k -> new HashSet<>());
+        boolean wasPresent = mesh.remove(pruner);
+
+        unmarkDirections(topicID, pruner);
+
+        if (wasPresent) {
+            PeerScoreInfo psi = peerScores.get(pruner);
+            if (psi != null) {
+                PeerScoreInfo.TopicScores ts = psi.topicScoresMap.get(topicID);
+                if (ts != null) {
+                    // stop accruing P1/P3 for this topic
+                    ts.timeInMeshStart = -1L;
+                }
+            }
+        }
 
         if (!wasPresent) {
-            // Not in our mesh anyway
             if (isDEBUG) {
-                System.out.println("[DEBUG handlePrune] Node " + nodeId
-                        + " wasn't tracking pruner=" + pruner
-                        + " in localMesh for topic=" + topicID
-                        + ", ignoring.");
+                System.out.println("[DEBUG handlePrune] Peer " + pruner
+                        + " not in local mesh[" + topicID + "]; ignore.");
             }
-            return;
+        } else {
+            if (isDEBUG) {
+                System.out.println("[DEBUG handlePrune] Removed " + pruner
+                        + " from mesh[" + topicID + "]; size=" + mesh.size());
+            }
         }
 
-        // Now check if this removal dropped our mesh below minDegree
-        int sizeAfterRemoval = meshPeers.size();
-        if (isDEBUG) {
-            System.out.println("[DEBUG handlePrune] After removing " + pruner
-                    + ", localMesh[" + topicID + "] size=" + sizeAfterRemoval
-                    + " for node=" + nodeId);
+        List<BigInteger> px = m.getPrunePX();
+        if (px != null && !px.isEmpty()) {
+
+            Set<BigInteger> all = topicNodes.computeIfAbsent(topicID, k -> new HashSet<>());
+            all.addAll(px);
+            if (isDEBUG) {
+                System.out.println("[DEBUG handlePrune] PX size=" + px.size() + " added to known set for topic " + topicID);
+            }
         }
 
-        if (sizeAfterRemoval < D_LOW) {
-            int needed = D - sizeAfterRemoval;
+        addPeerScoreIfAbsent(pruner);
+        PeerScoreInfo psi = peerScores.get(pruner);
+        if (psi != null) {
+            long backoff = 60_000L;
+            PeerScoreInfo.TopicScores ts =
+                    psi.topicScoresMap.computeIfAbsent(topicID, k -> new PeerScoreInfo.TopicScores());
+            ts.pruneBackoffUntil = Math.max(ts.pruneBackoffUntil, now + backoff);
+            psi.pruneBackoffUntil = Math.max(psi.pruneBackoffUntil, now + backoff);
+            if (isDEBUG) {
+                System.out.println("[DEBUG handlePrune] Set local backoff for pruner " + pruner
+                        + " until topic=" + ts.pruneBackoffUntil + " (global=" + psi.pruneBackoffUntil + ")");
+            }
+        }
+
+        int sizeAfter = mesh.size();
+        if (sizeAfter < D_LOW) {
+            int needed = D - sizeAfter;
             if (needed > 0) {
-                if (isDEBUG) {
-                    System.out.println("[DEBUG handlePrune] localMesh[" + topicID + "] too small ("
-                            + sizeAfterRemoval + " < minDegree=" + D_LOW
-                            + "). GRAFTing " + needed + " peers...");
-                }
-                addMorePeers(topicID, needed);
+//                if (isDEBUG) {
+                    System.out.println("[DEBUG handlePrune] mesh[" + topicID + "] too small ("
+                            + sizeAfter + "<" + D_LOW + "); GRAFT " + needed + " peers...");
+//                }
+                addMorePeers(topicID, needed, myPid);
             }
-        }
-
-        // If for some reason end up bigger than maxDegree, removeExcessPeers
-        if (sizeAfterRemoval > D_HIGH) {
-            int over = sizeAfterRemoval - D;
+        } else if (sizeAfter > D_HIGH) {
+            int over = sizeAfter - D;
             if (isDEBUG) {
-                System.out.println("[DEBUG handlePrune] localMesh[" + topicID + "] oversubscribed size="
-                        + sizeAfterRemoval + " > maxDegree=" + D_HIGH
-                        + ". removing 'over'=" + over + " peers...");
+                System.out.println("[DEBUG handlePrune] mesh[" + topicID + "] oversubscribed size="
+                        + sizeAfter + " > " + D_HIGH + "; prune " + over + " peers...");
             }
-            removeExcessPeers(topicID, over);
+            removeExcessPeers(topicID, over, myPid);
         }
 
-        // OPTIONAL: record that pruner is refusing me until T
-        // e.g., peerRefuseUntil.put(pruner, now + someBackoff);
+
     }
 
     // e.g. in removeExcessPeers(...) or prunePeer(...)
-    public void prunePeer(BigInteger peerID, String topicID) {
-        long now = CommonState.getTime();
+//    public void prunePeer(BigInteger peerID, String topicID) {
+//        long now = CommonState.getTime();
+//
+//        Set<BigInteger> all = topicNodes.getOrDefault(topicID, Collections.emptySet());
+//        Set<BigInteger> meshPeers = meshPeersByTopic.getOrDefault(topicID, new HashSet<>());
+//        boolean wasPresent = meshPeers.remove(peerID);
+//
+//        List<BigInteger> candidates = new ArrayList<>();
+//        for (BigInteger q : all) {
+//            if (q.equals(peerID)) continue;
+//            if (q.equals(nodeId)) continue;
+//            if (meshPeers != null && meshPeers.contains(q)) continue;
+//            candidates.add(q);
+//        }
+//
+//        if (candidates.isEmpty()) {
+//            for (BigInteger q : all) {
+//                if (!q.equals(peerID) && !q.equals(nodeId)) {
+//                    candidates.add(q);
+//                }
+//            }
+//        }
+//
+//        candidates.sort((a, b) -> {
+//            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+//            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
+//            return Double.compare(sb, sa); // descending
+//        });
+//
+//        unmarkDirections(topicID, peerID);
+//
+//        int PX_LIMIT = 8;
+//        List<BigInteger> px = candidates.subList(0, Math.min(PX_LIMIT, candidates.size()));
+//
+//        if (isDEBUG) {
+//            System.out.println("[DEBUG prunePeer] Node " + nodeId
+//                    + " is pruning peer " + peerID
+//                    + " for topic=" + topicID
+//                    + " at time=" + now);
+//            if (!wasPresent) {
+//                System.out.println("[DEBUG prunePeer] peer " + peerID
+//                        + " wasn't in localMesh[" + topicID + "] anyway; ignoring.");
+//            } else {
+//                System.out.println("[DEBUG prunePeer] localMesh[" + topicID + "] size is now "
+//                        + meshPeers.size() + " after removing " + peerID);
+//            }
+//        }
+//
+//        if (!wasPresent) {
+//            // If the peer wasn't in our mesh, no need to send a PRUNE or set backoff
+//            return;
+//        }
+//
+//
+//        // Send a PRUNE message so they know we've removed them
+//        Message prune = createMessage(
+//                -1,
+//                Message.MSG_PRUNE,
+//                this.nodeId,
+//                peerID,
+//                topicID,
+//                null,
+//                false,
+//                -1,
+//                -1,
+//                now,
+//                -1);
+//
+//        prune.setPrunePX(px);
+//        publishMessage(prune, peerID, gossipSubId);
+//
+//        // Set backoff
+//        PeerScoreInfo psi = peerScores.get(peerID);
+//        if (psi != null) {
+//            PeerScoreInfo.TopicScores ts =
+//                    psi.topicScoresMap.computeIfAbsent(topicID, k -> new PeerScoreInfo.TopicScores());
+//            ts.underDelivery += Math.max(0, ts.meshMsgExpected - ts.meshMsgDelivered);  // P3b
+//            long backoff = 60000; // 1 minute
+//            psi.pruneBackoffUntil = now + backoff;
+//
+//            if (isDEBUG) {
+//                System.out.println("[DEBUG prunePeer] Setting pruneBackoffUntil="
+//                        + psi.pruneBackoffUntil
+//                        + " for peer " + peerID);
+//            }
+//        }
+//    }
 
-        // Remove from local mesh
-        Set<BigInteger> meshPeers = meshPeersByTopic.getOrDefault(topicID, new HashSet<>());
+    public void prunePeer(BigInteger peerID, String topicID) {
+        final long now = CommonState.getTime();
+
+        Set<BigInteger> meshPeers = meshPeersByTopic.computeIfAbsent(topicID, k -> new HashSet<>());
+
         boolean wasPresent = meshPeers.remove(peerID);
 
         if (isDEBUG) {
             System.out.println("[DEBUG prunePeer] Node " + nodeId
-                    + " is pruning peer " + peerID
-                    + " for topic=" + topicID
-                    + " at time=" + now);
-            if (!wasPresent) {
-                System.out.println("[DEBUG prunePeer] peer " + peerID
-                        + " wasn't in localMesh[" + topicID + "] anyway; ignoring.");
-            } else {
-                System.out.println("[DEBUG prunePeer] localMesh[" + topicID + "] size is now "
-                        + meshPeers.size() + " after removing " + peerID);
-            }
+                    + " PRUNE peer " + peerID
+                    + " topic=" + topicID
+                    + " t=" + now
+                    + " wasPresent=" + wasPresent
+                    + " meshSize(after)=" + meshPeers.size());
         }
 
+        unmarkDirections(topicID, peerID); // clean inbound/outbound
         if (!wasPresent) {
-            // If the peer wasn't in our mesh, no need to send a PRUNE or set backoff
             return;
         }
 
-        // Send a PRUNE message so they know we've removed them
+
+        Set<BigInteger> all = topicNodes.getOrDefault(topicID, Collections.emptySet());
+        List<BigInteger> candidates = new ArrayList<>();
+        for (BigInteger q : all) {
+            if (q.equals(peerID)) continue;
+            if (q.equals(nodeId)) continue;
+            if (meshPeers.contains(q)) continue;
+
+            PeerScoreInfo psiQ = peerScores.get(q);
+            boolean inBackoff = false;
+            if (psiQ != null) {
+
+                PeerScoreInfo.TopicScores tsQ =
+                        (psiQ.topicScoresMap != null) ? psiQ.topicScoresMap.get(topicID) : null;
+                if (tsQ != null && tsQ.pruneBackoffUntil > now) {
+                    inBackoff = true;
+                } else if (psiQ.pruneBackoffUntil > now) {
+                    inBackoff = true;
+                }
+            }
+            if (inBackoff) continue;
+
+            candidates.add(q);
+        }
+
+        if (candidates.isEmpty()) {
+            for (BigInteger q : all) {
+                if (!q.equals(peerID) && !q.equals(nodeId)) {
+                    candidates.add(q);
+                }
+            }
+        }
+
+        candidates.sort((a, b) -> {
+            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
+            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+            return Double.compare(sb, sa);
+        });
+
+        final int PX_LIMIT = D;
+        List<BigInteger> px = candidates.subList(0, Math.min(PX_LIMIT, candidates.size()));
+
         Message prune = createMessage(
                 -1,
                 Message.MSG_PRUNE,
@@ -616,41 +1523,268 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 -1,
                 -1,
                 now,
-                -1);
+                -1
+        );
+        prune.setPrunePX(px);
         publishMessage(prune, peerID, gossipSubId);
 
-        // Set backoff
         PeerScoreInfo psi = peerScores.get(peerID);
         if (psi != null) {
             PeerScoreInfo.TopicScores ts =
                     psi.topicScoresMap.computeIfAbsent(topicID, k -> new PeerScoreInfo.TopicScores());
-            ts.underDelivery += Math.max(0, ts.meshMsgExpected - ts.meshMsgDelivered);  // P3b
-            long backoff = 60000; // 1 minute
-            psi.pruneBackoffUntil = now + backoff;
+            ts.underDelivery += Math.max(0, ts.meshMsgExpected - ts.meshMsgDelivered);
+
+            final long backoff = 60_000L; // 1 phút
+            if (ts != null) {
+                ts.pruneBackoffUntil = now + backoff;
+            } else {
+                psi.pruneBackoffUntil = now + backoff;
+            }
 
             if (isDEBUG) {
-                System.out.println("[DEBUG prunePeer] Setting pruneBackoffUntil="
-                        + psi.pruneBackoffUntil
-                        + " for peer " + peerID);
+                long bo = (ts != null) ? ts.pruneBackoffUntil : psi.pruneBackoffUntil;
+                System.out.println("[DEBUG prunePeer] Set PRUNE backoff until " + bo
+                        + " for peer " + peerID + " on topic " + topicID);
+            }
+        }
+    }
+
+    private void maybeOpportunisticGraft(String topicId, int pid) {
+        Set<BigInteger> mesh = meshPeersByTopic.getOrDefault(topicId, Collections.emptySet());
+        if (mesh.isEmpty()) return;
+
+        final long now = CommonState.getTime();
+
+        List<Double> scores = new ArrayList<>(mesh.size());
+        for (BigInteger p : mesh) {
+            scores.add(computeScore(peerScores.getOrDefault(p, new PeerScoreInfo(now))));
+        }
+        Collections.sort(scores);
+        double median = (scores.size() % 2 == 1)
+                ? scores.get(scores.size() / 2)
+                : 0.5 * (scores.get(scores.size() / 2 - 1) + scores.get(scores.size() / 2));
+
+        if (median >= OP_GRAFT_MEDIAN_THRESHOLD) return;
+
+        java.util.function.Predicate<BigInteger> isInBackoff = (peer) -> {
+            PeerScoreInfo psi = peerScores.get(peer);
+            if (psi == null) return false;
+            PeerScoreInfo.TopicScores ts =
+                    (psi.topicScoresMap != null) ? psi.topicScoresMap.get(topicId) : null;
+            if (ts != null && ts.pruneBackoffUntil > now) return true;
+            return psi.pruneBackoffUntil > now;
+        };
+
+        Set<BigInteger> outbound = outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
+        Set<BigInteger> inbound  = inboundByTopic.computeIfAbsent(topicId,  k -> new HashSet<>());
+
+        boolean allowExceed = false;
+        try { allowExceed = ALLOW_EXCEED_D_HIGH_ON_DOUT; } catch (Throwable ignore) {}
+
+        java.util.function.Supplier<BigInteger> worstInboundSupplier = () -> {
+            BigInteger worstInbound = null;
+            double worstScore = Double.POSITIVE_INFINITY;
+            for (BigInteger q : mesh) {
+                if (inbound.contains(q) && !outbound.contains(q)) {
+                    double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+                    if (s < worstScore) { worstScore = s; worstInbound = q; }
+                }
+            }
+            return worstInbound;
+        };
+
+        int remaining = OP_GRAFT_K;
+
+        List<BigInteger> inboundOnly = new ArrayList<>();
+        for (BigInteger p : mesh) {
+            if (!outbound.contains(p) && inbound.contains(p) && !isInBackoff.test(p)) {
+                inboundOnly.add(p);
+            }
+        }
+        inboundOnly.sort((a, b) -> {
+            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
+            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+            return Double.compare(sb, sa);
+        });
+
+        for (BigInteger p : inboundOnly) {
+            if (remaining <= 0) break;
+
+            addPeerScoreIfAbsent(p);
+            Message graft = createMessage(/* id */ -1, Message.MSG_GRAFT, nodeId, p,
+                    topicId, null, false, -1, -1, now, /*via*/ -7);
+            publishMessage(graft, p, pid);
+            markOutbound(topicId, p);
+            remaining--;
+        }
+        if (remaining <= 0) return;
+
+        Set<BigInteger> disallow = new HashSet<>(mesh);
+        disallow.add(nodeId);
+        List<BigInteger> pick = selectHighScorePeersForTopic(topicId, disallow, remaining * 3);
+
+        List<BigInteger> outsideMesh = new ArrayList<>();
+        List<BigInteger> inMeshButNotOutbound = new ArrayList<>();
+        for (BigInteger p : pick) {
+            if (p.equals(nodeId)) continue;
+            if (outbound.contains(p)) continue;
+            if (isInBackoff.test(p)) continue;
+
+            if (!mesh.contains(p)) outsideMesh.add(p);
+            else if (inbound.contains(p) && !outbound.contains(p)) inMeshButNotOutbound.add(p);
+        }
+
+        for (BigInteger p : outsideMesh) {
+            if (remaining <= 0) break;
+
+//            if (!allowExceed && mesh.size() >= D_HIGH) {
+//                BigInteger worstInbound = worstInboundSupplier.get();
+//                if (worstInbound != null) {
+//                    prunePeer(worstInbound, topicId);
+//                    mesh.remove(worstInbound);
+//                    unmarkDirections(topicId, worstInbound);
+//                } else {
+//                    continue;
+//                }
+//            }
+            if (!allowExceed && mesh.size() >= D_HIGH) {
+                BigInteger victim = pickVictimAtHigh(mesh, inbound, outbound, topicId, now);
+                if (victim != null) {
+                    prunePeer(victim, topicId);
+                    mesh.remove(victim);
+                    unmarkDirections(topicId, victim);
+                } else {
+                    continue;
+                }
+            }
+
+
+            mesh.add(p);
+            addPeerScoreIfAbsent(p);
+            Message graft = createMessage(/* id */ -1, Message.MSG_GRAFT, nodeId, p,
+                    topicId, null, false, -1, -1, now, /*via*/ -7);
+            publishMessage(graft, p, pid);
+            markOutbound(topicId, p);
+            remaining--;
+        }
+        if (remaining <= 0) return;
+
+        for (BigInteger p : inMeshButNotOutbound) {
+            if (remaining <= 0) break;
+
+//            if (!allowExceed && mesh.size() >= D_HIGH) {
+//                BigInteger worstInbound = worstInboundSupplier.get();
+//                if (worstInbound != null && !worstInbound.equals(p)) {
+//                    prunePeer(worstInbound, topicId);
+//                    mesh.remove(worstInbound);
+//                    unmarkDirections(topicId, worstInbound);
+//                } else {
+//                    continue;
+//                }
+//            }
+
+            if (!allowExceed && mesh.size() >= D_HIGH) {
+                BigInteger victim = pickVictimAtHigh(mesh, inbound, outbound, topicId, now);
+                if (victim != null) {
+                    prunePeer(victim, topicId);
+                    mesh.remove(victim);
+                    unmarkDirections(topicId, victim);
+                } else {
+                    continue;
+                }
+            }
+
+
+            addPeerScoreIfAbsent(p);
+            Message graft = createMessage(/* id */ -1, Message.MSG_GRAFT, nodeId, p,
+                    topicId, null, false, -1, -1, now, /*via*/ -7);
+            publishMessage(graft, p, pid);
+            markOutbound(topicId, p);
+            remaining--;
+        }
+    }
+
+
+
+    private void removeExcessPeers(String topicID, int toPrune, int pid) {
+        if (toPrune <= 0) return;
+
+        Set<BigInteger> mesh = meshPeersByTopic.computeIfAbsent(topicID, k -> new HashSet<>());
+        if (mesh.isEmpty()) return;
+
+        Set<BigInteger> outbound = outboundByTopic.computeIfAbsent(topicID, k -> new HashSet<>());
+        Set<BigInteger> inbound  = inboundByTopic.computeIfAbsent(topicID,  k -> new HashSet<>());
+
+        for (BigInteger p : mesh) addPeerScoreIfAbsent(p);
+
+        List<BigInteger> inboundOnly = new ArrayList<>();
+        for (BigInteger p : mesh) {
+            if (inbound.contains(p) && !outbound.contains(p)) {
+                inboundOnly.add(p);
+            }
+        }
+        inboundOnly.sort(Comparator.comparingDouble(p -> computeScore(peerScores.get(p))));
+
+        int pruned = 0;
+
+        for (BigInteger victim : inboundOnly) {
+            if (pruned >= toPrune) break;
+            prunePeer(victim, topicID);  // đã xử lý PX + backoff + unmarkDirections bên trong
+            pruned++;
+        }
+        if (pruned >= toPrune) return;
+
+
+        List<BigInteger> outboundStillInMesh = new ArrayList<>();
+        for (BigInteger p : mesh) {
+            if (outbound.contains(p)) outboundStillInMesh.add(p);
+        }
+        outboundStillInMesh.sort(Comparator.comparingDouble(p -> computeScore(peerScores.get(p))));
+
+        int currentOutbound = outboundCount(topicID);
+        for (BigInteger victim : outboundStillInMesh) {
+            if (pruned >= toPrune) break;
+
+            if (currentOutbound <= D_OUT) break;
+
+            prunePeer(victim, topicID);
+            pruned++;
+            currentOutbound--;
+        }
+
+
+        if (pruned < toPrune) {
+            List<BigInteger> rest = new ArrayList<>(meshPeersByTopic.getOrDefault(topicID, Collections.emptySet()));
+            rest.sort(Comparator.comparingDouble(p -> computeScore(peerScores.get(p))));
+
+            for (BigInteger victim : rest) {
+                if (pruned >= toPrune) break;
+
+                boolean isOutbound = outbound.contains(victim);
+                if (isOutbound && outboundCount(topicID) <= D_OUT) {
+                    continue;
+                }
+                prunePeer(victim, topicID);
+                pruned++;
             }
         }
     }
 
 
-    private void removeExcessPeers(String topicID, int toPrune) {
-        Set<BigInteger> mesh = meshPeersByTopic.get(topicID);
-        if (mesh == null || toPrune <= 0) return;
-
-        /* ensure scores exist, then sort by ascending score */
-        mesh.forEach(this::addPeerScoreIfAbsent);
-        List<BigInteger> sorted = new ArrayList<>(mesh);
-        sorted.sort(Comparator.comparingDouble(p -> computeScore(peerScores.get(p))));
-
-        /* PRUNE the ‘toPrune’ worst peers */
-        for (int i = 0; i < toPrune && i < sorted.size(); i++) {
-            prunePeer(sorted.get(i), topicID);
-        }
-    }
+//    private void removeExcessPeers(String topicID, int toPrune) {
+//        Set<BigInteger> mesh = meshPeersByTopic.get(topicID);
+//        if (mesh == null || toPrune <= 0) return;
+//
+//        /* ensure scores exist, then sort by ascending score */
+//        mesh.forEach(this::addPeerScoreIfAbsent);
+//        List<BigInteger> sorted = new ArrayList<>(mesh);
+//        sorted.sort(Comparator.comparingDouble(p -> computeScore(peerScores.get(p))));
+//
+//        /* PRUNE the ‘toPrune’ worst peers */
+//        for (int i = 0; i < toPrune && i < sorted.size(); i++) {
+//            prunePeer(sorted.get(i), topicID);
+//        }
+//    }
 
     private void addPeerScoreIfAbsent(BigInteger peerID) {
         if (!peerScores.containsKey(peerID)) {
@@ -852,7 +1986,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         String key = s + m.rowOrColumnNumber;
 
         // Majority threshold, consistent with requestMissingPart()
-//        int threshold = Math.max(1, (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2);
+//        int threshold = Math.max(1, (SHARD_AMOUNT + 1) / 2);
         int threshold = 1;
 
         if (custody1.equals(key)) {
@@ -1095,7 +2229,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // Send IWANT message if a part is missing
     private void requestMissingPart(Message m, int myPid, int custody1Size, int custody2Size, String custody1,
                                     String custody2) {
-//        int threshold = (NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC + 1) / 2;
+//        int threshold = (SHARD_AMOUNT + 1) / 2;
         int threshold = 1;
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
 
@@ -1776,6 +2910,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
             case Message.MSG_PRUNE:
                 Message pruneMsg = (Message) event;
+                List<BigInteger> px = pruneMsg.getPrunePX();
                 handlePrune(pruneMsg, myPid);
                 break;
 
@@ -1784,6 +2919,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         }
     }
+
 
     public BigInteger getNodeId() {
         return this.nodeId;
@@ -1922,10 +3058,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 // If already sent the desired number of copies
                 // AND the nodeCounter is not at the boundary for a new row/column holder
                 if (copiesSent >= numberOfCopiesToSend
-                        && (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC != 0)) {
+                        && (nodeCounter % SHARD_AMOUNT != 0)) {
                     nodeCounter++;
                     // Once hit the boundary again, reset things
-                    if (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
+                    if (nodeCounter % SHARD_AMOUNT == 0) {
                         copiesSent = 0;
                         if (isRowTopic) {
                             rowIndex++;
@@ -1970,7 +3106,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 copiesSent++;
 
                 // If reached the boundary for holders, reset counters
-                if (nodeCounter % NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC == 0) {
+                if (nodeCounter % SHARD_AMOUNT == 0) {
                     copiesSent = 0;
                     if (isRowTopic) {
                         rowIndex++;
@@ -2033,7 +3169,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     private void shardingBasedDistribution() {
 
-        final int divisions = NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC;          // A
+        final int divisions = SHARD_AMOUNT;          // A
         final int kCopies   = Math.max(1, SHARD_COPIES);
         final int rcCfg     = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 2);
 
@@ -2162,8 +3298,14 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         System.out.printf("Data transmission time: %d ms%n", totalTransmissionTime);
         System.out.println("Malicious Rate: " + Configuration.getDouble("MALICIOUS_RATE"));
         System.out.println("Seed Number: " + Configuration.getInt("random.seed"));
-        System.out.println("ROW/COL Holder: " + NUMBER_OF_ROW_OR_COLUMN_HOLDERS_PER_TOPIC);
+        System.out.println("ROW/COL Holder: " + SHARD_AMOUNT);
     }
+
+
+    // ---- Safe stubs (keep or replace with your real impls) ----
+    private void advertisePendingIHave(int pid) { /* no-op for now */ }
+    private void decayPeerTopicCountersIfAny() { /* no-op for now */ }
+    private void decayScoresIfAny() { /* no-op for now */ }
 
 
 
