@@ -8,6 +8,7 @@ import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Network;
 import peersim.core.Node;
+import peersim.edsim.EDSimulator;
 
 /**
  * Initializes each node with a unique random NodeId.
@@ -32,10 +33,10 @@ public class CustomDistribution implements peersim.core.Control {
                     Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
 
     // Malicious Rate
-    private static final double OMISSION_RATE =
-            Configuration.getDouble("OMISSION_RATE", 0.05);
+    private static final double MALICIOUS_RATE =
+            Configuration.getDouble("MALICIOUS_RATE", 0.05);
     private static final double FLOODING_RATE =
-            Configuration.getDouble("FLOOD_RATE",0.05);
+            Configuration.getDouble("FLOOD_RATE",0);
 
 
     private final int gossipProtocolID;
@@ -91,6 +92,14 @@ public class CustomDistribution implements peersim.core.Control {
             // heartbeat & bookkeeping (unchanged) …
             HeartbeatManager hm = new HeartbeatManager(
                     gsp, gsp.ephemeralCache, gsp.peerScores, isDEBUG);
+
+            EDSimulator.add(
+                    CommonState.r.nextInt(10),                 // small random offset
+                    new SimpleEvent(Message.MSG_HEARTBEAT),    // the same heartbeat event you already handle
+                    n,
+                    gossipProtocolID
+            );
+
             gsp.setHeartbeatManager(hm);
 
             networkNodes.put(nodeId, n);
@@ -98,17 +107,20 @@ public class CustomDistribution implements peersim.core.Control {
             /* -------- block-proposer flag ------------------------------------ */
             boolean isProposer = (i == randomIndex);
             gsp.setBlockProposerNode(isProposer);
-            if (isProposer) blockProposerNode = n;
+            if (isProposer) {
+                blockProposerNode = n;
+                System.out.printf("BLOCK PROPOSER = " + n);
+            }
 
             /* -------- malicious flag ----------------------------------------- */
             boolean canBeMalicious = !isProposer || ALLOW_MALICIOUS_BLOCK_PRODUCER;
-            if (canBeMalicious && CommonState.r.nextDouble() < OMISSION_RATE) {
+            if (canBeMalicious && CommonState.r.nextDouble() < MALICIOUS_RATE) {
                 gsp.setOmissionNode(true);
                 if (isDEBUG)
                     System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId + " is MALICIOUS type = OMISSION");
             } else if (canBeMalicious && CommonState.r.nextDouble() < FLOODING_RATE) {
                 gsp.setFloodingNode(true);
-                if (isDEBUG)
+//                if (isDEBUG)
                     System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId + " is MALICIOUS  type = FLOODING");
             } else{
                 gsp.setFloodingNode(false);

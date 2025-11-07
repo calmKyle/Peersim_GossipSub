@@ -227,16 +227,18 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     private Message buildFloodMsg(String topicID) {
-        byte[] payload = new byte[256];             // or cfg‐driven size
+        int sz = Configuration.getInt("FLOOD_PAYLOAD", 256);
+        byte[] payload = new byte[sz];
         CommonState.r.nextBytes(payload);
 
         return createMessage(
-                /*id*/ -1,                 // Message() will assign a fresh UID
+                -1,                      // let Message assign a fresh id
                 Message.MSG_DATA,
-                nodeId, /*src*/ null,      // dest filled later
+                nodeId,                  // src = me
+                null,                    // dest will be set in sendDataToMesh
                 topicID,
-                payload,
-                /*isRow*/ false, /*row#*/ -1, /*part#*/ -1,
+                payload,                 // bogus body
+                false, -1, -1,           // row/col parts unused here
                 CommonState.getTime(), -1);
     }
 
@@ -1367,10 +1369,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         if (sizeAfter < D_LOW) {
             int needed = D - sizeAfter;
             if (needed > 0) {
-//                if (isDEBUG) {
+                if (isDEBUG) {
                     System.out.println("[DEBUG handlePrune] mesh[" + topicID + "] too small ("
                             + sizeAfter + "<" + D_LOW + "); GRAFT " + needed + " peers...");
-//                }
+                }
                 addMorePeers(topicID, needed, myPid);
             }
         } else if (sizeAfter > D_HIGH) {
@@ -1901,19 +1903,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     + " dropped fwd of msg " + m.id);
             return;
         }
-
-        /* ── Flooding attack ───────────────────────────────────────── */
-        if (isFloodingNode()) {
-            final int FLOOD_RATE = Configuration.getInt("FLOOD_RATE", 100); //cfg
-            for (int i = 0; i < FLOOD_RATE; i++) {
-                // pick one of my subscribed topics (or any if you prefer)
-                for (Topic t : subscribedTopics) {
-                    Message flood = buildFloodMsg(t.topicID);
-                    sendDataToMesh(flood, myPid, /*avoidPeer*/ nodeId);
-                }
-            }
-        }
-
 
 
         // If this node *originated* the message and it already contains the body,
@@ -2935,6 +2924,20 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     }
                 }
 
+                if (isFloodingNode()) {
+                    int rate = Configuration.getInt("FLOOD_RATE", 100);
+                    if (subscribedTopics.isEmpty()) {
+                        System.out.printf("[FLOOD] node=%s has no topics; skipping%n", nodeId);
+                    }
+                    for (int i = 0; i < rate; i++) {
+                        for (Topic t : subscribedTopics) {
+                            Message flood = buildFloodMsg(t.topicID);
+                            sendDataToMesh(flood, myPid, nodeId); // avoid echoing to self
+                            System.out.printf("[FLOOD] node=%s topic=%s t=%d%n",
+                                    nodeId, t.topicID, CommonState.getTime()); // newline flushes
+                        }
+                    }
+                }
                 // re-schedule
                 EDSimulator.add(HEARTBEAT_PERIOD,
                         new SimpleEvent(Message.MSG_HEARTBEAT), myNode, myPid);
