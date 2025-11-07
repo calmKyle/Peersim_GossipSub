@@ -32,8 +32,11 @@ public class CustomDistribution implements peersim.core.Control {
                     Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC"));
 
     // Malicious Rate
-    private static final double MALICIOUS_RATE =
-            Configuration.getDouble("MALICIOUS_RATE", 0.05);
+    private static final double OMISSION_RATE =
+            Configuration.getDouble("OMISSION_RATE", 0.05);
+    private static final double FLOODING_RATE =
+            Configuration.getDouble("FLOOD_RATE",0.05);
+
 
     private final int gossipProtocolID;
     private final UniformRandomGenerator urg;
@@ -99,12 +102,17 @@ public class CustomDistribution implements peersim.core.Control {
 
             /* -------- malicious flag ----------------------------------------- */
             boolean canBeMalicious = !isProposer || ALLOW_MALICIOUS_BLOCK_PRODUCER;
-            if (canBeMalicious && CommonState.r.nextDouble() < MALICIOUS_RATE) {
-                gsp.setMaliciousNode(true);
+            if (canBeMalicious && CommonState.r.nextDouble() < OMISSION_RATE) {
+                gsp.setOmissionNode(true);
                 if (isDEBUG)
-                    System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId + " is MALICIOUS");
-            } else {
-                gsp.setMaliciousNode(false);
+                    System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId + " is MALICIOUS type = OMISSION");
+            } else if (canBeMalicious && CommonState.r.nextDouble() < FLOODING_RATE) {
+                gsp.setFloodingNode(true);
+                if (isDEBUG)
+                    System.out.println("[CustomDistribution] Node " + i + " / ID=" + nodeId + " is MALICIOUS  type = FLOODING");
+            } else{
+                gsp.setFloodingNode(false);
+                gsp.setOmissionNode(false);
             }
         }
 

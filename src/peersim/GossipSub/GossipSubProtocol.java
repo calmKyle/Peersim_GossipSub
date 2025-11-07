@@ -207,7 +207,39 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private boolean isValidatorNode = true;
 
     // Malicious nodes flags
-    private boolean isMaliciousNode = false; // Ommision
+    private boolean isOmissionNode = false; // Ommision
+    private boolean isFloodingNode  = false; // Flooding
+
+    public boolean isOmissionNode() {
+        return isOmissionNode;
+    }
+
+    public void setOmissionNode(boolean maliciousNode) {
+        isOmissionNode = maliciousNode;
+    }
+
+    public boolean isFloodingNode() {
+        return isFloodingNode;
+    }
+
+    public void setFloodingNode(boolean maliciousNode) {
+        isFloodingNode = maliciousNode;
+    }
+
+    private Message buildFloodMsg(String topicID) {
+        byte[] payload = new byte[256];             // or cfg‐driven size
+        CommonState.r.nextBytes(payload);
+
+        return createMessage(
+                /*id*/ -1,                 // Message() will assign a fresh UID
+                Message.MSG_DATA,
+                nodeId, /*src*/ null,      // dest filled later
+                topicID,
+                payload,
+                /*isRow*/ false, /*row#*/ -1, /*part#*/ -1,
+                CommonState.getTime(), -1);
+    }
+
 
     public boolean isBlockProposerNode() {
         return isBlockProposerNode;
@@ -225,13 +257,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         isValidatorNode = validatorNode;
     }
 
-    public boolean isMaliciousNode() {
-        return isMaliciousNode;
-    }
-
-    public void setMaliciousNode(boolean maliciousNode) {
-        isMaliciousNode = maliciousNode;
-    }
 
     private void recordTickCounters() {
         int t = (int) CommonState.getTime();
@@ -1871,13 +1896,25 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         // Malicious
         // isMaliciousNode() && !m.src.equals(this.nodeId) // forwarding only ommisionb
-        if (isMaliciousNode()) { // Fully omission -> not receiving or fowarding any messgae
-            if (isDEBUG) {
-                System.out.println("[MALICIOUS‑DROP] node " + nodeId +
-                        " dropped fwd of msg " + m.id);
-            }
+        if (isOmissionNode() && !isFloodingNode()) {   // keep pure-omission only
+            if (isDEBUG) System.out.println("[MAL-DROP] node " + nodeId
+                    + " dropped fwd of msg " + m.id);
             return;
         }
+
+        /* ── Flooding attack ───────────────────────────────────────── */
+        if (isFloodingNode()) {
+            final int FLOOD_RATE = Configuration.getInt("FLOOD_RATE", 100); //cfg
+            for (int i = 0; i < FLOOD_RATE; i++) {
+                // pick one of my subscribed topics (or any if you prefer)
+                for (Topic t : subscribedTopics) {
+                    Message flood = buildFloodMsg(t.topicID);
+                    sendDataToMesh(flood, myPid, /*avoidPeer*/ nodeId);
+                }
+            }
+        }
+
+
 
         // If this node *originated* the message and it already contains the body,
         // make sure a copy is in messageCache so later IWANTs can be served.
