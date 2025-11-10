@@ -72,9 +72,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                             Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC")));
 
     private static final double GOSSIP_FACTOR = Configuration.getDouble("GOSSIP_FACTOR", 0.33);
-    private static final long SAMPLE_REQ_TIMEOUT = Configuration.getLong("SAMPLE_REQ_TIMEOUT", 4000); // 4 s fallback
+//    private static final long SAMPLE_REQ_TIMEOUT = Configuration.getLong("SAMPLE_REQ_TIMEOUT", 4000); // 4 s fallback
 
-    private static final long SLOT_DURATION = Configuration.getLong("SLOT_DURATION", 12000); // 12 s fallback
+//    private static final long SLOT_DURATION = Configuration.getLong("SLOT_DURATION", 12000); // 12 s fallback
 
     public static String prefix;
 
@@ -1923,8 +1923,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         transport = (UnreliableTransport) (Network.prototype).getProtocol(tid);
         long latency = transport.getLatency(src, dest);
 
+//        while (!messageTransmissionDelayQueue.isEmpty()
+//                && CommonState.getTime() > messageTransmissionDelayQueue.get(0)) {
         while (!messageTransmissionDelayQueue.isEmpty()
-                && CommonState.getTime() > messageTransmissionDelayQueue.get(0)) {
+                && CommonState.getTime() >= messageTransmissionDelayQueue.get(0)) {
             messageQueue.remove(0);
             messageTransmissionDelayQueue.remove(0);
         }
@@ -2914,6 +2916,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 m = (Message) event;
                 System.out.println("Message sent from trafficGenerator at: " + m.timestamp);
                 System.out.println("Block producer started at: " + CommonState.getTime());
+//                if (this.isBlockProposerNode()) {
+//                    messageQueue.clear();
+//                    messageTransmissionDelayQueue.clear();
+//                    lastMessageTransmissionTime = 0;
+//                    totalDataTransmitted = 0;
+//                    totalTransmissionTime = 0;
+//                }
                 if (distributionStrategy == 3) {
                     nCopiesDistributionStrategy();
                 } else if (distributionStrategy == 2) {
@@ -3341,12 +3350,12 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                                 0,
                                 -1);
 
-                        for (BigInteger peerId : recipientSet(topic)) {
-                            if (peerId.equals(this.nodeId)) {
-                                continue;     // skip self
-                            }
-                            publishMessage(msg, peerId, gossipSubId);
-                        }
+//                        for (BigInteger peerId : recipientSet(topic)) {
+//                            if (peerId.equals(this.nodeId)) {
+//                                continue;     // skip self
+//                            }
+//                            publishMessage(msg, peerId, gossipSubId);
+//                        }
                         publishMessage(msg, this.nodeId, gossipSubId);
 
 
