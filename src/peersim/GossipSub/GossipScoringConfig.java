@@ -16,23 +16,23 @@ public class GossipScoringConfig {
 
         public double topicWeight            = 1.0;
 
-        public double timeInMeshWeight       = 0.0001;
-        public double timeInMeshCapSeconds   = 3600;
+        public double timeInMeshWeight       = 0.002;
+        public double timeInMeshCapSeconds   = 60000;
 
-        public double firstMsgWeight         = 1.0;
+        public double firstMsgWeight         = 0.5;
         public double firstMsgDecay          = 0.5;
-        public double firstMsgCap            = 40;
+        public double firstMsgCap            = 8;
 
-        public double meshDeliveriesWeightUnder = -0.25;
-        public double meshDeliveriesWeightOver  = 0.25;
+        public double meshDeliveriesWeightUnder = -0.15;
+        public double meshDeliveriesWeightOver  = 0.1;
         public double meshDeliveriesDecay       = 0.9;
         public double meshDeliveriesCap         = 200;
-        public double meshDeliveriesThreshold   = 10;
+        public double meshDeliveriesThreshold   = 0.8;
 
         public double invalidMsgWeight      = -2.0;
         public double invalidMsgDecay       = 0.3;
 
-        public double meshDeliveriesActivationSeconds = 5.0;
+        public double meshDeliveriesActivationSeconds = 12.0;
     }
 
     public static final Map<String, TopicParam> TOPIC_PARAMS = new HashMap<>();
@@ -73,7 +73,6 @@ public class GossipScoringConfig {
         // etc. for each topic from gossip_scoring_params.go
     }
 
-    // Example thresholds, if you want them:
     public static double GOSSIP_THRESHOLD      = -10.0;
     public static double PUBLISH_THRESHOLD     = -50.0;
     public static double GRAYLIST_THRESHOLD    = -80.0;

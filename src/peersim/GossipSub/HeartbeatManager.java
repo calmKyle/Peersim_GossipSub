@@ -176,7 +176,10 @@ public class HeartbeatManager {
 
             /* expected messages grows each heartbeat by the threshold */
             ts.meshMsgExpected = ts.meshMsgExpected * p.meshDeliveriesDecay
-                    + p.meshDeliveriesThreshold;
+                    + (1.0 - p.meshDeliveriesDecay) * p.meshDeliveriesThreshold;
+            if (ts.meshMsgExpected == 0.0)
+                ts.meshMsgExpected = p.meshDeliveriesThreshold;
+
             ts.underDelivery   = Math.max(0,
                     ts.meshMsgExpected - ts.meshMsgDelivered);
         }

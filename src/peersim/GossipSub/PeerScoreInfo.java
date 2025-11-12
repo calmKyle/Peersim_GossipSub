@@ -9,11 +9,12 @@ import java.util.Map;
  * Revised PeerScoreInfo that tracks counters per topic.
  */
 public class PeerScoreInfo {
+    public BigInteger nodeId;
+
 
     // Time when the peer joined the mesh (used for "time in mesh" scoring).
     public long timeInMeshStart;
 
-    private final Map<String, TopicScores> topics = new HashMap<>();
 
 
     // Last computed overall (aggregated) score, for quick lookup.
@@ -25,6 +26,9 @@ public class PeerScoreInfo {
     // Holds per-topic stats so we can penalize or reward the peer specifically
     // for each topic. Key = topicID, value = container of counters for that topic.
     public Map<String, TopicScores> topicScoresMap;
+
+//    private final Map<String, TopicScores> topics = new HashMap<>();
+
 
     public long pruneBackoffUntil = 0L;
 
@@ -53,7 +57,7 @@ public class PeerScoreInfo {
     public long lastUpdateTime;
 
     public TopicScores getOrCreate(String topic) {
-        return topics.computeIfAbsent(topic, t -> new TopicScores());
+        return topicScoresMap.computeIfAbsent(topic, t -> new TopicScores());
     }
 
     public void onGraft(String topic, long nowMs) {
@@ -67,16 +71,28 @@ public class PeerScoreInfo {
     }
 
     public long topicTimeInMeshMs(String topic, long nowMs) {
-        TopicScores ts = topics.get(topic);
+        TopicScores ts = topicScoresMap.get(topic);
         if (ts == null || ts.timeInMeshStart < 0) return 0L;
         return Math.max(0L, nowMs - ts.timeInMeshStart);
     }
 
     public Map<String, TopicScores> getTopicsView() {
-        return Collections.unmodifiableMap(topics);
+        return Collections.unmodifiableMap(topicScoresMap);
     }
 
-    public PeerScoreInfo(long currentTime) {
+//    public PeerScoreInfo(long currentTime) {
+//        this.timeInMeshStart = currentTime;
+//        this.connectedTime = currentTime;
+//        this.cachedScore = 0.0;
+//        this.lastUpdateTime = currentTime;
+//        this.topicScoresMap = new HashMap<>();
+//    }
+
+    public PeerScoreInfo(BigInteger nodeId) {
+        this.nodeId = nodeId; // Set the ID
+
+        // Add all initialization logic from the old (long) constructor
+        long currentTime = peersim.core.CommonState.getTime();
         this.timeInMeshStart = currentTime;
         this.connectedTime = currentTime;
         this.cachedScore = 0.0;
@@ -97,11 +113,11 @@ public class PeerScoreInfo {
         public long timeInMeshStart;
 
         public TopicScores() {
-            long timeInMeshStart = -1L;
+            this.timeInMeshStart = -1L;
             firstMessageDeliveries = 0;
             invalidMessages = 0;
             meshMsgDelivered = 0;
-            meshMsgExpected = 10;
+            meshMsgExpected  = 1;
             underDelivery = 0;
         }
     }

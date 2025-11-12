@@ -92,6 +92,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // ────────────────────────────────────────────────
     private static final int SHARD_COPIES = Configuration.getInt("SHARD_COPIES", 1);
 
+    public static Block block = new Block(
+            Configuration.getInt("NUMBER_OF_ROWS"),
+            Configuration.getInt("NUMBER_OF_COLUMNS"));
+
     public Set<Topic> subscribedTopics = new HashSet<>();
     protected Map<String, Set<BigInteger>> meshPeersByTopic = new HashMap<>();
     protected Map<String, Set<BigInteger>> gossipMesh = new HashMap<>();
@@ -112,10 +116,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public List<Long> sampleDelayTime = new ArrayList<>();
 
     private List<Message> custodyData1 = new ArrayList<>();
-    private List<Message> custodyData2 = new ArrayList<>();
+//    private List<Message> custodyData2 = new ArrayList<>();
     private List<Message> dataReceivedFromBP = new ArrayList<>();
     private List<Message> custody1Parts = new ArrayList<>();
-    private List<Message> custody2Parts = new ArrayList<>();
+//    private List<Message> custody2Parts = new ArrayList<>();
 
     private List<Message> messageQueue = new ArrayList<>();
     private List<Long> messageTransmissionDelayQueue = new ArrayList<>();
@@ -150,8 +154,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private final Set<Long> pendingIWant = new HashSet<>();
 
     public String custody1;
-    public String custody2;
+//    public String custody2;
     private boolean samplingStarted = false;
+    private boolean blockIsReset = false;
 
     private int sampleAmount = Configuration.getInt("SAMPLE_AMOUNT", 75);
 
@@ -315,52 +320,148 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public Map<BigInteger, PeerScoreInfo> peerScores = new HashMap<>();
 
 
+//    public double computeScore(PeerScoreInfo psi) {
+//        long nowMs = CommonState.getTime();
+//        double topicSum = 0.0;
+//
+//        // Only allocate the builder if we will actually log
+//        final boolean traceOn = true;
+//        StringBuilder trace = null;
+//        if (traceOn) {
+//            trace = new StringBuilder(512);
+//            trace.append("│  computing score for peer ")
+//                    .append(psi.nodeId)
+//                    .append(" @ ").append(nowMs).append('\n');
+//        }
+//
+//
+//        /* ---------- P1-P4 per-topic ---------- */
+//        for (Map.Entry<String, PeerScoreInfo.TopicScores> e : psi.getTopicsView().entrySet()) {
+//            String topic = e.getKey();
+//            PeerScoreInfo.TopicScores ts = e.getValue();
+//            GossipScoringConfig.TopicParam p =
+//                    TOPIC_PARAMS.getOrDefault(topic, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
+//
+//            double secsInTopic = (ts.timeInMeshStart < 0)
+//                    ? 0.0
+//                    : Math.max(0.0, (nowMs - ts.timeInMeshStart) / 1000.0);
+//            double P1_time = p.timeInMeshWeight *
+//                    Math.min(secsInTopic, p.timeInMeshCapSeconds);
+//
+//            double P2_first = p.firstMsgWeight *
+//                    Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
+//
+//            boolean p3Active = secsInTopic >= p.meshDeliveriesActivationSeconds;
+//            double P3_mesh = 0.0;
+//            if (p3Active) {
+//                double delivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
+//                double expected  = ts.meshMsgExpected;
+//                double diff      = delivered - expected;
+//
+//                if (diff < 0) {
+//                    P3_mesh = p.meshDeliveriesWeightUnder * Math.min(-diff, p.meshDeliveriesCap);
+//                } else {
+//                    P3_mesh = p.meshDeliveriesWeightOver  * Math.min( diff, p.meshDeliveriesCap);
+//                }
+//            }
+//
+//
+//            double P4_invalid = p.invalidMsgWeight * ts.invalidMessages;
+//
+//            double subtotal = p.topicWeight * (P1_time + P2_first + P3_mesh + P4_invalid);
+//            topicSum += subtotal;
+//
+//
+//            if (traceOn) {
+//                trace.append("│  topic ").append(topic).append("  P1=")
+//                        .append(P1_time).append("  P2=").append(P2_first)
+//                        .append("  P3=").append(P3_mesh).append("  P4=")
+//                        .append(P4_invalid).append("  w=")
+//                        .append(p.topicWeight).append("  → subtotal=")
+//                        .append(subtotal).append('\n');
+//            }
+//        }
+//
+//        /* ---------- TopicCap (TC) ---------- */
+//        double total = Math.min(topicSum, GossipScoringConfig.TOPIC_CAP);
+//        if (traceOn) {
+//            trace.append("│  Σ topics = ").append(topicSum)
+//                    .append(" → after TC(").append(GossipScoringConfig.TOPIC_CAP)
+//                    .append(") = ").append(total).append('\n');
+//        }
+//
+//        /* ---------- P5 / P6 ---------- */
+//        double P5_app  = GossipScoringConfig.P5_WEIGHT * psi.appScore;
+//        double P6_ip   = GossipScoringConfig.P6_WEIGHT * psi.ipSurplus;
+//        total += P5_app + P6_ip;
+//
+//
+//        if (traceOn) {
+//            trace.append("│  P5_app=").append(P5_app)
+//                    .append("  P6_ip=").append(P6_ip)
+//                    .append("  → TOTAL = ").append(total).append('\n')
+//                    .append("└──────────────────────────────────────\n");
+//            System.out.println(trace.toString());
+//        }
+//
+//
+//        psi.cachedScore = total;
+//        return total;
+//    }
+
     public double computeScore(PeerScoreInfo psi) {
         long nowMs = CommonState.getTime();
         double topicSum = 0.0;
 
-        /* ---- build a human-readable trace ---- */
-        StringBuilder trace = new StringBuilder()
-                .append("│  computing score for peer ").append(psi.hashCode())
-                .append(" @ ").append(nowMs).append('\n');
+        final boolean traceOn = isDEBUG;
+        StringBuilder trace = null;
+        if (traceOn) {
+            trace = new StringBuilder(512);
+            trace.append("│  computing score for peer ")
+                    .append(psi.nodeId)
+                    .append(" @ ").append(nowMs).append('\n');
+        }
 
-        /* ---------- P1-P4 per-topic ---------- */
-        for (Map.Entry<String, PeerScoreInfo.TopicScores> e : psi.topicScoresMap.entrySet()) {
+        for (Map.Entry<String, PeerScoreInfo.TopicScores> e : psi.getTopicsView().entrySet()) {
             String topic = e.getKey();
             PeerScoreInfo.TopicScores ts = e.getValue();
             GossipScoringConfig.TopicParam p =
                     TOPIC_PARAMS.getOrDefault(topic, GossipScoringConfig.DEFAULT_TOPIC_PARAM);
 
-//            double secs      = (nowMs - psi.timeInMeshStart) / 1000.0;
-//            double P1_time   = p.timeInMeshWeight *
-//                    Math.min(secs, p.timeInMeshCapSeconds);
-//
-//            double P2_first  = p.firstMsgWeight *
-//                    Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
-//
-//            double delivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
-//            double P3_mesh   = (delivered < p.meshDeliveriesThreshold)
-//                    ? p.meshDeliveriesWeightUnder * (p.meshDeliveriesThreshold - delivered)
-//                    : p.meshDeliveriesWeightOver  * (delivered - p.meshDeliveriesThreshold);
+//            double secsInTopic = (ts.timeInMeshStart < 0)
+//                    ? 0.0
+//                    : Math.max(0.0, (nowMs - ts.timeInMeshStart) / 1000.0);
+//            double P1_time = p.timeInMeshWeight *
+//                    Math.min(secsInTopic, p.timeInMeshCapSeconds);
 
-            double secsInTopic = (ts.timeInMeshStart < 0)
-                    ? 0.0
-                    : Math.max(0.0, (nowMs - ts.timeInMeshStart) / 1000.0);
-            double P1_time = p.timeInMeshWeight *
-                    Math.min(secsInTopic, p.timeInMeshCapSeconds);
+            double secsInTopic = (nowMs - ts.timeInMeshStart) / 1000.0;
+            double P1_time = p.timeInMeshWeight * Math.min(secsInTopic, p.timeInMeshCapSeconds);
+
+            System.out.println("P1 = " + P1_time);
 
             double P2_first = p.firstMsgWeight *
                     Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
 
-            double delivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
-            boolean p3Active = secsInTopic >= p.meshDeliveriesActivationSeconds;
-            double P3_mesh;
-            if (!p3Active) {
-                P3_mesh = 0.0;
-            } else {
-                P3_mesh = (delivered < p.meshDeliveriesThreshold)
-                        ? p.meshDeliveriesWeightUnder * (p.meshDeliveriesThreshold - delivered)
-                        : p.meshDeliveriesWeightOver  * (delivered - p.meshDeliveriesThreshold);
+//            boolean p3Active = secsInTopic >= p.meshDeliveriesActivationSeconds;
+            boolean samplingActive = (noOfSamplesReceived < sampleAmount);
+            boolean p3Active =
+                    ts.timeInMeshStart >= 0 &&
+                            (secsInTopic >= p.meshDeliveriesActivationSeconds || ts.meshMsgDelivered > 0) &&
+                            samplingActive;
+            double P3_mesh = 0.0;
+            if (p3Active) {
+                double delivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
+//                double expected  = ts.meshMsgExpected;
+                double expected = p.meshDeliveriesThreshold;
+                double diff      = delivered - expected;
+
+                if (diff < 0) {
+                    P3_mesh = p.meshDeliveriesWeightUnder * Math.min(-diff, p.meshDeliveriesCap);
+                    System.out.println("P3 mesh weight under: " + P3_mesh);
+                } else {
+                    P3_mesh = p.meshDeliveriesWeightOver  * Math.min( diff, p.meshDeliveriesCap);
+                    System.out.println("P3 mesh weight over: " + P3_mesh);
+                }
             }
 
             double P4_invalid = p.invalidMsgWeight * ts.invalidMessages;
@@ -368,35 +469,42 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             double subtotal = p.topicWeight * (P1_time + P2_first + P3_mesh + P4_invalid);
             topicSum += subtotal;
 
-            trace.append(String.format(
-                    "│  topic %-12s  P1=%.3f  P2=%.3f  P3=%.3f  P4=%.3f"
-                            + "  w=%.2f  → subtotal=%.3f%n",
-                    topic, P1_time, P2_first, P3_mesh, P4_invalid, p.topicWeight, subtotal));
+
+            System.out.printf("Total = "  + subtotal + " @ Time = " + nowMs +"\n");
+
+            if (traceOn) {
+                trace.append("│  topic ").append(topic).append("  P1=")
+                        .append(P1_time).append("  P2=").append(P2_first)
+                        .append("  P3=").append(P3_mesh).append("  P4=")
+                        .append(P4_invalid).append("  w=")
+                        .append(p.topicWeight).append("  → subtotal=")
+                        .append(subtotal).append('\n');
+            }
         }
 
-        /* ---------- TopicCap (TC) ---------- */
         double total = Math.min(topicSum, GossipScoringConfig.TOPIC_CAP);
-        trace.append(String.format("│  Σ topics = %.3f → after TC(%.1f) = %.3f%n",
-                topicSum, GossipScoringConfig.TOPIC_CAP, total));
+        if (traceOn) {
+            trace.append("│  Σ topics = ").append(topicSum)
+                    .append(" → after TC(").append(GossipScoringConfig.TOPIC_CAP)
+                    .append(") = ").append(total).append('\n');
+        }
 
-        /* ---------- P5 / P6 ---------- */
         double P5_app  = GossipScoringConfig.P5_WEIGHT * psi.appScore;
         double P6_ip   = GossipScoringConfig.P6_WEIGHT * psi.ipSurplus;
         total += P5_app + P6_ip;
 
-        trace.append(String.format("│  P5_app=%.3f  P6_ip=%.3f  → TOTAL = %.3f%n",
-                        P5_app, P6_ip, total))
-                .append("└──────────────────────────────────────\n");
-
-        /* emit log entry (only if FINE enabled) */
-        if(isDEBUG){
+        if (traceOn) {
+//            trace.append("│  P5_app=").append(P5_app)
+//                    .append("  P6_ip=").append(P6_ip)
+//                    .append("  → TOTAL = ").append(total).append('\n')
+//                    .append("└──────────────────────────────────────\n");
             System.out.println(trace.toString());
         }
-
 
         psi.cachedScore = total;
         return total;
     }
+
 
 
 
@@ -486,8 +594,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             if (p.equals(nodeId)) continue;
             if (disallow != null && disallow.contains(p)) continue;
 
-            // tôn trọng backoff PRUNE
+            addPeerScoreIfAbsent(p);
             PeerScoreInfo psi = peerScores.get(p);
+
             if (psi != null && psi.isPruneBackoffActiveForTopic(topicId, CommonState.getTime())) {
                 continue;
             }
@@ -496,10 +605,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
 
         long now = CommonState.getTime();
-        // sort theo score giảm dần
+
         cands.sort((a, b) -> {
-            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
-            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+            double sb = computeScore(peerScores.get(b));
+            double sa = computeScore(peerScores.get(a));
             return Double.compare(sb, sa);
         });
 
@@ -682,6 +791,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     ) {
         BigInteger best = null;
         double bestScore = Double.POSITIVE_INFINITY;
+        for (BigInteger p : mesh) addPeerScoreIfAbsent(p);
 
         // type order: 0 = outbound-only, 1 = both, 2 = inbound-only
         java.util.function.BiPredicate<BigInteger, Integer> isType = (q, type) -> {
@@ -696,7 +806,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             best = null; bestScore = Double.POSITIVE_INFINITY;
             for (BigInteger q : mesh) {
                 if (!isType.test(q, type)) continue;
-                double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+//                double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(q)));
+                double s = computeScore(peerScores.get(q));
                 if (s < bestScore) { bestScore = s; best = q; }
             }
             if (best != null) return best;
@@ -730,6 +841,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         Set<BigInteger> outbound = outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
         Set<BigInteger> inbound  = inboundByTopic.computeIfAbsent(topicId,  k -> new HashSet<>());
+        for (BigInteger p : mesh) addPeerScoreIfAbsent(p);
 
         // (2) Ensure D_OUT: convert inbound->outbound first
         int out = outboundCount(topicId);
@@ -744,8 +856,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 }
             }
             inboundOnly.sort((a, b) -> {
-                double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
-                double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+                double sb = computeScore(peerScores.get(b));
+                double sa = computeScore(peerScores.get(a));
                 return Double.compare(sb, sa);
             });
 
@@ -785,7 +897,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     double worstScore = Double.POSITIVE_INFINITY;
                     for (BigInteger q : mesh) {
                         if (inbound.contains(q) && !outbound.contains(q)) {
-                            double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+//                            double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(q)));
+                            double s = computeScore(peerScores.get(q));
                             if (s < worstScore) { worstScore = s; worstInbound = q; }
                         }
                     }
@@ -883,6 +996,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         Set<BigInteger> outbound = outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>());
         Set<BigInteger> inbound  = inboundByTopic.computeIfAbsent(topicId,  k -> new HashSet<>());
 
+        for (BigInteger p : mesh) addPeerScoreIfAbsent(p);
+
         int outNow  = outbound.size();
         int outNeed = Math.max(0, D_OUT - outNow);
         int target  = Math.max(need, outNeed);
@@ -905,8 +1020,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             inboundOnly.add(q);
         }
         inboundOnly.sort((a, b) -> {
-            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
-            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+            double sb = computeScore(peerScores.get(b));
+            double sa = computeScore(peerScores.get(a));
             return Double.compare(sb, sa);
         });
 
@@ -925,7 +1040,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
                 for (BigInteger q : mesh) {
                     if (inbound.contains(q) && !outbound.contains(q) && !q.equals(p)) {
-                        double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+//                        double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(q)));
+                        double s = computeScore(peerScores.get(q));
                         if (s < worstScore) { worstScore = s; worstInbound = q; }
                     }
                 }
@@ -1357,8 +1473,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         PeerScoreInfo psi = peerScores.get(pruner);
         if (psi != null) {
             long backoff = 60_000L;
-            PeerScoreInfo.TopicScores ts =
-                    psi.topicScoresMap.computeIfAbsent(topicID, k -> new PeerScoreInfo.TopicScores());
+//            PeerScoreInfo.TopicScores ts =
+//                    psi.topicScoresMap.computeIfAbsent(topicID, k -> new PeerScoreInfo.TopicScores());
+            PeerScoreInfo.TopicScores ts = psi.getOrCreate(topicID);
+
             ts.pruneBackoffUntil = Math.max(ts.pruneBackoffUntil, now + backoff);
             psi.pruneBackoffUntil = Math.max(psi.pruneBackoffUntil, now + backoff);
             if (isDEBUG) {
@@ -1532,9 +1650,11 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             }
         }
 
+        for (BigInteger p : candidates) addPeerScoreIfAbsent(p);
+
         candidates.sort((a, b) -> {
-            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
-            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+            double sb = computeScore(peerScores.get(b));
+            double sa = computeScore(peerScores.get(a));
             return Double.compare(sb, sa);
         });
 
@@ -1559,8 +1679,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         PeerScoreInfo psi = peerScores.get(peerID);
         if (psi != null) {
-            PeerScoreInfo.TopicScores ts =
-                    psi.topicScoresMap.computeIfAbsent(topicID, k -> new PeerScoreInfo.TopicScores());
+//            PeerScoreInfo.TopicScores ts =
+//                    psi.topicScoresMap.computeIfAbsent(topicID, k -> new PeerScoreInfo.TopicScores());
+            PeerScoreInfo.TopicScores ts = psi.getOrCreate(topicID);
             ts.underDelivery += Math.max(0, ts.meshMsgExpected - ts.meshMsgDelivered);
 
             final long backoff = 60_000L; // 1 phút
@@ -1582,11 +1703,13 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         Set<BigInteger> mesh = meshPeersByTopic.getOrDefault(topicId, Collections.emptySet());
         if (mesh.isEmpty()) return;
 
+        for (BigInteger p : mesh) addPeerScoreIfAbsent(p);
         final long now = CommonState.getTime();
 
         List<Double> scores = new ArrayList<>(mesh.size());
         for (BigInteger p : mesh) {
-            scores.add(computeScore(peerScores.getOrDefault(p, new PeerScoreInfo(now))));
+//            scores.add(computeScore(peerScores.getOrDefault(p, new PeerScoreInfo(p))));
+            scores.add(computeScore(peerScores.get(p)));
         }
         Collections.sort(scores);
         double median = (scores.size() % 2 == 1)
@@ -1615,7 +1738,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             double worstScore = Double.POSITIVE_INFINITY;
             for (BigInteger q : mesh) {
                 if (inbound.contains(q) && !outbound.contains(q)) {
-                    double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(now)));
+//                    double s = computeScore(peerScores.getOrDefault(q, new PeerScoreInfo(q)));
+                    double s = computeScore(peerScores.get(q));
                     if (s < worstScore) { worstScore = s; worstInbound = q; }
                 }
             }
@@ -1630,9 +1754,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 inboundOnly.add(p);
             }
         }
+        for (BigInteger p : inboundOnly) addPeerScoreIfAbsent(p);
         inboundOnly.sort((a, b) -> {
-            double sb = computeScore(peerScores.getOrDefault(b, new PeerScoreInfo(now)));
-            double sa = computeScore(peerScores.getOrDefault(a, new PeerScoreInfo(now)));
+            double sb = computeScore(peerScores.get(b));
+            double sa = computeScore(peerScores.get(a));
             return Double.compare(sb, sa);
         });
 
@@ -1816,9 +1941,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //    }
 
     private void addPeerScoreIfAbsent(BigInteger peerID) {
-        if (!peerScores.containsKey(peerID)) {
-            peerScores.put(peerID, new PeerScoreInfo(CommonState.getTime()));
-        }
+        peerScores.computeIfAbsent(peerID, id -> new PeerScoreInfo(peerID));
     }
 
     private int calculateMessageSize(Message message) {
@@ -1890,9 +2013,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         for (Message c : custodyData1)
             if (c.id == want.id)
                 return c;
-        for (Message c : custodyData2)
-            if (c.id == want.id)
-                return c;
+//        for (Message c : custodyData2)
+//            if (c.id == want.id)
+//                return c;
         return null;
     }
 
@@ -1997,6 +2120,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //        samplingStarter();
 //    }
 
+
+
     public void createWholeRowOrColumnSeed(Message m, int rowOrColNum) {
         byte[][] body = m.isRow ? block.getRowData(rowOrColNum) : block.getColumnData(rowOrColNum);
 
@@ -2008,9 +2133,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         if (key.equals(custody1)) {
             custodyData1.add(newSeed);
-        } else if (key.equals(custody2)) {
-            custodyData2.add(newSeed);
         }
+//        if (key.equals(custody2)) {
+//            custodyData2.add(newSeed);
+//        }
 
         samplingStarter();
     }
@@ -2023,9 +2149,10 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         if (custody1.equals(key)) {
             processCustody(m, custody1Parts, threshold);
-        } else if (custody2.equals(key)) {
-            processCustody(m, custody2Parts, threshold);
         }
+//        else if (custody2.equals(key)) {
+//            processCustody(m, custody2Parts, threshold);
+//        }
     }
 //    public void handleReceivedPart(Message m, int myPid) {
 //        String s = m.isRow ? "row" : "column";
@@ -2115,17 +2242,19 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 custodyData1.add(m); // first time we see it
             }
 
-        } else if (custody2.equals(key)) { // message belongs to custody‑2
-            if (custodyData2.contains(m)) {
-                if (isDEBUG) {
-                    System.out.printf("[DUP] node %s got duplicate shard id=%d at t=%d%n",
-                            nodeId, m.id, CommonState.getTime());
-                }
-            } else {
-                custodyData2.add(m);
-            }
-
-        } else { // not my custody – ignore
+        }
+//        else if (custody2.equals(key)) { // message belongs to custody‑2
+//            if (custodyData2.contains(m)) {
+//                if (isDEBUG) {
+//                    System.out.printf("[DUP] node %s got duplicate shard id=%d at t=%d%n",
+//                            nodeId, m.id, CommonState.getTime());
+//                }
+//            } else {
+//                custodyData2.add(m);
+//            }
+//
+//        }
+        else { // not my custody – ignore
             return;
         }
 
@@ -2136,24 +2265,25 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     public void samplingStarter() {
-        if (samplingStarted)
+        if (samplingStarted || !blockIsReset)
             return;
 
         boolean shouldStart = false;
 
         if (distributionStrategy == 3) {
             // Start sampling if EITHER custodyData1 OR custodyData2 has 1 piece
-            if (custodyData1.size() >= 1 || custodyData2.size() >= 1) {
+            if (custodyData1.size() >= 1 ) {
                 shouldStart = true;
             }
         } else if (distributionStrategy == 2) {
-            if (custodyData1.size() >= 1 || custodyData2.size() >= 1) {
+            if (custodyData1.size() >= 1 ) {
                 shouldStart = true;
             }
         }
 
         if (shouldStart) {
             samplingStarted = true;
+            blockIsReset = false;
             startSampling();
         }
     }
@@ -2249,20 +2379,20 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
 
         if (distributionStrategy == 3) {
-            if (!custodyData1.contains(m) && !custodyData2.contains(m)) {
-                if (custody1.equals(key) || custody2.equals(key)) {
+            if (!custodyData1.contains(m) ) {
+                if (custody1.equals(key) ) {
                     if (m.body == null) {
-                        requestMissingData(m, myPid, custodyData1.isEmpty() ? custody1 : custody2);
+                        requestMissingData(m, myPid, custodyData1.isEmpty() ? custody1 : null);
                     } else {
                         handleReceivedRowOrCol(m, myPid);
                     }
                 }
             }
         } else if (distributionStrategy == 2) {
-            if (!custodyData1.contains(m) || !custodyData2.contains(m)) {
-                if (custody1.equals(key) || custody2.equals(key)) {
+            if (!custodyData1.contains(m)) {
+                if (custody1.equals(key)) {
                     if (m.body == null) {
-                        requestMissingPart(m, myPid, custody1Parts.size(), custody2Parts.size(), custody1, custody2);
+                        requestMissingPart(m, myPid, custody1Parts.size(), custody1);
                     } else {
                         handleReceivedPart(m, myPid);
                     }
@@ -2281,17 +2411,17 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     }
 
     // Send IWANT message if a part is missing
-    private void requestMissingPart(Message m, int myPid, int custody1Size, int custody2Size, String custody1,
-                                    String custody2) {
+    private void requestMissingPart(Message m, int myPid, int custody1Size, String custody1) {
 //        int threshold = (SHARD_AMOUNT + 1) / 2;
         int threshold = 1;
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
 
         if (custody1.equals(key) && custody1Size < threshold) {
             sendIWantMessage(m, myPid);
-        } else if (custody2.equals(key) && custody2Size < threshold) {
-            sendIWantMessage(m, myPid);
         }
+//        else if (custody2.equals(key) && custody2Size < threshold) {
+//            sendIWantMessage(m, myPid);
+//        }
     }
 
     // Helper method to create and send IWANT messages
@@ -2566,9 +2696,12 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         if (psi == null)
             return;
 
-        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+//        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+        PeerScoreInfo.TopicScores ts = psi.getOrCreate(topic);
+
 
         ts.firstMessageDeliveries += 1;
+        ts.meshMsgDelivered       += 1;
     }
 
     public void markInvalidMessage(BigInteger srcPeer, String topic) {
@@ -2576,7 +2709,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         if (psi == null)
             return;
 
-        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+//        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+        PeerScoreInfo.TopicScores ts = psi.getOrCreate(topic);
 
         ts.invalidMessages += 1;
     }
@@ -2589,10 +2723,11 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         PeerScoreInfo psi = peerScores.get(srcPeer);
         if (psi == null) {
             // Make a new PeerScoreInfo if needed
-            psi = new PeerScoreInfo(CommonState.getTime());
+            psi = new PeerScoreInfo(srcPeer);
             peerScores.put(srcPeer, psi);
         }
-        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+//        PeerScoreInfo.TopicScores ts = psi.topicScoresMap.computeIfAbsent(topic, k -> new PeerScoreInfo.TopicScores());
+        PeerScoreInfo.TopicScores ts = psi.getOrCreate(topic);
         ts.meshMsgDelivered += 1;
     }
 
@@ -2793,27 +2928,26 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             }
 
         }
-        if (!custody2.isEmpty()) {
-            for (Message custodyMessage : custodyData2) {
-                boolean sameRowCol = (m.isRow == custodyMessage.isRow) &&
-                        (m.rowOrColumnNumber == custodyMessage.rowOrColumnNumber);
-
-                boolean partMatchesOrIsSeed = (custodyMessage.partNumber == -1) ||
-                        (m.partNumber == custodyMessage.partNumber);
-
-                if (sameRowCol && partMatchesOrIsSeed) {
-                    byte[][] data = (byte[][]) custodyMessage.body;
-                    byte sampleDataResp = data[0][idx];
-                    Message sampleResponse = createMessage(
-                            m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
-                            m.messageTopicID, Integer.toString(sampleDataResp),
-                            m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, m.typeID);
-                    this.publishMessage(sampleResponse, m.src, gossipSubId);
-                    return;
-                }
-            }
-
-        }
+//        if (!custody2.isEmpty()) {
+//            for (Message custodyMessage : custodyData2) {
+//                boolean sameRowCol = (m.isRow == custodyMessage.isRow) &&
+//                        (m.rowOrColumnNumber == custodyMessage.rowOrColumnNumber);
+//
+//                boolean partMatchesOrIsSeed = (custodyMessage.partNumber == -1) ||
+//                        (m.partNumber == custodyMessage.partNumber);
+//
+//                if (sameRowCol && partMatchesOrIsSeed) {
+//                    byte[][] data = (byte[][]) custodyMessage.body;
+//                    byte sampleDataResp = data[0][idx];
+//                    Message sampleResponse = createMessage(
+//                            m.id, Message.MSG_SAMPLE_DATA_RESPONSE, this.nodeId, m.src,
+//                            m.messageTopicID, Integer.toString(sampleDataResp),
+//                            m.isRow, m.rowOrColumnNumber, m.partNumber, m.timestamp, m.typeID);
+//                    this.publishMessage(sampleResponse, m.src, gossipSubId);
+//                    return;
+//                }
+//            }
+//        }
     }
 
     public void handleSampleResponse(Message m, int myPid) {
@@ -2912,28 +3046,70 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 break;
 
             case Message.MSG_BLOCK_PROPOSER:
-                System.out.println("I am the block producer");
                 m = (Message) event;
-                System.out.println("Message sent from trafficGenerator at: " + m.timestamp);
-                System.out.println("Block producer started at: " + CommonState.getTime());
-//                if (this.isBlockProposerNode()) {
-//                    messageQueue.clear();
-//                    messageTransmissionDelayQueue.clear();
-//                    lastMessageTransmissionTime = 0;
-//                    totalDataTransmitted = 0;
-//                    totalTransmissionTime = 0;
-//                }
-                if (distributionStrategy == 3) {
-                    nCopiesDistributionStrategy();
-                } else if (distributionStrategy == 2) {
-                    seenShards.clear();
-                    duplicateShards = uniqueShards = 0;
-                    duplicateIHaveMessage = 0;
-                    shardingBasedDistribution();
+
+                if (this.isBlockProposerNode()) {
+                    // --- BLOCK PROPOSER ---
+                    System.out.println("I am the block producer");
+                    System.out.println("Message sent from trafficGenerator at: " + m.timestamp);
+                    System.out.println("Block producer started at: " + CommonState.getTime());
+
+                    // 1. Generate a NEW block
+                    block = new Block(Configuration.getInt("NUMBER_OF_ROWS"), Configuration.getInt("NUMBER_OF_COLUMNS"));
+
+                    // *** ADD THIS BLOCK TO BROADCAST A RESET ***
+                    System.out.println("[PROPOSER] Broadcasting RESET to network.");
+                    Message resetMsg = createMessage(-1, Message.MSG_EMPTY,
+                            this.nodeId, null, // dest is null for broadcast
+                            null, null, false, -1, -1, CommonState.getTime(), -1);
+
+                    // Send to ALL nodes (except self)
+                    for (BigInteger peerId : CustomDistribution.networkNodes.keySet()) {
+                        if (peerId.equals(this.nodeId)) continue;
+
+                        // Create a copy for each peer
+                        Message resetCopy = (Message) resetMsg.copy();
+                        resetCopy.dest = peerId;
+
+                        // Use publishMessage to send it
+                        publishMessage(resetCopy, peerId, myPid);
+                    }
+
+
+
+                    if (distributionStrategy == 3) {
+                        // ...
+                    } else if (distributionStrategy == 2) {
+                        seenShards.clear();
+                        duplicateShards = uniqueShards = 0;
+                        duplicateIHaveMessage = 0;
+
+                        shardingBasedDistribution(CommonState.getTime());
+                    }
+
+                } else {
+                    // This block is likely never hit, which is why we need the broadcast
+                    resetNodeStateForNewBlock();
                 }
-                EDSimulator.add(HEARTBEAT_PERIOD,
-                        new SimpleEvent(Message.MSG_HEARTBEAT), myNode, myPid);
                 break;
+
+//            case Message.MSG_BLOCK_PROPOSER:
+//                System.out.println("I am the block producer");
+//                m = (Message) event;
+//                System.out.println("Message sent from trafficGenerator at: " + m.timestamp);
+//                System.out.println("Block producer started at: " + CommonState.getTime());
+//                block = new Block(Configuration.getInt("NUMBER_OF_ROWS"), Configuration.getInt("NUMBER_OF_COLUMNS"));
+//                if (distributionStrategy == 3) {
+////                    nCopiesDistributionStrategy();
+//                } else if (distributionStrategy == 2) {
+//                    seenShards.clear();
+//                    duplicateShards = uniqueShards = 0;
+//                    duplicateIHaveMessage = 0;
+//                    shardingBasedDistribution();
+//                }
+//                EDSimulator.add(HEARTBEAT_PERIOD,
+//                        new SimpleEvent(Message.MSG_HEARTBEAT), myNode, myPid);
+//                break;
 
             case Message.MSG_SAMPLE_DATA_REQUEST:
                 m = (Message) event;
@@ -2997,6 +3173,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 break;
 
             case Message.MSG_EMPTY:
+                if (!this.isBlockProposerNode()) {
+                    resetNodeStateForNewBlock();
+                }
                 break;
 
         }
@@ -3082,140 +3261,140 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return baseMessage;
     }
 
-    private void nCopiesDistributionStrategy() {
-        // Load all the relevant configuration values
-        int numberOfCopiesToSend = Configuration.getInt("NUMBER_COPIES_DISTRIBUTED");
-        int numberOfRowsAndColsInTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC");
-
-        int rowIndex = 0; // Tracks which row are distributing
-        int columnIndex = 0; // Tracks which column are distributing
-
-        // Retrieve the block to distribute
-        Block b = block;
-
-        // Just an example usage to log the block proposer’s ID
-        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (CustomDistribution.blockProposerNode
-                .getProtocol(gossipSubId));
-        System.out.println("Block proposer id is ------: " + iGossipBlockProposer.getNodeId());
-
-        boolean isRowTopic = true;
-        boolean isColTopic = false;
-
-        // Iterate over each topic in the distribution
-        for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
-            // if (isDEBUG){
-            System.out.println();
-            System.out.println();
-            System.out.println("****");
-            System.out.println(topicEntry.getKey());
-
-            // }
-
-            Topic currentTopic = topicEntry.getValue();
-
-            int distributionCount = 0; // 'cnt' in original code
-            int nodeCounter = 0;
-            int copiesSent = 0;
-
-            Message baseMessage = null;
-
-            // Iterate over all nodes that are subscribed to this topic
-            for (Node node : currentTopic.topicMembers) {
-                GossipSubProtocol gossipProtocol = (GossipSubProtocol) node.getProtocol(gossipSubId);
-                // If the topic size is more than 1, decide if are distributing rows or
-                // columns
-                if (numberOfRowsAndColsInTopic != 1) {
-                    if (distributionCount < (numberOfRowsAndColsInTopic / 2)) {
-                        isRowTopic = true;
-                    } else {
-                        isRowTopic = false;
-                    }
-                }
-
-                // If distributed enough rows/columns for this topic, break
-                if (distributionCount >= numberOfRowsAndColsInTopic) {
-                    break;
-                }
-
-                // If already sent the desired number of copies
-                // AND the nodeCounter is not at the boundary for a new row/column holder
-                if (copiesSent >= numberOfCopiesToSend
-                        && (nodeCounter % SHARD_AMOUNT != 0)) {
-                    nodeCounter++;
-                    // Once hit the boundary again, reset things
-                    if (nodeCounter % SHARD_AMOUNT == 0) {
-                        copiesSent = 0;
-                        if (isRowTopic) {
-                            rowIndex++;
-                        } else {
-                            columnIndex++;
-                        }
-                        distributionCount++;
-                    }
-                    continue;
-                }
-
-                // Check row/column limits
-                if (isRowTopic && rowIndex == MAX_DIMENSION_SIZE) {
-                    // If reached the limit, move on
-                    continue;
-                }
-                if (!isRowTopic && columnIndex == MAX_DIMENSION_SIZE) {
-                    // If reached the limit, end the distribution entirely
-                    return;
-                }
-
-                // Determine which index are distributing (row or column)
-                int currentIndex = isRowTopic ? rowIndex : columnIndex;
-                BigInteger destinationId = gossipProtocol.getNodeId();
-
-                // Create/send the message
-                Message newMsg = createRowOrColumnMessageForDistribution(
-                        copiesSent,
-                        baseMessage,
-                        b,
-                        currentIndex,
-                        currentTopic.topicID,
-                        destinationId,
-                        isRowTopic);
-
-                // If this was the first time sent a copy, record it as our base
-                if (copiesSent == 0) {
-                    baseMessage = newMsg;
-                }
-
-                nodeCounter++;
-                copiesSent++;
-
-                // If reached the boundary for holders, reset counters
-                if (nodeCounter % SHARD_AMOUNT == 0) {
-                    copiesSent = 0;
-                    if (isRowTopic) {
-                        rowIndex++;
-                    } else {
-                        columnIndex++;
-                    }
-                    distributionCount++;
-                }
-
-                // Once again, if hit our max column limit, return
-                if (!isRowTopic && columnIndex == MAX_DIMENSION_SIZE) {
-                    return;
-                }
-            }
-
-            // Flip row/column topic for the next set
-            isRowTopic = !isRowTopic;
-            isColTopic = !isColTopic;
-        }
-
-        // Logging final counters and stats
-        System.out.println(rowIndex);
-        System.out.println(columnIndex);
-        System.out.println("*********Block proposer has sent the messages ********");
-        System.out.println("Data sent size " + totalDataTransmitted);
-        System.out.println("Data transmission time " + totalTransmissionTime);
-    }
+//    private void nCopiesDistributionStrategy() {
+//        // Load all the relevant configuration values
+//        int numberOfCopiesToSend = Configuration.getInt("NUMBER_COPIES_DISTRIBUTED");
+//        int numberOfRowsAndColsInTopic = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC");
+//
+//        int rowIndex = 0; // Tracks which row are distributing
+//        int columnIndex = 0; // Tracks which column are distributing
+//
+//        // Retrieve the block to distribute
+//        Block b = block;
+//
+//        // Just an example usage to log the block proposer’s ID
+//        GossipSubProtocol iGossipBlockProposer = (GossipSubProtocol) (CustomDistribution.blockProposerNode
+//                .getProtocol(gossipSubId));
+//        System.out.println("Block proposer id is ------: " + iGossipBlockProposer.getNodeId());
+//
+//        boolean isRowTopic = true;
+//        boolean isColTopic = false;
+//
+//        // Iterate over each topic in the distribution
+//        for (Map.Entry<String, Topic> topicEntry : CustomDistribution.topics.entrySet()) {
+//            // if (isDEBUG){
+//            System.out.println();
+//            System.out.println();
+//            System.out.println("****");
+//            System.out.println(topicEntry.getKey());
+//
+//            // }
+//
+//            Topic currentTopic = topicEntry.getValue();
+//
+//            int distributionCount = 0; // 'cnt' in original code
+//            int nodeCounter = 0;
+//            int copiesSent = 0;
+//
+//            Message baseMessage = null;
+//
+//            // Iterate over all nodes that are subscribed to this topic
+//            for (Node node : currentTopic.topicMembers) {
+//                GossipSubProtocol gossipProtocol = (GossipSubProtocol) node.getProtocol(gossipSubId);
+//                // If the topic size is more than 1, decide if are distributing rows or
+//                // columns
+//                if (numberOfRowsAndColsInTopic != 1) {
+//                    if (distributionCount < (numberOfRowsAndColsInTopic / 2)) {
+//                        isRowTopic = true;
+//                    } else {
+//                        isRowTopic = false;
+//                    }
+//                }
+//
+//                // If distributed enough rows/columns for this topic, break
+//                if (distributionCount >= numberOfRowsAndColsInTopic) {
+//                    break;
+//                }
+//
+//                // If already sent the desired number of copies
+//                // AND the nodeCounter is not at the boundary for a new row/column holder
+//                if (copiesSent >= numberOfCopiesToSend
+//                        && (nodeCounter % SHARD_AMOUNT != 0)) {
+//                    nodeCounter++;
+//                    // Once hit the boundary again, reset things
+//                    if (nodeCounter % SHARD_AMOUNT == 0) {
+//                        copiesSent = 0;
+//                        if (isRowTopic) {
+//                            rowIndex++;
+//                        } else {
+//                            columnIndex++;
+//                        }
+//                        distributionCount++;
+//                    }
+//                    continue;
+//                }
+//
+//                // Check row/column limits
+//                if (isRowTopic && rowIndex == MAX_DIMENSION_SIZE) {
+//                    // If reached the limit, move on
+//                    continue;
+//                }
+//                if (!isRowTopic && columnIndex == MAX_DIMENSION_SIZE) {
+//                    // If reached the limit, end the distribution entirely
+//                    return;
+//                }
+//
+//                // Determine which index are distributing (row or column)
+//                int currentIndex = isRowTopic ? rowIndex : columnIndex;
+//                BigInteger destinationId = gossipProtocol.getNodeId();
+//
+//                // Create/send the message
+//                Message newMsg = createRowOrColumnMessageForDistribution(
+//                        copiesSent,
+//                        baseMessage,
+//                        b,
+//                        currentIndex,
+//                        currentTopic.topicID,
+//                        destinationId,
+//                        isRowTopic);
+//
+//                // If this was the first time sent a copy, record it as our base
+//                if (copiesSent == 0) {
+//                    baseMessage = newMsg;
+//                }
+//
+//                nodeCounter++;
+//                copiesSent++;
+//
+//                // If reached the boundary for holders, reset counters
+//                if (nodeCounter % SHARD_AMOUNT == 0) {
+//                    copiesSent = 0;
+//                    if (isRowTopic) {
+//                        rowIndex++;
+//                    } else {
+//                        columnIndex++;
+//                    }
+//                    distributionCount++;
+//                }
+//
+//                // Once again, if hit our max column limit, return
+//                if (!isRowTopic && columnIndex == MAX_DIMENSION_SIZE) {
+//                    return;
+//                }
+//            }
+//
+//            // Flip row/column topic for the next set
+//            isRowTopic = !isRowTopic;
+//            isColTopic = !isColTopic;
+//        }
+//
+//        // Logging final counters and stats
+//        System.out.println(rowIndex);
+//        System.out.println(columnIndex);
+//        System.out.println("*********Block proposer has sent the messages ********");
+//        System.out.println("Data sent size " + totalDataTransmitted);
+//        System.out.println("Data transmission time " + totalTransmissionTime);
+//    }
 
     // one list of holders per row / column
     private static final List<List<BigInteger>> ROW_HOLDERS = new ArrayList<>();
@@ -3243,13 +3422,156 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             list.add(nodeId);
     }
 
-    private static int shardUID(boolean isRow, int index, int part) {
+    private static int shardUID(boolean isRow, int index, int part, long blockId) {
+        // Use 17 bits from the blockId (time) to ensure uniqueness
+        int timeHash = (int) (blockId & 0x1FFFF);
+
         return (isRow ? 1 << 31 : 0)           // MSB = axis
                 | ((index & 0x1FF) << 22)         // 9 bits row/col#
-                | ((part  & 0x1F) << 17);         // 5 bits part#
+                | ((part  & 0x1F) << 17)          // 5 bits part#
+                | timeHash;                       // 17 bits for uniqueness
     }
 
-    private void shardingBasedDistribution() {
+//    private void shardingBasedDistribution(long blockId) {
+//
+//        final int divisions = SHARD_AMOUNT;          // A
+//        final int kCopies   = Math.max(1, SHARD_COPIES); // Note: kCopies is unused in this model
+//        final int rcCfg     = Configuration.getInt("NUMBER_OF_ROWS_AND_COLS_IN_A_TOPIC", 2);
+//
+//        boolean nextTopicIsRow = true;
+//
+//        int globalRow = 0, globalCol = 0;
+//        Block blk = block;
+//
+//        // Iterate over topics as defined in your 'peerDAS' setup
+//        for (Topic topic : CustomDistribution.topics.values()) {
+//
+//            int rowsPerTopic, colsPerTopic;
+//            if (rcCfg == 1) {                       // row ⊕ col mode
+//                rowsPerTopic = nextTopicIsRow ? 1 : 0;
+//                colsPerTopic = nextTopicIsRow ? 0 : 1;
+//                nextTopicIsRow = !nextTopicIsRow;
+//            } else {                               // symmetric 1+1, 2+2… modes
+//                rowsPerTopic = rcCfg / 2;
+//                colsPerTopic = rowsPerTopic;
+//            }
+//
+//            System.out.printf(
+//                    "[SHARD-DIST] divisions=%d  k=%d  rows/cols per %s = %d/%d%n",
+//                    divisions, kCopies, topic.topicID, rowsPerTopic, colsPerTopic);
+//
+//            int rowsSent = 0, colsSent = 0;
+//            boolean sendRowNext = true;
+//
+//            // Loop while this topic still has rows or columns to distribute
+//            while (rowsSent < rowsPerTopic || colsSent < colsPerTopic) {
+//
+//                boolean sendingRow = sendRowNext
+//                        ? rowsSent < rowsPerTopic
+//                        : colsSent >= colsPerTopic;
+//
+//                int shardIndex = sendingRow ? globalRow : globalCol;
+//                int dimLen = sendingRow
+//                        ? Configuration.getInt("NUMBER_OF_ROWS")
+//                        : Configuration.getInt("NUMBER_OF_COLUMNS");
+//
+//                if (shardIndex >= dimLen) break;           // matrix exhausted
+//
+//                int partSize = dimLen / divisions;
+//
+//                // ------ [THIS IS THE CRITICAL FIX] ------
+//
+//                // 1. Get the pre-assigned list of custodians for this specific shard index.
+//                List<BigInteger> custodianIds = sendingRow
+//                        ? CustomDistribution.rowCustodyNodes.get(shardIndex)
+//                        : CustomDistribution.columnCustodyNodes.get(shardIndex);
+//
+//                // 2. Check if custody was assigned correctly.
+//                if (custodianIds == null || custodianIds.isEmpty()) {
+//                    System.out.printf(
+//                            "[SHARD-DIST ERROR] No custodians found for %s %d. Skipping.%n",
+//                            sendingRow ? "row" : "col", shardIndex);
+//
+//                    // Increment counters to avoid infinite loop
+//                    if (sendingRow) { globalRow++; rowsSent++; } else { globalCol++; colsSent++; }
+//                    if (rowsPerTopic == colsPerTopic) sendRowNext = !sendRowNext;
+//                    continue; // Skip to the next shard
+//                }
+//
+//                // 'divisions' (SHARD_AMOUNT) should match the number of custodians assigned.
+//                if (custodianIds.size() < divisions) {
+//                    System.out.printf(
+//                            "[SHARD-DIST WARNING] Custodian count mismatch for %s %d. Expected %d, found %d.%n",
+//                            sendingRow ? "row" : "col", shardIndex, divisions, custodianIds.size());
+//                }
+//
+//                // 3. Loop 'part' from 0 up to the number of custodians/divisions
+//                int numPartsToSend = Math.min(divisions, custodianIds.size());
+//
+//                for (int part = 0; part < numPartsToSend; part++) {
+//
+//                    // 4. Get the specific custodian for this part from the map
+//                    BigInteger custodianId = custodianIds.get(part);
+//                    Node peer = CustomDistribution.networkNodes.get(custodianId);
+//
+//                    if (peer == null) {
+//                        System.out.printf("[SHARD-DIST ERROR] Node not found for ID %s%n", custodianId);
+//                        continue;
+//                    }
+//
+//                    GossipSubProtocol dst =
+//                            (GossipSubProtocol) peer.getProtocol(gossipSubId);
+//
+//                    // 5. Get the data slice for this part
+//                    int start = part * partSize;
+//                    int end   = Math.min(dimLen, start + partSize);
+//
+//                    byte[][] slice = sendingRow
+//                            ? Arrays.copyOfRange(blk.getRowData(shardIndex),    start, end)
+//                            : Arrays.copyOfRange(blk.getColumnData(shardIndex), start, end);
+//
+//                    // 6. Use the (now correct) unique ID function
+//                    int uid = shardUID(sendingRow, shardIndex, part, blockId);
+//
+//                    // 7. Create the message
+//                    Message msg = createMessage(
+//                            uid, Message.MSG_DATA,
+//                            this.nodeId, dst.nodeId,
+//                            topic.topicID,
+//                            slice,
+//                            sendingRow,
+//                            shardIndex,
+//                            part,
+//                            0,
+//                            -1);
+//
+//                    // 8. Publish to the correct destination 'dst.nodeId'
+//                    publishMessage(msg, dst.nodeId, gossipSubId);
+//
+//                    System.out.printf(
+//                            "[SEED] %-3s %4d part=%02d → %s uid=%08X%n",
+//                            sendingRow ? "row" : "col",
+//                            shardIndex, part, dst.nodeId, uid);
+//                }
+//                // ------ [END OF FIX] ------
+//
+//                if (sendingRow) { globalRow++; rowsSent++; } else { globalCol++; colsSent++; }
+//
+//                if (rowsPerTopic == colsPerTopic) sendRowNext = !sendRowNext;
+//            }
+//        }
+//        /* ── final sanity log ────────────────────────────────────────────── */
+//        System.out.println("BLOCK ID = " + blockId);
+//        System.out.printf("Finished: rows=%d  cols=%d%n", globalRow - 1, globalCol - 1);
+//        System.out.println("*********Block proposer has sent the messages ********");
+//        System.out.printf("Data sent size       : %d%n", totalDataTransmitted);
+//        System.out.printf("Data transmission time: %d ms%n", totalTransmissionTime);
+//        System.out.println("Malicious Rate: " + Configuration.getDouble("MALICIOUS_RATE"));
+//        System.out.println("Seed Number: " + Configuration.getInt("random.seed"));
+//        System.out.println("ROW/COL Holder: " + SHARD_AMOUNT);
+//    }
+
+    private void shardingBasedDistribution(long blockId) {
 
         final int divisions = SHARD_AMOUNT;          // A
         final int kCopies   = Math.max(1, SHARD_COPIES);
@@ -3324,7 +3646,9 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                                 ? Arrays.copyOfRange(blk.getRowData(shardIndex),    start, end)
                                 : Arrays.copyOfRange(blk.getColumnData(shardIndex), start, end);
 
-                        int uid = shardUID(sendingRow, shardIndex, part); // D
+                        int uid = shardUID(sendingRow, shardIndex, part, blockId);
+
+//                        int uid = shardUID(sendingRow, shardIndex, part); // D
 
 //                        Message msg = createMessage(
 //                                uid, Message.MSG_DATA,
@@ -3356,7 +3680,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //                            }
 //                            publishMessage(msg, peerId, gossipSubId);
 //                        }
-                        publishMessage(msg, this.nodeId, gossipSubId);
+//                        publishMessage(msg, this.nodeId, gossipSubId);
+                        publishMessage(msg, dst.nodeId, gossipSubId);
 
 
                         rememberCustodian(sendingRow, shardIndex, dst.nodeId);
@@ -3374,6 +3699,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             }
         }
         /* ── final sanity log ────────────────────────────────────────────── */
+        System.out.println("BLOCK ID = " + blockId);
         System.out.printf("Finished: rows=%d  cols=%d%n", globalRow - 1, globalCol - 1);
         System.out.println("*********Block proposer has sent the messages ********");
         System.out.printf("Data sent size       : %d%n", totalDataTransmitted);
@@ -3383,6 +3709,56 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         System.out.println("ROW/COL Holder: " + SHARD_AMOUNT);
     }
 
+//    public static Block block = new Block(
+//            Configuration.getInt("NUMBER_OF_ROWS"),
+//            Configuration.getInt("NUMBER_OF_COLUMNS"));
+
+    public void resetNodeStateForNewBlock() {
+        // 1. Reset Statistical Lists
+        messageArrivalTimeFromBP.clear();       // seedArrivalTimes
+        messageDelayTimeFromBP.clear();         // seedMessageDelayTimes
+        sampleArrivalTime.clear();              // sampleArrivalTimes
+        sampleDelayTime.clear();                // sampleMessageDelayTimes
+        seedPartArrivalTimeFromPeer.clear();    // seedPartArrivalTimes
+        seedPartDelayTimeFromPeer.clear();      // seedPartDelayTimes
+
+        // 2. Reset Statistical Counters
+        noOfSampleRequestsSent = 0;
+        noOfSamplesReceived = 0;
+        sampleRequestUnsuccessful = 0;
+        noOfSeedPartsReceived = 0;
+        duplicateIHaveMessage = 0;
+        duplicateShards = 0;
+        uniqueShards = 0;
+
+        // 3. Reset IncrementalStats objects
+        seedArrivalTimeStore.reset();
+        samplingRTTTimeStore.reset();
+        seedPartArrivalTimeStore.reset();
+
+        // 4. Reset Bandwidth Counters
+        totalDataTransmitted = 0;
+        totalTransmissionTime = 0;
+
+        // 5. *** CRITICAL: Reset Functional State ***
+        // This is what actually allows a new block to be processed.
+        seenShards.clear();
+        seenIHaveByPeer.clear();
+        messageCache.clear();
+        IWANTmessageCache.clear();
+        ephemeralCache.clear();
+        pendingIWant.clear();
+
+        // Clear old custody data
+        custodyData1.clear();
+//        custodyData2.clear();
+        custody1Parts.clear();
+//        custody2Parts.clear();
+
+        // Re-enable sampling for the new block
+        samplingStarted = false;
+        blockIsReset = true;
+    }
 
     // ---- Safe stubs (keep or replace with your real impls) ----
     private void advertisePendingIHave(int pid) { /* no-op for now */ }

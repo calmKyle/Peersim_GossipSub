@@ -5,6 +5,7 @@ import peersim.core.CommonState;
 import peersim.core.Node;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class TopicBasedMesh {
     private static final String PAR_PROT = "protocol";
@@ -26,6 +27,17 @@ public class TopicBasedMesh {
                 continue; // No need to form a network with only one or no member.
             }
 
+            // Get the size of the topic members
+            int topicSize = curTopic.topicMembers.size();
+
+            // Collect all member IDs into a single string
+            String membersString = curTopic.topicMembers.stream()
+                    .map(node -> ((GossipSubProtocol) node.getProtocol(gossipProtocolID)).nodeId.toString())
+                    .collect(Collectors.joining(", "));
+
+            // Print in the requested format
+            System.out.println("[TOPICS-" + curTopic.topicID + "] [SIZE=" + topicSize + "] = " + "[" + membersString + "]");
+
             Set<BigInteger> topicMemberSet = new HashSet<>();
             List<Node> topicNodes = new ArrayList<>(curTopic.topicMembers);
             Collections.shuffle(topicNodes, CommonState.r); // Randomize peer selection
@@ -45,6 +57,7 @@ public class TopicBasedMesh {
                 GossipSubProtocol curNode = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
                 connectPeers(curNode, topicNodes, curTopic.topicID);
             }
+//            System.out.println("[TOPICS-" + curTopic.topicID + "] = " + "[" + curNode.meshPeersByTopic +"]");
         }
     }
 

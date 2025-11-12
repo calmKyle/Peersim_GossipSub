@@ -544,7 +544,7 @@ df = df.sort_values("Node ID")
 # 4. Create rolling-mean columns to smooth data over a window of, say, 100 nodes
 window_size = 100
 df["DuplicatedIHAVE_smooth"] = (
-    df["Duplicated Message IHAVE"]
+    df["Duplicated_IHAVE"]
     .rolling(window=window_size, center=True, min_periods=1)
     .mean()
 )

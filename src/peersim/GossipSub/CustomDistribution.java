@@ -51,9 +51,9 @@ public class CustomDistribution implements peersim.core.Control {
     public static HashMap<Integer, ArrayList<BigInteger>> rowCustodyNodes = new HashMap<>();
     public static HashMap<Integer, ArrayList<BigInteger>> columnCustodyNodes = new HashMap<>();
 
-    public static Block block = new Block(
-            Configuration.getInt("NUMBER_OF_ROWS"),
-            Configuration.getInt("NUMBER_OF_COLUMNS"));
+//    public static Block block = new Block(
+//            Configuration.getInt("NUMBER_OF_ROWS"),
+//            Configuration.getInt("NUMBER_OF_COLUMNS"));
 
     public static Map<BigInteger, Node> networkNodes = new LinkedHashMap<>();
     public static Map<String, Topic> topics = new LinkedHashMap<>(NUMBER_OF_TOPICS);
@@ -273,19 +273,18 @@ public class CustomDistribution implements peersim.core.Control {
         tbm.createTopicMesh();
 
         // 5. AFTER all custody assignments are done, verify
-        for (Map.Entry<BigInteger, Node> entry : networkNodes.entrySet()) {
-            GossipSubProtocol gsp = (GossipSubProtocol) entry.getValue().getProtocol(gossipProtocolID);
-            String c1 = gsp.custody1;
-            String c2 = gsp.custody2;
-
-            if (c1 == null || c2 == null || c1.isEmpty() || c2.isEmpty()) {
-                if(isDEBUG){
-                    System.out.println("[CUSTODY WARNING] Node " + gsp.getNodeId()
-                            + " has incomplete custody: c1=" + c1 + ", c2=" + c2);
-                }
-
-            }
-        }
+//        for (Map.Entry<BigInteger, Node> entry : networkNodes.entrySet()) {
+//            GossipSubProtocol gsp = (GossipSubProtocol) entry.getValue().getProtocol(gossipProtocolID);
+//            String c1 = gsp.custody1;
+////            String c2 = gsp.custody2;
+//
+//            if (c1 == null || c2 == null || c1.isEmpty() || c2.isEmpty()) {
+//                if(isDEBUG){
+//                    System.out.println("[CUSTODY WARNING] Node " + gsp.getNodeId()
+//                            + " has incomplete custody: c1=" + c1 + ", c2=" + c2);
+//                }
+//            }
+//        }
     }
 
     private static class ChunkResult {
@@ -358,40 +357,40 @@ public class CustomDistribution implements peersim.core.Control {
             }
 
             /* ------------ SECONDARY CUSTODY (random row/col) ------------- */
-            int dimension = Configuration.getInt("NUMBER_OF_ROWS");  // == NUMBER_OF_COLUMNS
-            int randomX;
-            do { randomX = random.nextInt(dimension); }
-            while (randomX == labelNumber);              // avoid c1 == c2
-
-            gsp.custody2 = labelPrefix + randomX;
-            if (labelPrefix.equals("row")) {
-                rowCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>())
-                        .add(nodeId);
-            } else {
-                columnCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>())
-                        .add(nodeId);
-            }
+//            int dimension = Configuration.getInt("NUMBER_OF_ROWS");  // == NUMBER_OF_COLUMNS
+//            int randomX;
+//            do { randomX = random.nextInt(dimension); }
+//            while (randomX == labelNumber);              // avoid c1 == c2
+//
+//            gsp.custody2 = labelPrefix + randomX;
+//            if (labelPrefix.equals("row")) {
+//                rowCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>())
+//                        .add(nodeId);
+//            } else {
+//                columnCustodyNodes.computeIfAbsent(randomX, k -> new ArrayList<>())
+//                        .add(nodeId);
+//            }
 
             /* --------------- TOPIC SUBSCRIPTIONS ------------------------- */
             subscribeNodeToTopic(gsp, node, topicNumber);
-
-            int secondaryTopic = (randomX / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC")) + 1;
-            if (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1) {
-                secondaryTopic = labelPrefix.equals("row") ? (randomX * 2) + 1
-                        : (randomX * 2) + 2;
-                if (secondaryTopic > NUMBER_OF_TOPICS) {
-                    secondaryTopic %= NUMBER_OF_TOPICS;
-                    if (secondaryTopic == 0) secondaryTopic = NUMBER_OF_TOPICS;
-                }
-            }
-            subscribeNodeToTopic(gsp, node, secondaryTopic);
+//
+//            int secondaryTopic = (randomX / Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC")) + 1;
+//            if (NUMBER_OF_ROWSCOLS_IN_A_TOPIC == 1) {
+//                secondaryTopic = labelPrefix.equals("row") ? (randomX * 2) + 1
+//                        : (randomX * 2) + 2;
+//                if (secondaryTopic > NUMBER_OF_TOPICS) {
+//                    secondaryTopic %= NUMBER_OF_TOPICS;
+//                    if (secondaryTopic == 0) secondaryTopic = NUMBER_OF_TOPICS;
+//                }
+//            }
+//            subscribeNodeToTopic(gsp, node, secondaryTopic);
 
             /* --------------- DEBUG TRACE ---------------------------------- */
-            if (isDEBUG) {
-                System.out.println("[CHUNK " + labelPrefix.toUpperCase() + "] node="
-                        + nodeId + "  T1=" + topicNumber + "  T2=" + secondaryTopic
-                        + "  C1=" + gsp.custody1 + "  C2=" + gsp.custody2);
-            }
+//            if (isDEBUG) {
+//                System.out.println("[CHUNK " + labelPrefix.toUpperCase() + "] node="
+//                        + nodeId + "  T1=" + topicNumber + "  T2=" + secondaryTopic
+//                        + "  C1=" + gsp.custody1 + "  C2=" + gsp.custody2);
+//            }
 
             assignedInTopic++;
         }
