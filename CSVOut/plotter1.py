@@ -1,4 +1,4 @@
-# [time=3999] Node 16382: [Seed Arrival Times=[481, 548]] [Seed RTT times=[164, 86]] [481.000000 min ] [514.500000 msec average ] [548.000000 max ]
+# [time=3999] Node 16382: [Seed Arrival Times=[481, 548]] [Seed RTT times=[164, 86]] [481.000000 min ] [514.1300000 msec average ] [548.000000 max ]
 
 
 import os
@@ -319,7 +319,7 @@ except Exception:
 # plt.grid(True)
 #
 # # Set custom axis limits
-# plt.xlim(0, 5000)
+# plt.xlim(0, 13000)
 # plt.ylim(0, 1.1)
 #
 # # Highlighting a vertical threshold
@@ -430,7 +430,7 @@ else:
     plt.grid(True)
 
     # Set custom axis limits
-    plt.xlim(0, 5000)
+    plt.xlim(0, 13000)
     plt.ylim(0, 1.1)
 
     # Highlighting a vertical threshold
@@ -477,7 +477,7 @@ plt.title('CDF of Node Distribution Over Time')
 plt.xlabel('Time (ms)')
 plt.ylabel('Number of Nodes')
 
-plt.xlim(0, 5000)
+plt.xlim(0, 13000)
 # plt.ylim(0, 1.1)
 max_seed_rtt = data_sorted_seed[-1]  # The last item in sorted array will be the max
 plt.axvline(x=max_seed_rtt, color='blue', linestyle='--', label=f'Max Seed RTT at {max_seed_rtt} ms')

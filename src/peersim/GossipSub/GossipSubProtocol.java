@@ -437,7 +437,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             double secsInTopic = (nowMs - ts.timeInMeshStart) / 1000.0;
             double P1_time = p.timeInMeshWeight * Math.min(secsInTopic, p.timeInMeshCapSeconds);
 
-            System.out.println("P1 = " + P1_time);
 
             double P2_first = p.firstMsgWeight *
                     Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
@@ -457,10 +456,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
                 if (diff < 0) {
                     P3_mesh = p.meshDeliveriesWeightUnder * Math.min(-diff, p.meshDeliveriesCap);
-                    System.out.println("P3 mesh weight under: " + P3_mesh);
                 } else {
                     P3_mesh = p.meshDeliveriesWeightOver  * Math.min( diff, p.meshDeliveriesCap);
-                    System.out.println("P3 mesh weight over: " + P3_mesh);
                 }
             }
 
@@ -468,9 +465,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
             double subtotal = p.topicWeight * (P1_time + P2_first + P3_mesh + P4_invalid);
             topicSum += subtotal;
-
-
-            System.out.printf("Total = "  + subtotal + " @ Time = " + nowMs +"\n");
 
             if (traceOn) {
                 trace.append("│  topic ").append(topic).append("  P1=")
