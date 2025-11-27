@@ -457,7 +457,7 @@ df = pd.read_csv('output_results.csv')
 # times_Seed = [int(time) for sublist in times_Seed for time in sublist]
 
 times_Seed = df['Max Seed Part RTT']
-times_Sample = df['Max Sample RTT']
+times_Sample = df['Max Sample Arrival']
 
 # Ensure all times are within the desired range of 0 to 4000ms
 # times_Seed = times_Seed[(times_Seed >= 0) & (times_Seed <= 4000)]
@@ -472,12 +472,12 @@ cumulative_node_count_sample = np.arange(1, len(data_sorted_sample) + 1)
 # Plotting the CDF
 plt.figure(figsize=(8, 6))
 plt.step(data_sorted_seed, cumulative_node_count_seed, where='post', label='Seed Part Arrival Times')
-plt.step(data_sorted_sample, cumulative_node_count_sample, where='post', label='Max Sample RTT')
-plt.title('CDF of Node Distribution Over Time')
+plt.step(data_sorted_sample, cumulative_node_count_sample, where='post', label='Max Sample Arrival')
+plt.title('CDF of Seed/Sample Arrival Time Distribution')
 plt.xlabel('Time (ms)')
 plt.ylabel('Number of Nodes')
 
-plt.xlim(0, 13000)
+plt.xlim(0, 6000)
 # plt.ylim(0, 1.1)
 max_seed_rtt = data_sorted_seed[-1]  # The last item in sorted array will be the max
 plt.axvline(x=max_seed_rtt, color='blue', linestyle='--', label=f'Max Seed RTT at {max_seed_rtt} ms')

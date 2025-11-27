@@ -4,7 +4,6 @@ package peersim.GossipSub;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Control;
-import peersim.core.Network;
 import peersim.core.Node;
 import peersim.util.IncrementalStats;
 
@@ -18,10 +17,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.math.BigInteger;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 
 public class GossipSubObserver implements Control {
     /**
@@ -315,7 +310,8 @@ public class GossipSubObserver implements Control {
                         "Time,Node ID,Custody 1,Custody 2,"
                                 + "Seed Arrival Times,Seed RTT Times,Min Seed RTT,Avg Seed RTT,Max Seed RTT,"
                                 + "Total Sample Req Sent,Total Sample Received,Total Sample Req Timedout,"
-                                + "Sample Arrival Times,Sample RTT Times,Min Sample RTT,Avg Sample RTT,Max Sample RTT,"
+                                + "Sample Arrival Times,Min Sample Arrival,Avg Sample Arrival,Max Sample Arrival,"
+                                + "Sample RTT Times,Min Sample RTT,Avg Sample RTT,Max Sample RTT,"
                                 + "Total Seed Parts Received,Seed Part Arrival Times,Seed Part RTT Times,Min Seed Part RTT,Avg Seed Part RTT,Max Seed Part RTT,"
                                 + "Avg Bandwidth,Duplicated_IHAVE,Duplicated_Data,Shards_Amount"
                 );
@@ -336,12 +332,40 @@ public class GossipSubObserver implements Control {
                 double maxSeedRTT = protocol.seedArrivalTimeStore == null ? 0.0
                         : protocol.seedArrivalTimeStore.getMax();
 
-                double minSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0
-                        : protocol.samplingRTTTimeStore.getMin();
-                double avgSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0
-                        : protocol.samplingRTTTimeStore.getAverage();
-                double maxSampleRTT = protocol.samplingRTTTimeStore == null ? 0.0
-                        : protocol.samplingRTTTimeStore.getMax();
+//                double minSampleArrival = protocol.sampleArrivalTime == null ? 0.0
+//                        : protocol.sampleArrivalTime.getFirst();
+//                double avgSampleArrival = protocol.sampleArrivalTime == null ? 0.0
+//                        : protocol.sampleArrivalTime.stream()
+//                        .mapToLong(Long::longValue)
+//                        .average()
+//                        .orElse(0.0);
+//                double maxSampleArrival = protocol.sampleArrivalTime == null ? 0.0
+//                        : protocol.sampleArrivalTime.getLast();
+
+                double avgSampleArrival;
+                if (protocol.sampleArrivalTime == null || protocol.sampleArrivalTime.isEmpty()) {
+                    avgSampleArrival = 0.0;
+                } else {
+                    long sum = 0L;
+                    for (Long v : protocol.sampleArrivalTime) {
+                        sum += v;
+                    }
+                    avgSampleArrival = (double) sum / protocol.sampleArrivalTime.size();
+                }
+                double minSampleArrival = (protocol.sampleArrivalTime == null || protocol.sampleArrivalTime.isEmpty())
+                        ? 0.0
+                        : protocol.sampleArrivalTime.getFirst();
+                double maxSampleArrival = (protocol.sampleArrivalTime == null || protocol.sampleArrivalTime.isEmpty())
+                        ? 0.0
+                        : protocol.sampleArrivalTime.getLast();
+
+
+                double minSampleDelay = protocol.samplingDelayTimeStore == null ? 0.0
+                        : protocol.samplingDelayTimeStore.getMin();
+                double avgSampleDelay = protocol.samplingDelayTimeStore == null ? 0.0
+                        : protocol.samplingDelayTimeStore.getAverage();
+                double maxSampleDelay = protocol.samplingDelayTimeStore == null ? 0.0
+                        : protocol.samplingDelayTimeStore.getMax();
 
                 // Keep your existing ordering & sorting
                 Collections.sort(protocol.messageArrivalTimeFromBP);
@@ -378,9 +402,10 @@ public class GossipSubObserver implements Control {
                         : "[]";
 
                 double bw = protocol.getAverageBandwidthKBps();
+                double bw2 = protocol.getAverageBandwidthKbps();
 
                 String metrics = String.format(
-                        "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f,%f,%f,%f,%f",
+                        "%d,%d,%s,%s,%s,%s,%f,%f,%f,%d,%d,%d,%s,%f,%f,%f,%s,%f,%f,%f,%d,%s,%s,%f,%f,%f,%f,%f,%f,%f",
                         CommonState.getTime(),
                         count,
                         protocol.custody1,
@@ -395,17 +420,20 @@ public class GossipSubObserver implements Control {
                         protocol.noOfSamplesReceived,
                         protocol.sampleRequestUnsuccessful,
                         sampleArrivalTimes,
+                        minSampleArrival,
+                        avgSampleArrival,
+                        maxSampleArrival,
                         sampleMessageDelayTimes,
-                        minSampleRTT,
-                        avgSampleRTT,
-                        maxSampleRTT,
+                        minSampleDelay,
+                        avgSampleDelay,
+                        maxSampleDelay,
                         proposerStratergy == 2 ? protocol.noOfSeedPartsReceived : 0,
                         seedPartArrivalTimes,
                         seedPartDelayTimes,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMin() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getAverage() : 0.0,
                         proposerStratergy == 2 ? protocol.seedPartArrivalTimeStore.getMax() : 0.0,
-                        bw,
+                        bw2,
                         (double) protocol.duplicateIHaveMessage,
                         (double) protocol.duplicateShards,
                         (double) protocol.uniqueShards

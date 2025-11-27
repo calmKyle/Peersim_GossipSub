@@ -10,7 +10,6 @@ import peersim.transport.UnreliableTransport;
 import peersim.util.IncrementalStats;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static peersim.GossipSub.CustomDistribution.*;
 import static peersim.GossipSub.GossipScoringConfig.TOPIC_PARAMS;
@@ -72,6 +71,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                             Configuration.getInt("NUMBER_ROWS_OR_COLS_PER_TOPIC")));
 
     private static final double GOSSIP_FACTOR = Configuration.getDouble("GOSSIP_FACTOR", 0.33);
+    private static final int threshold = Configuration.getInt("THRESHOLD", 1);
+
 //    private static final long SAMPLE_REQ_TIMEOUT = Configuration.getLong("SAMPLE_REQ_TIMEOUT", 4000); // 4 s fallback
 
 //    private static final long SLOT_DURATION = Configuration.getLong("SLOT_DURATION", 12000); // 12 s fallback
@@ -106,7 +107,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
     public IncrementalStats seedArrivalTimeStore = new IncrementalStats();
     public IncrementalStats seedPartArrivalTimeStore = new IncrementalStats();
-    public IncrementalStats samplingRTTTimeStore = new IncrementalStats();
+    public IncrementalStats samplingDelayTimeStore = new IncrementalStats();
 
     public List<Long> messageArrivalTimeFromBP = new ArrayList<>();
     public List<Long> messageDelayTimeFromBP = new ArrayList<>();
@@ -175,6 +176,18 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     private static final long OP_GRAFT_INTERVAL_MS = 60_000L;
     private static final int  OP_GRAFT_K = 2;
     private static final double OP_GRAFT_MEDIAN_THRESHOLD = 0;
+
+    private static final boolean ADAPTIVE_SAMPLING =
+            Configuration.getBoolean("ADAPTIVE_SAMPLING", false);
+
+    private static final int PARALLEL_ASK_HIGH =
+            Configuration.getInt(
+                    "PARALLEL_ASK_HIGH",
+                    Configuration.getInt("PARALLEL_ASK", 1)
+            );
+    private static int PARALLEL_ASK = Configuration.getInt("PARALLEL_ASK", 1); // how many custodians we query at once
+
+
 
     private void markOutbound(String topicId, BigInteger peer) {
         outboundByTopic.computeIfAbsent(topicId, k -> new HashSet<>()).add(peer);
@@ -441,12 +454,16 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             double P2_first = p.firstMsgWeight *
                     Math.min(ts.firstMessageDeliveries, p.firstMsgCap);
 
-//            boolean p3Active = secsInTopic >= p.meshDeliveriesActivationSeconds;
-            boolean samplingActive = (noOfSamplesReceived < sampleAmount);
             boolean p3Active =
                     ts.timeInMeshStart >= 0 &&
-                            (secsInTopic >= p.meshDeliveriesActivationSeconds || ts.meshMsgDelivered > 0) &&
-                            samplingActive;
+                            (secsInTopic >= p.meshDeliveriesActivationSeconds || ts.meshMsgDelivered > 0);
+
+//            boolean samplingActive = (noOfSamplesReceived < sampleAmount);
+//            boolean p3Active =
+//                    ts.timeInMeshStart >= 0 &&
+//                            (secsInTopic >= p.meshDeliveriesActivationSeconds || ts.meshMsgDelivered > 0) &&
+//                            samplingActive;
+
             double P3_mesh = 0.0;
             if (p3Active) {
                 double delivered = Math.min(ts.meshMsgDelivered, p.meshDeliveriesCap);
@@ -1168,177 +1185,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
 
 
-//    private void addMorePeers(String topicID, int needed) {
-//        Topic topic = CustomDistribution.topics.get(topicID);
-//        if (topic == null) return;
-//
-//        List<Node> shuffled = new ArrayList<>(topic.topicMembers);
-//        Collections.shuffle(shuffled, CommonState.r);
-//
-//        for (Node n : shuffled) {
-//            if (meshPeersByTopic.get(topicID).size() >= D_LOW || needed <= 0) break;
-//
-//            GossipSubProtocol peer = (GossipSubProtocol) n.getProtocol(gossipSubId);
-//            if (peer.meshPeersByTopic.get(topicID).contains(this.nodeId)) continue;
-//
-//            /* graft */
-//            meshPeersByTopic.get(topicID).add(peer.nodeId);
-//            addPeerScoreIfAbsent(peer.nodeId);
-//
-//            Message graft = createMessage(-1, Message.MSG_GRAFT,
-//                    this.nodeId, peer.nodeId,
-//                    topicID, null, false, -1, -1,
-//                    CommonState.getTime(), -1);
-//            publishMessage(graft, peer.nodeId, gossipSubId);
-//            needed--;
-//        }
-//    }
-
-//    public void handleGraft(Message m, int myPid) {
-//        String topicID = m.messageTopicID;
-//        BigInteger p = m.src; // the peer that is trying to graft onto me
-//
-//        // For convenience, let's store the current time
-//        long now = CommonState.getTime();
-//
-//        // Log that got a GRAFT
-//        if (isDEBUG) {
-//            System.out.println("[DEBUG handleGraft] Node " + nodeId
-//                    + " received GRAFT from peer " + p
-//                    + " for topic=" + topicID
-//                    + " at time=" + now);
-//        }
-//
-//        // Ensure we have a PeerScoreInfo for this peer
-//        addPeerScoreIfAbsent(p);
-//        PeerScoreInfo psi = peerScores.get(p);
-//        if (psi == null) {
-//            if (isDEBUG) {
-//                System.out.println("[DEBUG handleGraft] No PeerScoreInfo for " + p
-//                        + "; ignoring GRAFT.");
-//            }
-//            return;
-//        }
-//
-//        // Compute their score and do backoff checks
-//        double s = computeScore(psi);
-//        if (isDEBUG) {
-//            System.out.println("[DEBUG handleGraft] Peer " + p + " has score=" + s
-//                    + ", time=" + now
-//                    + ", pruneBackoffUntil=" + psi.pruneBackoffUntil);
-//        }
-//
-//        // If negative score or in backoff, we prune them immediately
-//        if (s < 0 || now < psi.pruneBackoffUntil) {
-//            if (isDEBUG) {
-//                System.out.println("[DEBUG handleGraft] Peer " + p
-//                        + " is being PRUNE'd (score<0 or in backoff).");
-//            }
-//            Message prune = createMessage(
-//                    -1,
-//                    Message.MSG_PRUNE,
-//                    this.nodeId,
-//                    p,
-//                    topicID,
-//                    null, false, -1, -1,
-//                    now,
-//                    -1);
-//            publishMessage(prune, p, myPid);
-//            return; // do not add them to my local mesh
-//        }
-//
-//        // Otherwise, accept them in my local mesh for topicID
-//        meshPeersByTopic.putIfAbsent(topicID, new HashSet<>());
-//        meshPeersByTopic.get(topicID).add(p);
-//
-//        meshPeersByTopic.computeIfAbsent(topicID, k -> new HashSet<>()).add(p);
-//
-//        // Đánh dấu inbound vì peer chủ động GRAFT với mình  // NEW
-//        markInbound(topicID, p);
-//
-//
-//        // Just in case, ensure we track peer's score info
-//        addPeerScoreIfAbsent(p);
-//
-//        if (isDEBUG) {
-//            System.out.println("[DEBUG handleGraft] Node " + nodeId
-//                    + " accepted peer " + p
-//                    + " into mesh for topic=" + topicID
-//                    + ". Current mesh size=" + meshPeersByTopic.get(topicID).size());
-//        }
-//
-//        // If oversubscribed, remove some peers
-//        if (meshPeersByTopic.get(topicID).size() > D) {
-//            int over = meshPeersByTopic.get(topicID).size() - D; // trim back to “degree”
-//            if (isDEBUG) {
-//                System.out.printf("[DEBUG handleGraft] mesh %s oversized (%d>%d); pruning %d peers%n",
-//                        topicID, meshPeersByTopic.get(topicID).size(), D, over);
-//            }
-//            removeExcessPeers(topicID, over);
-//        }
-//    }
-//
-//    public void handlePrune(Message m, int myPid) {
-//        BigInteger pruner = m.src; // the node that is pruning me
-//        String topicID = m.messageTopicID;
-//        long now = CommonState.getTime();
-//
-//        // Log that received a PRUNE
-//        if (isDEBUG) {
-//            System.out.println("[DEBUG handlePrune] Node " + nodeId
-//                    + " received PRUNE from " + pruner
-//                    + " for topic=" + topicID
-//                    + " at time=" + now);
-//        }
-//
-//        // Remove that node from local mesh (if present).
-//        Set<BigInteger> meshPeers = meshPeersByTopic.getOrDefault(topicID, new HashSet<>());
-//        boolean wasPresent = meshPeers.remove(pruner);
-//
-//        if (!wasPresent) {
-//            // Not in our mesh anyway
-//            if (isDEBUG) {
-//                System.out.println("[DEBUG handlePrune] Node " + nodeId
-//                        + " wasn't tracking pruner=" + pruner
-//                        + " in localMesh for topic=" + topicID
-//                        + ", ignoring.");
-//            }
-//            return;
-//        }
-//
-//        // Now check if this removal dropped our mesh below minDegree
-//        int sizeAfterRemoval = meshPeers.size();
-//        if (isDEBUG) {
-//            System.out.println("[DEBUG handlePrune] After removing " + pruner
-//                    + ", localMesh[" + topicID + "] size=" + sizeAfterRemoval
-//                    + " for node=" + nodeId);
-//        }
-//
-//        if (sizeAfterRemoval < D_LOW) {
-//            int needed = D - sizeAfterRemoval;
-//            if (needed > 0) {
-//                if (isDEBUG) {
-//                    System.out.println("[DEBUG handlePrune] localMesh[" + topicID + "] too small ("
-//                            + sizeAfterRemoval + " < minDegree=" + D_LOW
-//                            + "). GRAFTing " + needed + " peers...");
-//                }
-//                addMorePeers(topicID, needed);
-//            }
-//        }
-//
-//        // If for some reason end up bigger than maxDegree, removeExcessPeers
-//        if (sizeAfterRemoval > D_HIGH) {
-//            int over = sizeAfterRemoval - D;
-//            if (isDEBUG) {
-//                System.out.println("[DEBUG handlePrune] localMesh[" + topicID + "] oversubscribed size="
-//                        + sizeAfterRemoval + " > maxDegree=" + D_HIGH
-//                        + ". removing 'over'=" + over + " peers...");
-//            }
-//            removeExcessPeers(topicID, over);
-//        }
-//
-//    }
-
     public void handleGraft(Message m, int myPid) {
         final String    topicID = m.messageTopicID;
         final BigInteger p      = m.src;
@@ -1964,6 +1810,14 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return kiloBytes / seconds;
     }
 
+    public double getAverageBandwidthKbps() {   // name stays, semantics change to kbps
+        if (totalTransmissionTime <= 0) {
+            return 0.0;
+        }
+        return (totalDataTransmitted * 8.0) / (double) totalTransmissionTime;
+    }
+
+
     // Helper method to get size of a nullable String
     private int getSize(Object obj) {
         return (obj != null) ? obj.toString().getBytes().length : 0;
@@ -2042,16 +1896,17 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
 //        while (!messageTransmissionDelayQueue.isEmpty()
 //                && CommonState.getTime() > messageTransmissionDelayQueue.get(0)) {
-        while (!messageTransmissionDelayQueue.isEmpty()
-                && CommonState.getTime() >= messageTransmissionDelayQueue.get(0)) {
-            messageQueue.remove(0);
-            messageTransmissionDelayQueue.remove(0);
-        }
 
-        long queuingDelay = messageQueue.isEmpty()
-                ? 0
-                : messageTransmissionDelayQueue.get(messageTransmissionDelayQueue.size() - 1)
-                - CommonState.getTime();
+//        while (!messageTransmissionDelayQueue.isEmpty()
+//                && CommonState.getTime() >= messageTransmissionDelayQueue.get(0)) {
+//            messageQueue.remove(0);
+//            messageTransmissionDelayQueue.remove(0);
+//        }
+//
+//        long queuingDelay = messageQueue.isEmpty()
+//                ? 0
+//                : messageTransmissionDelayQueue.get(messageTransmissionDelayQueue.size() - 1)
+//                - CommonState.getTime();
 
 //        int messageSize = calculateMessageSize(m);
 //        long transmissionDelay = (long) Math.ceil((double) messageSize / (double) (bandwidth / 1000));
@@ -2063,17 +1918,44 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //
 //        EDSimulator.add(totalDelay, m, dest, myPid);
 
-        int messageSize = calculateMessageSize(m);
+        if (latency < 0) {
+            if (isDEBUG) {
+                System.out.println("[WARN] Negative latency " + latency +
+                        " from " + this.nodeId + " to " + destId + ", clamping to 0");
+            }
+            latency = 0;
+        }
 
-    // Convert bandwidth (bits/s) -> bytes/ms
+        while (!messageTransmissionDelayQueue.isEmpty()
+                && CommonState.getTime() >= messageTransmissionDelayQueue.get(0)) {
+            messageQueue.remove(0);
+            messageTransmissionDelayQueue.remove(0);
+        }
+
+        long queuingDelay = messageQueue.isEmpty()
+                ? 0
+                : messageTransmissionDelayQueue.get(messageTransmissionDelayQueue.size() - 1)
+                - CommonState.getTime();
+
+
+        int messageSize = calculateMessageSize(m);
+        // Convert bandwidth (bits/s) -> bytes/ms
         double bytesPerMs = (bandwidth / 8.0) / 1000.0;
         long transmissionDelay = (long) Math.ceil(messageSize / bytesPerMs);
 
         long propagationDelay = latency;
         long totalDelay = queuingDelay + transmissionDelay + propagationDelay;
 
+        if (totalDelay < 0) {
+            if (isDEBUG) {
+                System.out.println("[WARN] totalDelay < 0 (" + totalDelay +
+                        ") for msg " + m.id + ", clamping to 0");
+            }
+            totalDelay = 0;
+        }
+
         totalDataTransmitted += messageSize;
-    // For average bandwidth, only count serialization time:
+        // For average bandwidth, only count serialization time:
         totalTransmissionTime += transmissionDelay;
 
         EDSimulator.add(totalDelay, m, dest, myPid);
@@ -2131,7 +2013,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //        if (key.equals(custody2)) {
 //            custodyData2.add(newSeed);
 //        }
-
         samplingStarter();
     }
 
@@ -2139,7 +2020,8 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         public void handleReceivedPart(Message m, int myPid) {
         String s = m.isRow ? "row" : "column";
         String key = s + m.rowOrColumnNumber;
-        int threshold = 1;
+//        int threshold = 1;
+//        int threshold = (SHARD_AMOUNT + 1) / 2;
 
         if (custody1.equals(key)) {
             processCustody(m, custody1Parts, threshold);
@@ -2148,25 +2030,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 //            processCustody(m, custody2Parts, threshold);
 //        }
     }
-//    public void handleReceivedPart(Message m, int myPid) {
-//        String s = m.isRow ? "row" : "column";
-//        String key = s + m.rowOrColumnNumber;
-//
-//        // Majority threshold, consistent with requestMissingPart()
-////        int threshold = Math.max(1, (SHARD_AMOUNT + 1) / 2);
-//        int threshold = 1;
-//
-////        if (custody1 != null && custody1.equals(key)) {
-////            processCustody(m, custody1Parts, threshold);
-////        } else if ( custody1 != null &&  custody2.equals(key)) {
-////            processCustody(m, custody2Parts, threshold);
-////        }
-//        if (custody1.equals(key)) {
-//            processCustody(m, custody1Parts, threshold);
-//        } else if (custody2.equals(key)) {
-//            processCustody(m, custody2Parts, threshold);
-//        }
-//    }
+
 
 
     private void storeInEphemeralCache(Message m) {
@@ -2207,6 +2071,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
             seedPartArrivalTimeFromPeer.add(now);
             seedPartDelayTimeFromPeer.add(now - m.timestamp);
             seedPartArrivalTimeStore.add(now);
+            noOfSeedPartsReceived++;
 
             custodyParts.add(m);
 
@@ -2407,7 +2272,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     // Send IWANT message if a part is missing
     private void requestMissingPart(Message m, int myPid, int custody1Size, String custody1) {
 //        int threshold = (SHARD_AMOUNT + 1) / 2;
-        int threshold = 1;
+//        int threshold = 1;
         String key = (m.isRow ? "row" : "column") + m.rowOrColumnNumber;
 
         if (custody1.equals(key) && custody1Size < threshold) {
@@ -2751,7 +2616,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
      */
     private boolean sampleDataRequest() {
 
-        final int PARALLEL_ASK = 1; // how many custodians we query at once
+        int effectiveParallelAsk = getAdaptiveParallelism();
         Random rng = CommonState.r;
 
         boolean isRow = rng.nextBoolean();
@@ -2787,7 +2652,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         int sentNow = 0;
         for (BigInteger dest : holders) {
-            if (sentNow == PARALLEL_ASK)
+            if (sentNow == effectiveParallelAsk)
                 break;
 
             Message req = createMessage(
@@ -2834,24 +2699,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         return holders.get(random.nextInt(holders.size()));
     }
 
-    // Helper method to schedule timeout for sample requests
-    private void scheduleRequestTimeout(Message sampleReqMsg, BigInteger destId) {
-        peersim.GossipSub.Timeout timeout = new peersim.GossipSub.Timeout(1, destId, sampleReqMsg.id);
-        Node src = CustomDistribution.networkNodes.get(this.nodeId);
-        Node dest = CustomDistribution.networkNodes.get(sampleReqMsg.dest);
 
-        if (src == null || dest == null) {
-            if (isDEBUG) {
-                System.out.println("Invalid source or destination for timeout scheduling.");
-            }
-            return;
-        }
-
-        long latency = transport.getLatency(src, dest);
-        EDSimulator.add(4 * latency, timeout, src, gossipSubId);
-        // EDSimulator.add(SAMPLE_REQ_TIMEOUT, timeout, src, gossipSubId);
-
-    }
 
 //    public void handleSampleRequest(Message m, int myPid) {
 //
@@ -2947,8 +2795,40 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
     public void handleSampleResponse(Message m, int myPid) {
         sampleArrivalTime.add(CommonState.getTime());
         sampleDelayTime.add(CommonState.getTime() - m.timestamp);
-        samplingRTTTimeStore.add(CommonState.getTime());
+        samplingDelayTimeStore.add(CommonState.getTime());
         noOfSamplesReceived++;
+    }
+
+
+    private int getAdaptiveParallelism() {
+        if (!ADAPTIVE_SAMPLING) {
+            return PARALLEL_ASK;
+        }
+
+        // Increase parallelism based on failures
+        int effective = PARALLEL_ASK + sampleRequestUnsuccessful;
+
+        // Cap at the limit
+        return Math.min(effective, PARALLEL_ASK_HIGH);
+    }
+
+    // Helper method to schedule timeout for sample requests
+    private void scheduleRequestTimeout(Message sampleReqMsg, BigInteger destId) {
+        peersim.GossipSub.Timeout timeout = new peersim.GossipSub.Timeout(1, destId, sampleReqMsg.id);
+        Node src = CustomDistribution.networkNodes.get(this.nodeId);
+        Node dest = CustomDistribution.networkNodes.get(sampleReqMsg.dest);
+
+        if (src == null || dest == null) {
+            if (isDEBUG) {
+                System.out.println("Invalid source or destination for timeout scheduling.");
+            }
+            return;
+        }
+
+        long latency = transport.getLatency(src, dest);
+        EDSimulator.add(4 * latency, timeout, src, gossipSubId);
+        // EDSimulator.add(SAMPLE_REQ_TIMEOUT, timeout, src, gossipSubId);
+
     }
 
     private void handleTimeOut(peersim.GossipSub.Timeout timeoutEvent, int myPid) {
@@ -2991,6 +2871,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                     sampleMsgSent.typeID);
 
             sentMsg.put(msgToResend.id, msgToResend);
+            noOfSampleRequestsSent++;
             publishMessage(msgToResend, msgToResend.dest, myPid);
 
             peersim.GossipSub.Timeout newTimeout = new peersim.GossipSub.Timeout(1, destId, msgToResend.id);
@@ -3003,6 +2884,61 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         }
     }
+
+
+//    private void handleTimeOut(peersim.GossipSub.Timeout timeoutEvent, int myPid) {
+//        if (pendingIWant.remove(timeoutEvent.msgID)) {
+//            noOfSampleRequestsSent--;
+//        }
+//
+//        if (sentMsg.containsKey(timeoutEvent.msgID)) {
+//
+//            this.noOfSampleRequestsSent++;
+//            sampleRequestUnsuccessful++;
+//
+//            Message sampleMsgSent = sentMsg.get(timeoutEvent.msgID);
+//            sentMsg.remove(timeoutEvent.msgID);
+//
+//            BigInteger destId;
+//            // Random random = new Random();
+//            Random random = CommonState.r;
+//            if (sampleMsgSent.isRow) {
+//                ArrayList<BigInteger> rowHolders = rowCustodyNodes.get(sampleMsgSent.rowOrColumnNumber);
+//                int sampleHolderNodeIdx = random.nextInt(rowHolders.size());
+//                destId = rowHolders.get(sampleHolderNodeIdx);
+//            } else {
+//                ArrayList<BigInteger> colHolders = columnCustodyNodes.get(sampleMsgSent.rowOrColumnNumber);
+//                int sampleHolderNodeIdx = random.nextInt(colHolders.size());
+//                destId = colHolders.get(sampleHolderNodeIdx);
+//            }
+//
+//            Message msgToResend = this.createMessage(
+//                    -1,
+//                    sampleMsgSent.type,
+//                    this.nodeId,
+//                    destId,
+//                    sampleMsgSent.messageTopicID,
+//                    sampleMsgSent.body,
+//                    sampleMsgSent.isRow,
+//                    sampleMsgSent.rowOrColumnNumber,
+//                    sampleMsgSent.partNumber,
+//                    0,
+//                    sampleMsgSent.typeID);
+//
+//            sentMsg.put(msgToResend.id, msgToResend);
+//            noOfSampleRequestsSent++;
+//            publishMessage(msgToResend, msgToResend.dest, myPid);
+//
+//            peersim.GossipSub.Timeout newTimeout = new peersim.GossipSub.Timeout(1, destId, msgToResend.id);
+//
+//            Node src = CustomDistribution.networkNodes.get(this.nodeId);
+//            Node dest = CustomDistribution.networkNodes.get(destId);
+//            long latency = transport.getLatency(src, dest);
+//            EDSimulator.add(4 * latency, newTimeout, src, gossipSubId);
+//            // EDSimulator.add(SAMPLE_REQ_TIMEOUT, newTimeout, src, gossipSubId);
+//
+//        }
+//    }
 
     // @Override
     public void processEvent(Node myNode, int myPid, Object event) {
@@ -3114,6 +3050,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
                 m = (Message) event;
                 if (sentMsg.containsKey(m.id)) {
                     sentMsg.remove(m.id);
+                    pendingIWant.remove(m.id);
                     handleSampleResponse(m, myPid);
                 }
                 break;
@@ -3727,7 +3664,7 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
 
         // 3. Reset IncrementalStats objects
         seedArrivalTimeStore.reset();
-        samplingRTTTimeStore.reset();
+        samplingDelayTimeStore.reset();
         seedPartArrivalTimeStore.reset();
 
         // 4. Reset Bandwidth Counters
