@@ -2026,9 +2026,6 @@ public class GossipSubProtocol implements Cloneable, EDProtocol {
         if (custody1.equals(key)) {
             processCustody(m, custody1Parts, threshold);
         }
-//        else if (custody2.equals(key)) {
-//            processCustody(m, custody2Parts, threshold);
-//        }
     }
 
 
