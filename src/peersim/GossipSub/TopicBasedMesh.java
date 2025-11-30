@@ -55,7 +55,8 @@ public class TopicBasedMesh {
             // Form initial mesh connections
             for (Node node : topicNodes) {
                 GossipSubProtocol curNode = (GossipSubProtocol) node.getProtocol(gossipProtocolID);
-                connectPeers(curNode, topicNodes, curTopic.topicID);
+//                connectPeersSymmetric(curNode, topicNodes, curTopic.topicID);
+                connectPeersAsymmetric(curNode, topicNodes, curTopic.topicID);
             }
 //            System.out.println("[TOPICS-" + curTopic.topicID + "] = " + "[" + curNode.meshPeersByTopic +"]");
         }
@@ -64,7 +65,7 @@ public class TopicBasedMesh {
     /**
      * Connects peers within a topic based on GossipSub mesh constraints.
      */
-    private void connectPeers(GossipSubProtocol node, List<Node> topicNodes, String topicID) {
+    private void connectPeersSymmetric(GossipSubProtocol node, List<Node> topicNodes, String topicID) {
         List<Node> shuffledPeers = new ArrayList<>(topicNodes);
         Collections.shuffle(shuffledPeers,CommonState.r); // Ensure random connections
 
@@ -83,6 +84,37 @@ public class TopicBasedMesh {
                 // Establish bi-directional connection
                 node.meshPeersByTopic.get(topicID).add(peerProtocol.nodeId);
                 peerProtocol.meshPeersByTopic.get(topicID).add(node.nodeId);
+            }
+        }
+    }
+
+    /**
+     * Establishes a Directed Mesh.
+     * 'node' selects 'D' peers to send messages TO.
+     * Those peers do NOT automatically add 'node' back.
+     */
+    private void connectPeersAsymmetric(GossipSubProtocol node, List<Node> topicNodes, String topicID) {
+        List<Node> shuffledPeers = new ArrayList<>(topicNodes);
+        Collections.shuffle(shuffledPeers, CommonState.r);
+
+        int degree = node.D; // Target outbound degree
+        int count = 0;
+
+        for (Node peerNode : shuffledPeers) {
+            if (count >= degree) break;
+
+            GossipSubProtocol peerProtocol = (GossipSubProtocol) peerNode.getProtocol(gossipProtocolID);
+
+            // 1. Don't connect to self
+            if (node.nodeId.equals(peerProtocol.nodeId)) continue;
+
+            // 2. Add to MY outbound list
+            Set<BigInteger> myOutbound = node.meshPeersByTopic.get(topicID);
+
+            if (!myOutbound.contains(peerProtocol.nodeId)) {
+                myOutbound.add(peerProtocol.nodeId);
+                count++;
+                // NOTE: We intentionally do NOT do: peerProtocol.meshPeers.add(node.nodeId)
             }
         }
     }
