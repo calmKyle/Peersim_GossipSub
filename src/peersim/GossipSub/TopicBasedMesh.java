@@ -93,31 +93,59 @@ public class TopicBasedMesh {
      * 'node' selects 'D' peers to send messages TO.
      * Those peers do NOT automatically add 'node' back.
      */
-    private void connectPeersAsymmetric(GossipSubProtocol node, List<Node> topicNodes, String topicID) {
-        List<Node> shuffledPeers = new ArrayList<>(topicNodes);
-        Collections.shuffle(shuffledPeers, CommonState.r);
 
-        int degree = node.D; // Target outbound degree
-        int count = 0;
+    private void connectPeersAsymmetric(GossipSubProtocol node, List<Node> topicNodes, String topicID) {
+        // Make sure the topic set exists for this node
+        node.meshPeersByTopic.computeIfAbsent(topicID, k -> new HashSet<>());
+
+        List<Node> shuffledPeers = new ArrayList<>(topicNodes);
+        Collections.shuffle(shuffledPeers, CommonState.r); // randomize order
 
         for (Node peerNode : shuffledPeers) {
-            if (count >= degree) break;
+            // Stop if this node already has D peers for this topic
+            if (node.meshPeersByTopic.get(topicID).size() >= node.D) {
+                break;
+            }
 
-            GossipSubProtocol peerProtocol = (GossipSubProtocol) peerNode.getProtocol(gossipProtocolID);
+            GossipSubProtocol peerProtocol =
+                    (GossipSubProtocol) peerNode.getProtocol(gossipProtocolID);
 
-            // 1. Don't connect to self
-            if (node.nodeId.equals(peerProtocol.nodeId)) continue;
+            // Skip self
+            if (node.nodeId.equals(peerProtocol.nodeId)) {
+                continue;
+            }
 
-            // 2. Add to MY outbound list
-            Set<BigInteger> myOutbound = node.meshPeersByTopic.get(topicID);
-
-            if (!myOutbound.contains(peerProtocol.nodeId)) {
-                myOutbound.add(peerProtocol.nodeId);
-                count++;
-                // NOTE: We intentionally do NOT do: peerProtocol.meshPeers.add(node.nodeId)
+            // Only add a one-way connection: node -> peer
+            if (!node.meshPeersByTopic.get(topicID).contains(peerProtocol.nodeId)) {
+                node.meshPeersByTopic.get(topicID).add(peerProtocol.nodeId);
             }
         }
     }
+
+//    private void connectPeersAsymmetric(GossipSubProtocol node, List<Node> topicNodes, String topicID) {
+//        List<Node> shuffledPeers = new ArrayList<>(topicNodes);
+//        Collections.shuffle(shuffledPeers, CommonState.r);
+//
+//        int degree = node.D; // Target outbound degree
+//        int count = 0;
+//
+//        for (Node peerNode : shuffledPeers) {
+//            if (count >= degree) break;
+//
+//            GossipSubProtocol peerProtocol = (GossipSubProtocol) peerNode.getProtocol(gossipProtocolID);
+//
+//            // 1. Don't connect to self
+//            if (node.nodeId.equals(peerProtocol.nodeId)) continue;
+//
+//            // 2. Add to MY outbound list
+//            Set<BigInteger> myOutbound = node.meshPeersByTopic.get(topicID);
+//
+//            if (!myOutbound.contains(peerProtocol.nodeId)) {
+//                myOutbound.add(peerProtocol.nodeId);
+//                count++;
+//            }
+//        }
+//    }
 
     /**
      * Adds more peers to maintain the required mesh size.
