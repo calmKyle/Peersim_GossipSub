@@ -13,7 +13,7 @@ public class Timeout extends SimpleEvent {
     /**
      * Message Type: PING (used to verify that a node is still alive)
      */
-    public static final int TIMEOUT = 100;
+    public static final int TIMEOUT = 200;
 
     /**
      * The node wich failed to response

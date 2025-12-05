@@ -1,5 +1,7 @@
 package peersim.GossipSub;
 
+import java.math.BigInteger;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -7,9 +9,13 @@ import java.util.Map;
  * Revised PeerScoreInfo that tracks counters per topic.
  */
 public class PeerScoreInfo {
+    public BigInteger nodeId;
+
 
     // Time when the peer joined the mesh (used for "time in mesh" scoring).
     public long timeInMeshStart;
+
+
 
     // Last computed overall (aggregated) score, for quick lookup.
     public double cachedScore;
@@ -21,10 +27,72 @@ public class PeerScoreInfo {
     // for each topic. Key = topicID, value = container of counters for that topic.
     public Map<String, TopicScores> topicScoresMap;
 
+//    private final Map<String, TopicScores> topics = new HashMap<>();
+
+
+    public long pruneBackoffUntil = 0L;
+
+    private final Map<BigInteger, Long> pruneBackoffUntilByTopic = new HashMap<>();
+
+    public void setPruneBackoffForTopic(BigInteger topicId, long untilMillis) {
+        if (topicId == null) return;
+        pruneBackoffUntilByTopic.put(topicId, untilMillis);
+    }
+
+    public boolean isPruneBackoffActiveForTopic(String topicId, long nowMillis) {
+        if (topicId == null) return false;
+        Long until = pruneBackoffUntilByTopic.get(topicId);
+        return until != null && nowMillis < until;
+    }
+
+    public void purgeExpiredPruneBackoff(long nowMillis) {
+        if (pruneBackoffUntilByTopic.isEmpty()) return;
+        pruneBackoffUntilByTopic.entrySet().removeIf(e -> e.getValue() <= nowMillis);
+    }
+
+    public double appScore   = 0.0;   // P5: application-specific trust
+    public double ipSurplus  = 0.0;   // P6: (peersOnThisIP – threshold)²
+
     // We record the last time we updated the counters to handle time-based decays.
     public long lastUpdateTime;
 
-    public PeerScoreInfo(long currentTime) {
+    public TopicScores getOrCreate(String topic) {
+        return topicScoresMap.computeIfAbsent(topic, t -> new TopicScores());
+    }
+
+    public void onGraft(String topic, long nowMs) {
+        TopicScores ts = getOrCreate(topic);
+        ts.timeInMeshStart = nowMs;           // set when entering the mesh
+    }
+
+    public void onPrune(String topic) {
+        TopicScores ts = getOrCreate(topic);
+        ts.timeInMeshStart = -1L;             //  clear when leaving the mesh
+    }
+
+    public long topicTimeInMeshMs(String topic, long nowMs) {
+        TopicScores ts = topicScoresMap.get(topic);
+        if (ts == null || ts.timeInMeshStart < 0) return 0L;
+        return Math.max(0L, nowMs - ts.timeInMeshStart);
+    }
+
+    public Map<String, TopicScores> getTopicsView() {
+        return Collections.unmodifiableMap(topicScoresMap);
+    }
+
+//    public PeerScoreInfo(long currentTime) {
+//        this.timeInMeshStart = currentTime;
+//        this.connectedTime = currentTime;
+//        this.cachedScore = 0.0;
+//        this.lastUpdateTime = currentTime;
+//        this.topicScoresMap = new HashMap<>();
+//    }
+
+    public PeerScoreInfo(BigInteger nodeId) {
+        this.nodeId = nodeId; // Set the ID
+
+        // Add all initialization logic from the old (long) constructor
+        long currentTime = peersim.core.CommonState.getTime();
         this.timeInMeshStart = currentTime;
         this.connectedTime = currentTime;
         this.cachedScore = 0.0;
@@ -36,18 +104,21 @@ public class PeerScoreInfo {
      * Helper class to hold all the counters relevant to scoring for a single topic.
      */
     public static class TopicScores {
-        public int firstMessageDeliveries; // # times peer is first to deliver
-        public int invalidMessages;        // # invalid messages from peer
-        public int meshMsgDelivered;       // actual # of messages delivered
-        public int meshMsgExpected;        // how many we "expect" them to deliver
-        public int underDelivery;          // shortfall between expected vs. delivered
+        public double firstMessageDeliveries;
+        public double invalidMessages;
+        public double meshMsgDelivered;
+        public double meshMsgExpected;
+        public double underDelivery;
+        public long pruneBackoffUntil;
+        public long timeInMeshStart;
 
         public TopicScores() {
-            this.firstMessageDeliveries = 0;
-            this.invalidMessages = 0;
-            this.meshMsgDelivered = 0;
-            this.meshMsgExpected = 10; // Example default
-            this.underDelivery = 0;
+            this.timeInMeshStart = -1L;
+            firstMessageDeliveries = 0;
+            invalidMessages = 0;
+            meshMsgDelivered = 0;
+            meshMsgExpected  = 1;
+            underDelivery = 0;
         }
     }
 }

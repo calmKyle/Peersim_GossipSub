@@ -2,6 +2,9 @@ package peersim.GossipSub;
 
 import java.lang.reflect.Type;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  *
@@ -59,7 +62,10 @@ public class Message extends SimpleEvent {
 
     public static final int MSG_RESET_BANDWIDTH = 8;
 
-    public static final int MSG_HEARTBEAT = 9999;
+    // Gossip Message
+    public static final int MSG_HEARTBEAT = 9000;
+    public static final int MSG_GRAFT = 9001;
+    public static final int MSG_PRUNE = 9002;
 
     // ______________________________________________________________________________________________
     /**
@@ -76,7 +82,7 @@ public class Message extends SimpleEvent {
     /**
      * ACK number of the message. This is in the response message.
      */
-    public long ackId;
+    public long typeID;
 
     /**
      * Recipient address of the message
@@ -99,6 +105,19 @@ public class Message extends SimpleEvent {
     public long messageSendingTime; // It is the time stamp at which the message was sent
     // ______________________________________________________________________________________________
 
+    private List<BigInteger> prunePX;
+    public List<BigInteger> getPrunePX() {                      // NEW
+        if (prunePX == null) return Collections.emptyList();
+        return Collections.unmodifiableList(prunePX);
+    }
+
+    public void setPrunePX(List<BigInteger> px) {               // NEW
+        if (px == null || px.isEmpty()) {
+            this.prunePX = null;
+        } else {
+            this.prunePX = new ArrayList<>(px); // defensive copy
+        }
+    }
     /**
      * Creates an empty message by using default values (message type = MSG_LOOKUP
      * and <code>new String("")</code> value for the
@@ -114,22 +133,20 @@ public class Message extends SimpleEvent {
      * @param messageType
      *                    int type of the message
      */
-    public Message(int messageType, boolean isRow, int RoworColNum, int partNo, long ackId) {
-        this(messageType, "", isRow, RoworColNum, partNo, ackId);
+    public Message(int messageType, boolean isRow, int RoworColNum, int partNo, long typeID) {
+        this(messageType, "", isRow, RoworColNum, partNo, typeID);
     }
 
     // Used to create the metadata messages
-    public Message(long id, int messageType, boolean isRow, int rowOrColumnNumber, int partNo, long ackId) {
+    public Message(long id, int messageType, boolean isRow, int rowOrColumnNumber, int partNo, long typeID) {
         super(messageType);
         this.id = id; // Set the id manually
         this.body = "";
         this.isRow = isRow;
         this.rowOrColumnNumber = rowOrColumnNumber;
         this.partNumber = partNo;
-        // this.type = messageType;
         this.messageSendingTime = 0;
-        this.ackId = ackId;
-
+        this.typeID = typeID;
     }
 
     /**
@@ -140,14 +157,14 @@ public class Message extends SimpleEvent {
      * @param body
      *                    Object body to assign (shallow copy)
      */
-    public Message(int messageType, Object body, boolean isRow, int rowOrColumnNumber, int partNo, long ackId) {
+    public Message(int messageType, Object body, boolean isRow, int rowOrColumnNumber, int partNo, long typeID) {
         super(messageType);
         this.id = (ID_GENERATOR++);
         this.body = body;
         this.isRow = isRow;
         this.rowOrColumnNumber = rowOrColumnNumber;
         this.partNumber = partNo;
-        this.ackId = ackId;
+        this.typeID = typeID;
     }
 
     // ______________________________________________________________________________________________
@@ -159,7 +176,7 @@ public class Message extends SimpleEvent {
     // ______________________________________________________________________________________________
     public Message copy() {
         Message dolly = new Message(this.id, this.type, this.isRow, this.rowOrColumnNumber, this.partNumber,
-                this.ackId);
+                this.typeID);
         dolly.type = this.type;
         dolly.src = this.src;
         dolly.dest = this.dest;
@@ -168,9 +185,31 @@ public class Message extends SimpleEvent {
         dolly.messageSendingTime = this.messageSendingTime;
         // dolly.isRow = this.isRow;
         // dolly.rowOrColumnNumber =this.rowOrColumnNumber;
+        if (this.prunePX != null && !this.prunePX.isEmpty()) {
+            dolly.prunePX = new ArrayList<>(this.prunePX);
+        }
 
         return dolly;
     }
+
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Message)) return false;
+
+        Message other = (Message) o;
+        return  id == other.id &&
+                isRow == other.isRow &&
+                rowOrColumnNumber == other.rowOrColumnNumber &&
+                partNumber == other.partNumber;
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(id, isRow, rowOrColumnNumber, partNumber);
+    }
+
 
     // ______________________________________________________________________________________________
     public String messageTypetoString() {
@@ -193,6 +232,12 @@ public class Message extends SimpleEvent {
                 return "MSG_START_SAMPLING";
             case MSG_RESET_BANDWIDTH:
                 return "MSG_RESET_BANDWIDTH";
+            case MSG_HEARTBEAT:
+                return "MSG_HEARTBEAT";
+            case MSG_GRAFT:
+                return "MSG_GRAFT";
+            case MSG_PRUNE:
+                return "MSG_PRUNE";
             default:
                 return "UNKNOW:" + type;
         }

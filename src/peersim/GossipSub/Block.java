@@ -11,6 +11,7 @@ public class Block {
     public static final int ELEMENT_SIZE = 512; // Size of each element in bytes
 
     public Block(int r, int c) {
+        System.out.printf("BLOCK #%d: \n", block_id_counter++);
         this.blockID = block_id_counter++;
         this.rows = r;
         this.columns = c;

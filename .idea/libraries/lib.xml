@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="lib">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/djep-1.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/jep-2.3.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/peersim-1.0.5.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
