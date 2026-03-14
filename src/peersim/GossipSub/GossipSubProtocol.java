@@ -16,7 +16,9 @@ import static peersim.GossipSub.GossipScoringConfig.TOPIC_PARAMS;
 
 public class GossipSubProtocol implements Cloneable, EDProtocol {
 
-    private static final long HEARTBEAT_PERIOD = 1000; // 1 second
+//    private static final long HEARTBEAT_PERIOD = 1000; // 1 second
+
+    private static final long HEARTBEAT_PERIOD = Configuration.getInt("HEARTBEAT_PERIOD",1000);
 
     // --- Adaptive Gossip tracer (v1.1) ---
     public static final boolean USE_ADAPTIVE_GOSSIP =
