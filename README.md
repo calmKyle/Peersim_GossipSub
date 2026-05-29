@@ -2,7 +2,7 @@
 
 ## To install
 
-make
+  make
 
 ## Run Instructions
 
@@ -10,8 +10,6 @@ To execute the different configurations, use the following commands:
 
 # Run the GossipSub Configuration in the terminal
 
-make rungossip
+  make PANDAS_GossipSub GossipConfig.cfg 
 
-# Run the Kademlia Configuration in the terminal
 
-make run
